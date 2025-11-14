@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  bookserve:
+    build: .
+    container_name: bookserve
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - JWT_SECRET=${JWT_SECRET:-change-this-secret-key}
+      - DB_PATH=/app/data/bookserve.db
+      - BOOKS_STORAGE_PATH=/app/data/books
+      - UPLOADS_PATH=/app/data/uploads
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_SECURE=${EMAIL_SECURE}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASS=${EMAIL_PASS}
+      - NZBHYDRA_URL=${NZBHYDRA_URL}
+      - NZBHYDRA_API_KEY=${NZBHYDRA_API_KEY}
+      - SABNZBD_URL=${SABNZBD_URL}
+      - SABNZBD_API_KEY=${SABNZBD_API_KEY}
+      - AUTO_IMPORT_ENABLED=${AUTO_IMPORT_ENABLED:-true}
+      - AUTO_IMPORT_INTERVAL=${AUTO_IMPORT_INTERVAL:-300000}
+    volumes:
+      - bookserve-data:/app/data
+      # Optionally mount SABnzbd download directory
+      # - /path/to/sabnzbd/downloads:/downloads
+    restart: unless-stopped
+    networks:
+      - bookserve-network
+
+  # Optional: Include NZBHydra and SABnzbd in the same stack
+  # Uncomment if you want everything in one docker-compose
+
+  # nzbhydra:
+  #   image: linuxserver/nzbhydra2
+  #   container_name: nzbhydra2
+  #   environment:
+  #     - PUID=1000
+  #     - PGID=1000
+  #     - TZ=America/New_York
+  #   volumes:
+  #     - nzbhydra-config:/config
+  #   ports:
+  #     - "5076:5076"
+  #   restart: unless-stopped
+  #   networks:
+  #     - bookserve-network
+
+  # sabnzbd:
+  #   image: linuxserver/sabnzbd
+  #   container_name: sabnzbd
+  #   environment:
+  #     - PUID=1000
+  #     - PGID=1000
+  #     - TZ=America/New_York
+  #   volumes:
+  #     - sabnzbd-config:/config
+  #     - sabnzbd-downloads:/downloads
+  #   ports:
+  #     - "8080:8080"
+  #   restart: unless-stopped
+  #   networks:
+  #     - bookserve-network
+
+volumes:
+  bookserve-data:
+  # nzbhydra-config:
+  # sabnzbd-config:
+  # sabnzbd-downloads:
+
+networks:
+  bookserve-network:
+    driver: bridge

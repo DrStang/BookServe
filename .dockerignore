@@ -1,0 +1,11 @@
+node_modules
+client/node_modules
+client/build
+npm-debug.log
+.env
+.git
+.gitignore
+data
+*.md
+.vscode
+.idea
