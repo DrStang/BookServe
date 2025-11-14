@@ -44,6 +44,7 @@ const initDatabase = () => {
           title TEXT NOT NULL,
           author TEXT,
           isbn TEXT,
+          isbn_13 TEXT,
           publisher TEXT,
           published_date TEXT,
           description TEXT,
@@ -52,13 +53,51 @@ const initDatabase = () => {
           file_size INTEGER,
           format TEXT DEFAULT 'epub',
           language TEXT,
+          page_count INTEGER,
+          categories TEXT,
+          google_books_id TEXT,
+          openlibrary_id TEXT,
+          average_rating REAL,
+          ratings_count INTEGER,
+          preview_link TEXT,
+          info_link TEXT,
           added_by INTEGER,
           added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          metadata_updated_at DATETIME,
           FOREIGN KEY (added_by) REFERENCES users(id)
         )
       `, (err) => {
         if (err) console.error('Error creating books table:', err);
       });
+
+      // Migration: Add new columns to existing books table if they don't exist
+      const addColumnIfNotExists = (tableName, columnName, columnDef) => {
+        db.all(`PRAGMA table_info(${tableName})`, (err, columns) => {
+          if (err) {
+            console.error(`Error checking columns for ${tableName}:`, err);
+            return;
+          }
+          const columnExists = columns.some(col => col.name === columnName);
+          if (!columnExists) {
+            db.run(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDef}`, (err) => {
+              if (err) console.error(`Error adding column ${columnName}:`, err);
+              else console.log(`Added column ${columnName} to ${tableName}`);
+            });
+          }
+        });
+      };
+
+      // Add new metadata columns if they don't exist
+      addColumnIfNotExists('books', 'isbn_13', 'TEXT');
+      addColumnIfNotExists('books', 'page_count', 'INTEGER');
+      addColumnIfNotExists('books', 'categories', 'TEXT');
+      addColumnIfNotExists('books', 'google_books_id', 'TEXT');
+      addColumnIfNotExists('books', 'openlibrary_id', 'TEXT');
+      addColumnIfNotExists('books', 'average_rating', 'REAL');
+      addColumnIfNotExists('books', 'ratings_count', 'INTEGER');
+      addColumnIfNotExists('books', 'preview_link', 'TEXT');
+      addColumnIfNotExists('books', 'info_link', 'TEXT');
+      addColumnIfNotExists('books', 'metadata_updated_at', 'DATETIME');
 
       // Book requests table
       db.run(`

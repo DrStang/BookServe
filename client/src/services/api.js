@@ -67,4 +67,16 @@ export const emailAPI = {
   sendBook: (id, email) => api.post(`/email/${id}/send`, { email }),
 };
 
+// Metadata
+export const metadataAPI = {
+  refreshBookMetadata: (id, force = false) =>
+    api.post(`/metadata/books/${id}/refresh`, {}, { params: { force } }),
+  searchGoogleBooks: (query) =>
+    api.get('/metadata/google-books/search', { params: { q: query } }),
+  searchOpenLibrary: (query) =>
+    api.get('/metadata/openlibrary/search', { params: { q: query } }),
+  getMetadata: (params) =>
+    api.get('/metadata/search', { params }),
+};
+
 export default api;

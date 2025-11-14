@@ -11,6 +11,8 @@ A Plex-like media server for digital books (EPUB). Manage your personal book lib
 ### Core Features
 - **Digital Book Library** - Store and manage your EPUB book collection
 - **Web-based Reader** - Read books directly in your browser with a beautiful EPUB reader
+- **Book Metadata & Ratings** - Automatically fetch book details, descriptions, and ratings from Google Books and OpenLibrary
+- **Detailed Book Information** - View comprehensive book details including cover art, descriptions, ratings, categories, publisher info, and more
 - **User Authentication** - Individual user accounts with JWT-based authentication
 - **Book Download** - Download books to your devices
 - **Email Delivery** - Send books directly to your email address
@@ -21,6 +23,7 @@ A Plex-like media server for digital books (EPUB). Manage your personal book lib
 - **Automated Downloads** - Automatically download requested books via NZBHydra and SABnzbd
 - **Request Tracking** - Monitor the status of your book requests
 - **Auto-Import** - Automatically import completed downloads into your library
+- **Automatic Metadata Enrichment** - Newly added books automatically fetch metadata from Google Books and OpenLibrary
 
 ## Architecture
 
@@ -39,7 +42,8 @@ A Plex-like media server for digital books (EPUB). Manage your personal book lib
 - **Axios** for API communication
 
 ### External Integrations
-- **OpenLibrary API** - Book search and metadata
+- **Google Books API** - Rich book metadata, ratings, and descriptions
+- **OpenLibrary API** - Book search, metadata, and additional ratings
 - **NZBHydra** - NZB indexer aggregation
 - **SABnzbd** - Usenet downloader
 
@@ -191,6 +195,20 @@ For Gmail:
 3. Use the navigation controls to read
 4. Your progress is saved automatically
 
+### Viewing Book Details
+
+1. Click the menu icon (⋮) on any book card
+2. Select "View Details"
+3. View comprehensive information including:
+   - Book cover and title
+   - Author and publisher
+   - Average rating and number of ratings
+   - Categories/genres
+   - Description
+   - Page count, ISBN, publication date
+   - Links to preview and more information
+4. Click "Refresh" icon to update metadata from Google Books and OpenLibrary
+
 ### Downloading Books
 
 1. Click the menu icon (⋮) on any book card
@@ -311,6 +329,36 @@ Body: { email }
 Response: { message }
 ```
 
+### Metadata Endpoints
+
+#### Refresh Book Metadata
+```
+POST /api/metadata/books/:id/refresh?force=false
+Headers: Authorization: Bearer <token>
+Response: { message, book }
+```
+
+#### Search Google Books
+```
+GET /api/metadata/google-books/search?q=query
+Headers: Authorization: Bearer <token>
+Response: { results, count }
+```
+
+#### Search OpenLibrary for Metadata
+```
+GET /api/metadata/openlibrary/search?q=query
+Headers: Authorization: Bearer <token>
+Response: { results, count }
+```
+
+#### Get Combined Metadata
+```
+GET /api/metadata/search?isbn=XXX&title=XXX&author=XXX
+Headers: Authorization: Bearer <token>
+Response: { google, openLibrary, merged }
+```
+
 ## Project Structure
 
 ```
@@ -320,7 +368,8 @@ BookServe/
 │   │   ├── authController.js
 │   │   ├── bookController.js
 │   │   ├── requestController.js
-│   │   └── emailController.js
+│   │   ├── emailController.js
+│   │   └── metadataController.js
 │   ├── database/          # Database setup
 │   │   └── init.js
 │   ├── middleware/        # Express middleware
@@ -333,9 +382,13 @@ BookServe/
 │   │   ├── auth.js
 │   │   ├── books.js
 │   │   ├── requests.js
-│   │   └── email.js
+│   │   ├── email.js
+│   │   └── metadata.js
 │   ├── services/         # Background services
-│   │   └── downloadMonitor.js
+│   │   ├── downloadMonitor.js
+│   │   ├── googleBooksService.js
+│   │   ├── openLibraryService.js
+│   │   └── metadataService.js
 │   └── index.js          # Server entry point
 ├── client/
 │   ├── public/
@@ -349,6 +402,8 @@ BookServe/
 │       │   ├── Dashboard/
 │       │   │   ├── Dashboard.js
 │       │   │   └── BookCard.js
+│       │   ├── BookDetails/
+│       │   │   └── BookDetails.js
 │       │   ├── Reader/
 │       │   │   └── BookReader.js
 │       │   └── Requests/

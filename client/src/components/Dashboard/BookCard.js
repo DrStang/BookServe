@@ -17,19 +17,24 @@ import {
   Button,
   Snackbar,
   Alert,
+  Rating,
+  Box,
 } from '@mui/material';
 import {
   MoreVert as MoreIcon,
   MenuBook as ReadIcon,
   Download as DownloadIcon,
   Email as EmailIcon,
+  Info as InfoIcon,
 } from '@mui/icons-material';
 import { booksAPI, emailAPI } from '../../services/api';
+import BookDetails from '../BookDetails/BookDetails';
 
 const BookCard = ({ book, onUpdate }) => {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
@@ -107,6 +112,14 @@ const BookCard = ({ book, onUpdate }) => {
           <Typography variant="body2" color="text.secondary" noWrap>
             {book.author || 'Unknown Author'}
           </Typography>
+          {book.average_rating && (
+            <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+              <Rating value={book.average_rating} precision={0.5} size="small" readOnly />
+              <Typography variant="caption" sx={{ ml: 0.5 }}>
+                ({book.average_rating.toFixed(1)})
+              </Typography>
+            </Box>
+          )}
         </CardContent>
         <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
           <IconButton color="primary" onClick={handleRead} title="Read">
@@ -119,6 +132,14 @@ const BookCard = ({ book, onUpdate }) => {
       </Card>
 
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
+        <MenuItem
+          onClick={() => {
+            setDetailsOpen(true);
+            handleMenuClose();
+          }}
+        >
+          <InfoIcon sx={{ mr: 1 }} /> View Details
+        </MenuItem>
         <MenuItem onClick={handleDownload}>
           <DownloadIcon sx={{ mr: 1 }} /> Download
         </MenuItem>
@@ -161,6 +182,15 @@ const BookCard = ({ book, onUpdate }) => {
       >
         <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
+
+      <BookDetails
+        bookId={book.id}
+        open={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+        onRead={handleRead}
+        onDownload={handleDownload}
+        onEmail={() => setEmailDialogOpen(true)}
+      />
     </>
   );
 };

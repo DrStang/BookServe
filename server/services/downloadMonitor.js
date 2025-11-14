@@ -3,6 +3,7 @@ const BookRequest = require('../models/BookRequest');
 const Book = require('../models/Book');
 const fs = require('fs').promises;
 const path = require('path');
+const metadataService = require('./metadataService');
 
 class DownloadMonitor {
   constructor() {
@@ -129,6 +130,15 @@ class DownloadMonitor {
       };
 
       const book = await Book.create(bookData);
+
+      // Fetch metadata in background (don't wait for it)
+      metadataService.updateBookMetadata(book.id, false)
+        .then(() => {
+          console.log(`Metadata fetched for: ${request.title}`);
+        })
+        .catch(err => {
+          console.error(`Failed to fetch metadata for ${request.title}:`, err.message);
+        });
 
       // Update request status
       await BookRequest.updateStatus(request.id, 'completed');
