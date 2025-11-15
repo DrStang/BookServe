@@ -125,10 +125,149 @@ exports.streamBook = async (req, res) => {
       return res.status(404).json({ error: 'Book file not found' });
     }
 
+// Set proper headers for EPUB
+
+    res.setHeader('Content-Type', 'application/epub+zip');
+
+    res.setHeader('Accept-Ranges', 'bytes');
+
     res.sendFile(filePath);
+
   } catch (error) {
+
     console.error('Error streaming book:', error);
+
     res.status(500).json({ error: 'Error streaming book' });
+
+  }
+
+};
+
+ 
+
+// Serve EPUB content files (for EPUBjs reader)
+
+exports.streamBookContent = async (req, res) => {
+
+  try {
+
+    const { id } = req.params;
+
+    const contentPath = req.params[0]; // Capture the rest of the path
+
+ 
+
+    const book = await Book.findById(id);
+
+ 
+
+    if (!book) {
+
+      return res.status(404).json({ error: 'Book not found' });
+
+    }
+
+ 
+
+    const filePath = path.resolve(book.file_path);
+
+ 
+
+    // Check if file exists
+
+    try {
+
+      await fs.access(filePath);
+
+    } catch (err) {
+
+      return res.status(404).json({ error: 'Book file not found' });
+
+    }
+
+ 
+
+    // For EPUB files, we need to extract and serve individual files
+
+    if (contentPath) {
+
+      const AdmZip = require('adm-zip');
+
+      const zip = new AdmZip(filePath);
+
+      const zipEntry = zip.getEntry(contentPath);
+
+ 
+
+      if (!zipEntry) {
+
+        return res.status(404).json({ error: 'Content not found in EPUB' });
+
+      }
+
+ 
+
+      const content = zip.readFile(zipEntry);
+
+ 
+
+      // Set appropriate content type based on file extension
+
+      const ext = path.extname(contentPath).toLowerCase();
+
+      const contentTypes = {
+
+        '.xml': 'application/xml',
+
+        '.xhtml': 'application/xhtml+xml',
+
+        '.html': 'text/html',
+
+        '.css': 'text/css',
+
+        '.js': 'application/javascript',
+
+        '.jpg': 'image/jpeg',
+
+        '.jpeg': 'image/jpeg',
+
+        '.png': 'image/png',
+
+        '.gif': 'image/gif',
+
+        '.svg': 'image/svg+xml',
+
+        '.otf': 'font/otf',
+
+        '.ttf': 'font/ttf',
+
+        '.woff': 'font/woff',
+
+        '.woff2': 'font/woff2'
+
+      };
+
+ 
+
+      res.setHeader('Content-Type', contentTypes[ext] || 'application/octet-stream');
+
+      res.send(content);
+
+    } else {
+
+      // No content path - serve the whole EPUB
+
+      res.setHeader('Content-Type', 'application/epub+zip');
+
+      res.sendFile(filePath);
+
+    }
+
+  } catch (error) {
+
+    console.error('Error streaming book content:', error);
+
+    res.status(500).json({ error: 'Error streaming book content' });
   }
 };
 
