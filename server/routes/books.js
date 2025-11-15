@@ -55,10 +55,13 @@ router.get('/:id/download', authMiddleware, bookController.downloadBook);
 // Stream book (for reading)
 router.get('/:id/stream', authMiddleware, bookController.streamBook);
 
-// Get cover image
 router.get('/:id/cover', authMiddleware, bookController.getCoverImage);
 
-// Delete book (admin only)
 router.delete('/:id', authMiddleware, adminMiddleware, bookController.deleteBook);
+
+router.put('/:id', authMiddleware, adminMiddleware, bookController.updateBook);
+
+router.get('/:id/*', authMiddleware, bookController.streamBookContent);
+
 
 module.exports = router;
