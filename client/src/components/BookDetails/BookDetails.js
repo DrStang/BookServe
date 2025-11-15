@@ -13,6 +13,7 @@ import {
   IconButton,
   Divider,
   CircularProgress,
+  TextField,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -21,13 +22,20 @@ import {
   Download as DownloadIcon,
   Email as EmailIcon,
   Info as InfoIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Save as SaveIcon,
+  Cancel as CancelIcon,
 } from '@mui/icons-material';
 import { booksAPI, metadataAPI } from '../../services/api';
 
-const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail }) => {
+const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail, onUpdate }) => {
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editedBook, setEditedBook] = useState({});
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (open && bookId) {
@@ -59,6 +67,49 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail }) => 
     }
   };
 
+  const handleEdit = () => {
+    setEditedBook({ ...book });
+    setEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditing(false);
+    setEditedBook({});
+  }:
+
+  const handleSaveEdit = async () => {
+    try {
+      await booksAPI.update(bookId, {
+        title: editedBook.title,
+        author: editedBook.author,
+        isbn: editedBook.isbn,
+        publisher: editedBook.publisher,
+        published_date: editedBook.published_date,
+      });
+      setEditing(false);
+      await loadBookDetails();
+      if (onUpdate) onUpdate();
+    } catch (error) {
+      console.error('Error updating book:', error);
+      alert('Failed to update book);
+    }
+  };
+
+  const handleDelete = async () => {
+    if(!deleteConfirm) {
+      setDeleteConfirm(true);
+      return;
+    }
+    try {
+      await booksAPI.delete(bookId);
+      if(onUpdate) onUpdate();
+      onClose();
+    } catch(error) {
+      console.error('Error deleting book:', error);
+      alert('Failed to delete book');
+    }
+  };
+  
   if (!open) return null;
 
   return (
@@ -72,18 +123,34 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail }) => 
       }}
     >
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h5">Book Details</Typography>
+        <Typography variant="h5">{editing ? 'Edit Book' : 'Book Details'}</Typography>
         <Box>
-          <IconButton
-            onClick={handleRefreshMetadata}
-            disabled={refreshing}
-            title="Refresh metadata"
-          >
-            {refreshing ? <CircularProgress size={24} /> : <RefreshIcon />}
-          </IconButton>
-          <IconButton onClick={onClose}>
-            <CloseIcon />
-          </IconButton>
+          {!editing && (
+            <>
+              <IconButton
+                onClick={handleEdit}
+                title="Edit book"
+              >
+                <EditIcon />
+              </IconButton>            
+              <IconButton
+                onClick={handleRefreshMetadata}
+                disabled={refreshing}
+                title="Refresh metadata"
+              >
+                {refreshing ? <CircularProgress size={24} /> : <RefreshIcon />}
+              </IconButton>
+              <IconButton
+                onClick={handleDelete}
+                title={deleteConfirm ? 'Click again to confirm' : 'Delete book'}
+                color={deleteConfirm ? 'error' : 'default'}
+              >
+                <DeleteIcon />
+              </IconButton>
+            </>
+          )}  
+          <IconButton onClick={editing ? handleCancelEdit : onClose}>
+            </IconButton>
         </Box>
       </DialogTitle>
 
@@ -116,14 +183,26 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail }) => 
 
             {/* Book Information */}
             <Grid item xs={12} md={8}>
-              <Typography variant="h4" gutterBottom>
-                {book.title}
-              </Typography>
+              (editing ? (
+                <>
+                  <TextField
+                     fullWidth
+                     label="Title"
+                     value={editedBook.title || ''}
+                     onChange={(e) => setEditedBook({ ...editedBook, title: e.target.value })}
+                     margin="normal"
+                     variant="outlined"
+                  />
+                  <TextField
+                      fullWidth
+                      label="Author"
+                      value={editedBook.author || ''}
+                      onChange={(e) => setEditedBook({ ...editedBook, author: e.target.value })}
+                      margin="normal"
+                      variant="outlined"
+                  />
+                </>        
 
-              {book.author && (
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  by {book.author}
-                </Typography>
               )}
 
               {/* Rating */}
@@ -268,19 +347,36 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail }) => 
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={() => onEmail && onEmail(book)} startIcon={<EmailIcon />}>
-          Send to Email
-        </Button>
-        <Button onClick={() => onDownload && onDownload(book)} startIcon={<DownloadIcon />}>
-          Download
-        </Button>
-        <Button
-          variant="contained"
-          onClick={() => onRead && onRead(book)}
-          startIcon={<ReadIcon />}
-        >
-          Read Now
-        </Button>
+        {editing ? (
+          <>
+            <Button onClick={handleCancelEdit} startIcon={<CancelIcon />}>
+              Canel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleSaveEdit}
+              startIcon={<Save Icon />}
+            >
+              Save Changes
+            </Button>    
+          </>     
+         ) : (
+           <>
+             <Button onClick={() => onEmail && onEmail(book)} startIcon={<EmailIcon />}>
+               Send to Email
+             </Button>
+             <Button onClick={() => onDownload && onDownload(book)} startIcon={<DownloadIcon />}>
+               Download
+             </Button>
+             <Button
+               variant="contained"
+               onClick={() => onRead && onRead(book)}
+               startIcon={<ReadIcon />}
+             >
+               Read Now
+             </Button>
+            </>
+         )}        
       </DialogActions>
     </Dialog>
   );
