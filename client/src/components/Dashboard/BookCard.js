@@ -190,6 +190,10 @@ const BookCard = ({ book, onUpdate }) => {
         onRead={handleRead}
         onDownload={handleDownload}
         onEmail={() => setEmailDialogOpen(true)}
+        onUpdate={() => {
+          setDetailsOpen(false);
+          if(onUpdate) onUpdate();
+        }}  
       />
     </>
   );
