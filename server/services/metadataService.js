@@ -143,7 +143,10 @@ class MetadataService {
         info_link: metadata.merged.info_link,
         metadata_updated_at: new Date().toISOString(),
       };
-
+      if (metadata.merged.cover_image_url && !book.cover_image) {
+        updateData.cover_image = metadata.merged.cover_image_url;
+      }
+    
       // Only update ISBN if we don't have one
       if (!book.isbn_13 && metadata.merged.isbn_13) {
         updateData.isbn_13 = metadata.merged.isbn_13;
