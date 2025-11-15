@@ -304,10 +304,104 @@ exports.getCoverImage = async (req, res) => {
       return res.status(404).json({ error: 'Cover image not found' });
     }
 
-    const coverPath = path.resolve(book.cover_image);
-    res.sendFile(coverPath);
+// Check if cover_image is a URL or local path
+
+    if (book.cover_image.startsWith('http://') || book.cover_image.startsWith('https://')) {
+
+      // Proxy the external image
+
+      const axios = require('axios');
+
+      const response = await axios.get(book.cover_image, { responseType: 'arraybuffer' });
+
+      res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
+
+      res.send(response.data);
+
+    } else {
+
+      // Serve local file
+
+      const coverPath = path.resolve(book.cover_image);
+
+      res.sendFile(coverPath);
+
+    }
+
   } catch (error) {
+
     console.error('Error fetching cover:', error);
+
     res.status(500).json({ error: 'Error fetching cover image' });
+
+  }
+
+};
+
+ 
+
+// Update book
+
+exports.updateBook = async (req, res) => {
+
+  try {
+
+    const book = await Book.findById(req.params.id);
+
+ 
+
+    if (!book) {
+
+      return res.status(404).json({ error: 'Book not found' });
+
+    }
+
+ 
+
+    // Update allowed fields
+
+    const allowedFields = [
+
+      'title', 'author', 'isbn', 'isbn_13', 'publisher', 'published_date',
+
+      'description', 'cover_image', 'language', 'page_count', 'categories'
+
+    ];
+
+ 
+
+    const updates = {};
+
+    Object.keys(req.body).forEach(key => {
+
+      if (allowedFields.includes(key)) {
+
+        updates[key] = req.body[key];
+
+      }
+
+    });
+
+ 
+
+    await Book.update(req.params.id, updates);
+
+    const updatedBook = await Book.findById(req.params.id);
+
+ 
+
+    res.json({
+
+      message: 'Book updated successfully',
+
+      book: updatedBook
+
+    });
+
+  } catch (error) {
+
+    console.error('Error updating book:', error);
+
+    res.status(500).json({ error: 'Error updating book' });
   }
 };
