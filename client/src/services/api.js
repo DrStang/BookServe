@@ -49,6 +49,7 @@ export const booksAPI = {
     api.post('/books', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
+  update: (id,data) => api.put(`/books/${id}`, data),
   delete: (id) => api.delete(`/books/${id}`),
 };
 
