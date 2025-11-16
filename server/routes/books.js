@@ -4,7 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const bookController = require('../controllers/bookController');
-const { authMiddleware, adminMiddleware } = require('../middleware/auth');
+const { authMiddleware, authMiddlewareFlexible, adminMiddleware } = require('../middleware/auth');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -52,16 +52,18 @@ router.post('/', authMiddleware, adminMiddleware, upload.single('book'), bookCon
 // Download book
 router.get('/:id/download', authMiddleware, bookController.downloadBook);
 
-// Stream book (for reading)
-router.get('/:id/stream', authMiddleware, bookController.streamBook);
+// Stream book (for reading) - use flexible auth for ReactReader compatibility
+router.get('/:id/stream', authMiddlewareFlexible, bookController.streamBook);
 
-router.get('/:id/cover', authMiddleware, bookController.getCoverImage);
+// Use flexible auth for cover images (supports query param tokens for <img> tags)
+router.get('/:id/cover', authMiddlewareFlexible, bookController.getCoverImage);
 
 router.delete('/:id', authMiddleware, adminMiddleware, bookController.deleteBook);
 
 router.put('/:id', authMiddleware, adminMiddleware, bookController.updateBook);
 
-router.get('/:id/*', authMiddleware, bookController.streamBookContent);
+// Use flexible auth for EPUB content (supports query param tokens for ReactReader)
+router.get('/:id/*', authMiddlewareFlexible, bookController.streamBookContent);
 
 
 module.exports = router;
