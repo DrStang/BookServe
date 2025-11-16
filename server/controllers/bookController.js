@@ -1,6 +1,7 @@
 const Book = require('../models/Book');
 const path = require('path');
 const fs = require('fs').promises;
+const epubMetadataService = require('../services/epubMetadataService');
 
 exports.getAllBooks = async (req, res) => {
   try {
@@ -57,18 +58,28 @@ exports.uploadBook = async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    const format = path.extname(req.file.originalname).substring(1).toLowerCase();
+
+    // Extract metadata from EPUB file if it's an EPUB
+    let extractedMetadata = {};
+    if (format === 'epub') {
+      extractedMetadata = epubMetadataService.extractMetadata(req.file.path);
+    }
+
+    // Use extracted metadata as fallback, but allow manual overrides from request body
     const bookData = {
-      title: req.body.title || path.parse(req.file.originalname).name,
-      author: req.body.author || 'Unknown',
-      isbn: req.body.isbn || null,
-      publisher: req.body.publisher || null,
-      published_date: req.body.published_date || null,
-      description: req.body.description || null,
+      title: req.body.title || extractedMetadata.title || path.parse(req.file.originalname).name,
+      author: req.body.author || extractedMetadata.author || 'Unknown',
+      isbn: req.body.isbn || extractedMetadata.isbn || null,
+      isbn_13: req.body.isbn_13 || extractedMetadata.isbn_13 || null,
+      publisher: req.body.publisher || extractedMetadata.publisher || null,
+      published_date: req.body.published_date || extractedMetadata.published_date || null,
+      description: req.body.description || extractedMetadata.description || null,
       cover_image: req.body.cover_image || null,
       file_path: req.file.path,
       file_size: req.file.size,
-      format: path.extname(req.file.originalname).substring(1).toLowerCase(),
-      language: req.body.language || 'en',
+      format: format,
+      language: req.body.language || extractedMetadata.language || 'en',
       added_by: req.user.id
     };
 
