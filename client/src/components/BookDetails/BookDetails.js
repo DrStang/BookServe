@@ -75,7 +75,7 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail, onUpd
   const handleCancelEdit = () => {
     setEditing(false);
     setEditedBook({});
-  }:
+  };
 
   const handleSaveEdit = async () => {
     try {
@@ -91,7 +91,7 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail, onUpd
       if (onUpdate) onUpdate();
     } catch (error) {
       console.error('Error updating book:', error);
-      alert('Failed to update book);
+      alert('Failed to update book');
     }
   };
 
@@ -150,7 +150,8 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail, onUpd
             </>
           )}  
           <IconButton onClick={editing ? handleCancelEdit : onClose}>
-            </IconButton>
+              <CloseIcon/>  
+          </IconButton>
         </Box>
       </DialogTitle>
 
@@ -183,28 +184,63 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail, onUpd
 
             {/* Book Information */}
             <Grid item xs={12} md={8}>
-              (editing ? (
+              {editing ? (
+
                 <>
+
                   <TextField
+
                      fullWidth
+
                      label="Title"
+
                      value={editedBook.title || ''}
+
                      onChange={(e) => setEditedBook({ ...editedBook, title: e.target.value })}
+
                      margin="normal"
+
                      variant="outlined"
+
                   />
+
                   <TextField
+
                       fullWidth
+
                       label="Author"
+
                       value={editedBook.author || ''}
+
                       onChange={(e) => setEditedBook({ ...editedBook, author: e.target.value })}
+
                       margin="normal"
+
                       variant="outlined"
+
                   />
-                </>        
+
+                </>
+
+              ) : (
+
+                <>
+
+                  <Typography variant="h4" gutterBottom>
+
+                    {book.title}
+
+                  </Typography>
+
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+
+                    {book.author || 'Unknown Author'}
+
+                  </Typography>
+
+                </>
 
               )}
-
               {/* Rating */}
               {book.average_rating && (
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -355,7 +391,7 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail, onUpd
             <Button
               variant="contained"
               onClick={handleSaveEdit}
-              startIcon={<Save Icon />}
+              startIcon={<SaveIcon />}
             >
               Save Changes
             </Button>    
