@@ -9,6 +9,7 @@ require('dotenv').config();
 const { initDatabase } = require('../server/database/init');
 const Book = require('../server/models/Book');
 const metadataService = require('../server/services/metadataService');
+const epubMetadataService = require('../server/services/epubMetadataService');
 const fs = require('fs');
 const path = require('path');
 
@@ -49,20 +50,26 @@ async function importBook(filePath, sourceFolder, userId = 1, fetchMetadata = tr
   const filename = path.basename(filePath);
   const stats = fs.statSync(filePath);
 
-  // Parse filename for initial data
-  const { title, author } = parseFilename(filename);
-
+  // Extract metadata from EPUB file
   console.log(`\nImporting: ${filename}`);
-  console.log(`  Detected - Title: "${title}", Author: "${author || 'Unknown'}"`);
+  console.log(`  Extracting metadata from EPUB...`);
+  const epubMetadata = epubMetadataService.extractMetadata(filePath);
+
+  console.log(`  Detected - Title: "${epubMetadata.title || 'Unknown'}", Author: "${epubMetadata.author || 'Unknown'}"`);
 
   // Prepare book data
   const bookData = {
-    title,
-    author,
+    title: epubMetadata.title || filename.replace(/\.epub$/i, ''),
+    author: epubMetadata.author || 'Unknown',
+    isbn: epubMetadata.isbn || null,
+    isbn_13: epubMetadata.isbn_13 || null,
+    publisher: epubMetadata.publisher || null,
+    published_date: epubMetadata.published_date || null,
+    description: epubMetadata.description || null,
+    language: epubMetadata.language || 'en',
     file_path: filePath,
     file_size: stats.size,
     format: 'epub',
-    language: 'en',
     added_by: userId
   };
 
