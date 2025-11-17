@@ -1,5 +1,6 @@
 const BookRequest = require('../models/BookRequest');
 const axios = require('axios');
+const xml2js = require('xml2js');
 
 // Search OpenLibrary
 exports.searchOpenLibrary = async (req, res) => {
@@ -165,7 +166,7 @@ async function processBookRequest(requestId) {
   }
 }
 
-// Search NZBHydra using internal API
+// Search NZBHydra - Parse XML response
 async function searchNZBHydra(title, author) {
   try {
     const nzbhydraUrl = process.env.NZBHYDRA_URL;
@@ -183,47 +184,67 @@ async function searchNZBHydra(title, author) {
 
     console.log(`Searching NZBHydra for: "${searchQuery}"`);
 
-    // Use NZBHydra's internal API endpoint for JSON response
-    const response = await axios.get(`${nzbhydraUrl}/api/search`, {
+    // Use Newznab API (returns XML)
+    const response = await axios.get(`${nzbhydraUrl}/api`, {
       params: {
         apikey: apiKey,
-        query: searchQuery,
-        category: 7020, // eBooks
-        limit: 20
+        t: 'search',
+        q: searchQuery,
+        cat: 7020, // eBooks
+        extended: 1
       },
       timeout: 30000
     });
 
-    console.log('NZBHydra response:', JSON.stringify(response.data).substring(0, 500));
+    console.log('NZBHydra returned XML, parsing...');
 
-    // NZBHydra internal API returns: { searchResults: [...], ... }
-    const results = response.data.searchResults || [];
-    
-    console.log(`NZBHydra returned ${results.length} results`);
+    // Parse XML to JavaScript object
+    const parser = new xml2js.Parser();
+    const result = await parser.parseStringPromise(response.data);
 
-    // Map results to a consistent format
-    return results.map(result => {
-      // The link for downloading is typically in result.link or needs to be constructed
-      const downloadLink = result.link || `${nzbhydraUrl}/api/nzb/${result.searchResultId}`;
+    // Navigate the XML structure
+    if (!result.rss || !result.rss.channel || !result.rss.channel[0].item) {
+      console.log('No items found in XML response');
+      return [];
+    }
+
+    const items = result.rss.channel[0].item;
+    console.log(`NZBHydra returned ${items.length} results`);
+
+    // Map XML items to our format
+    return items.map(item => {
+      // Extract the link - it's in the <link> or <guid> tag
+      const link = (item.link && item.link[0]) || (item.guid && item.guid[0]._) || (item.guid && item.guid[0]);
+      const title = item.title && item.title[0];
       
+      // Extract newznab attributes if present
+      let size = null;
+      let guid = null;
+      
+      if (item['newznab:attr']) {
+        item['newznab:attr'].forEach(attr => {
+          if (attr.$ && attr.$.name === 'size') {
+            size = parseInt(attr.$.value);
+          }
+          if (attr.$ && attr.$.name === 'guid') {
+            guid = attr.$.value;
+          }
+        });
+      }
+
       return {
-        title: result.title,
-        link: downloadLink,
-        searchResultId: result.searchResultId,
-        guid: result.guid,
-        indexer: result.indexer,
-        indexerName: result.indexerName,
-        size: result.size,
-        grabs: result.grabs,
-        age: result.age
+        title: title,
+        link: link,
+        guid: guid || link,
+        size: size
       };
-    });
+    }).filter(item => item.link); // Only return items with valid links
 
   } catch (error) {
     console.error('NZBHydra search error:', error.message);
     if (error.response) {
       console.error('Response status:', error.response.status);
-      console.error('Response data:', JSON.stringify(error.response.data).substring(0, 500));
+      console.error('Response data:', response.data.substring(0, 500));
     }
     return null;
   }
