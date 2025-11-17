@@ -201,32 +201,69 @@ async function searchNZBHydra(title, author) {
 }
 
 // Send to SABnzbd
+// Send to SABnzbd - Downloads NZB content first, then sends to SABnzbd
 async function sendToSABnzbd(nzbData) {
   try {
     const sabnzbdUrl = process.env.SABNZBD_URL;
     const apiKey = process.env.SABNZBD_API_KEY;
+    const nzbhydraApiKey = process.env.NZBHYDRA_API_KEY;
 
     if (!sabnzbdUrl || !apiKey) {
       console.error('SABnzbd configuration missing');
       return null;
     }
 
-    const response = await axios.get(`${sabnzbdUrl}/api`, {
-      params: {
-        apikey: apiKey,
-        mode: 'addurl',
-        name: nzbData.link || nzbData.url,
-        output: 'json'
-      }
+    const nzbLink = nzbData.link || nzbData.url;
+    
+    if (!nzbLink) {
+      console.error('No NZB link found in data');
+      return null;
+    }
+
+    console.log('Downloading NZB from:', nzbLink);
+
+    // Download the NZB file content from NZBHydra
+    const nzbResponse = await axios.get(nzbLink, {
+      params: nzbhydraApiKey ? { apikey: nzbhydraApiKey } : {},
+      responseType: 'arraybuffer',
+      timeout: 30000 // 30 second timeout
     });
 
-    if (response.data.status && response.data.nzo_ids) {
+    const nzbContent = Buffer.from(nzbResponse.data).toString('base64');
+    const fileName = nzbData.title ? `${nzbData.title.replace(/[^a-z0-9]/gi, '_')}.nzb` : 'book.nzb';
+
+    console.log(`Downloaded NZB (${nzbResponse.data.length} bytes), sending to SABnzbd as: ${fileName}`);
+
+    // Send the NZB file content directly to SABnzbd using addfile mode
+    const response = await axios.post(`${sabnzbdUrl}/api`, null, {
+      params: {
+        apikey: apiKey,
+        mode: 'addfile',
+        name: nzbContent,
+        cat: 'books',
+        output: 'json'
+      },
+      timeout: 30000
+    });
+
+    console.log('SABnzbd response:', JSON.stringify(response.data));
+
+    if (response.data.status && response.data.nzo_ids && response.data.nzo_ids.length > 0) {
+      console.log('Successfully added to SABnzbd:', response.data.nzo_ids[0]);
       return response.data.nzo_ids[0];
+    }
+
+    if (response.data.error) {
+      console.error('SABnzbd returned error:', response.data.error);
     }
 
     return null;
   } catch (error) {
-    console.error('SABnzbd error:', error);
+    console.error('SABnzbd error:', error.message);
+    if (error.response) {
+      console.error('SABnzbd response status:', error.response.status);
+      console.error('SABnzbd response data:', JSON.stringify(error.response.data));
+    }
     return null;
   }
 }
