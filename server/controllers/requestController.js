@@ -165,7 +165,7 @@ async function processBookRequest(requestId) {
   }
 }
 
-// Search NZBHydra
+// Search NZBHydra using internal API
 async function searchNZBHydra(title, author) {
   try {
     const nzbhydraUrl = process.env.NZBHYDRA_URL;
@@ -183,47 +183,41 @@ async function searchNZBHydra(title, author) {
 
     console.log(`Searching NZBHydra for: "${searchQuery}"`);
 
-    const response = await axios.get(`${nzbhydraUrl}/api`, {
+    // Use NZBHydra's internal API endpoint for JSON response
+    const response = await axios.get(`${nzbhydraUrl}/api/search`, {
       params: {
         apikey: apiKey,
-        t: 'search',
-        q: searchQuery,
-        cat: 7020,
-        extended: 1,
-        output: 'json'
-      }
+        query: searchQuery,
+        category: 7020, // eBooks
+        limit: 20
+      },
+      timeout: 30000
     });
 
-    // Debug: log the actual response structure
-    console.log('NZBHydra response structure:', JSON.stringify(response.data).substring(0, 500));
+    console.log('NZBHydra response:', JSON.stringify(response.data).substring(0, 500));
 
-    // Handle different response formats from NZBHydra
-    let results = [];
-    
-    if (response.data.results) {
-      results = response.data.results;
-    } else if (response.data.searchResults) {
-      results = response.data.searchResults;
-    } else if (Array.isArray(response.data)) {
-      results = response.data;
-    }
+    // NZBHydra internal API returns: { searchResults: [...], ... }
+    const results = response.data.searchResults || [];
     
     console.log(`NZBHydra returned ${results.length} results`);
 
-    // Map results to a consistent format with proper link extraction
+    // Map results to a consistent format
     return results.map(result => {
-      // Try different possible field names for the download link
-      const downloadLink = result.link || result.guid || result.downloadUrl || result.url;
+      // The link for downloading is typically in result.link or needs to be constructed
+      const downloadLink = result.link || `${nzbhydraUrl}/api/nzb/${result.searchResultId}`;
       
       return {
         title: result.title,
-        link: typeof downloadLink === 'string' ? downloadLink : null,
+        link: downloadLink,
+        searchResultId: result.searchResultId,
         guid: result.guid,
-        indexer: result.indexer || result.indexerName,
+        indexer: result.indexer,
+        indexerName: result.indexerName,
         size: result.size,
-        category: result.category
+        grabs: result.grabs,
+        age: result.age
       };
-    }).filter(r => r.link); // Only return results that have a valid link
+    });
 
   } catch (error) {
     console.error('NZBHydra search error:', error.message);
@@ -235,7 +229,7 @@ async function searchNZBHydra(title, author) {
   }
 }
 
-// Send to SABnzbd - Downloads NZB content first, then sends to SABnzbd
+// Updated sendToSABnzbd to handle NZBHydra internal API links
 async function sendToSABnzbd(nzbData) {
   try {
     const sabnzbdUrl = process.env.SABNZBD_URL;
@@ -257,16 +251,15 @@ async function sendToSABnzbd(nzbData) {
       return null;
     }
 
-    // If the link is relative, make it absolute with NZBHydra URL
-    if (nzbLink.startsWith('/')) {
-      nzbLink = `${nzbhydraUrl}${nzbLink}`;
+    // If link doesn't have the apikey, add it
+    if (nzbLink.includes(nzbhydraUrl) && !nzbLink.includes('apikey=')) {
+      nzbLink += (nzbLink.includes('?') ? '&' : '?') + `apikey=${nzbhydraApiKey}`;
     }
     
     console.log('Downloading NZB from:', nzbLink);
 
     // Download the NZB file content from NZBHydra
     const nzbResponse = await axios.get(nzbLink, {
-      params: nzbhydraApiKey ? { apikey: nzbhydraApiKey } : {},
       responseType: 'arraybuffer',
       timeout: 30000
     });
