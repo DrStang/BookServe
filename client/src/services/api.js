@@ -43,8 +43,14 @@ export const booksAPI = {
   getById: (id) => api.get(`/books/${id}`),
   search: (query) => api.get('/books/search', { params: { q: query } }),
   download: (id) => api.get(`/books/${id}/download`, { responseType: 'blob' }),
-  getStreamUrl: (id) => `${API_BASE_URL}/books/${id}/stream`,
-  getCoverUrl: (id) => `${API_BASE_URL}/books/${id}/cover`,
+  getStreamUrl: (id) => {
+    const token = localStorage.getItem('token');
+    return `${API_BASE_URL}/books/${id}/stream${token ? `?token=${token}` : ''}`;
+  },
+  getCoverUrl: (id) => {
+    const token = localStorage.getItem('token');
+    return `${API_BASE_URL}/books/${id}/cover${token ? `?token=${token}` : ''}`;
+  },
   upload: (formData) =>
     api.post('/books', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
