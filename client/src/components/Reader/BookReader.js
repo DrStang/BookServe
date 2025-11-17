@@ -39,7 +39,7 @@ const BookReader = () => {
       fullUrl = new URL(url, window.location.origin);
     } catch (e) {
       // If input is already absolute, use it directly
-      fullUrl = new URL(input);
+      fullUrl = new URL(url);
     }
 
     // Add token to query string if not already present
