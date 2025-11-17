@@ -66,7 +66,7 @@ const Dashboard = ({ onLogout }) => {
     try {
       setRefreshingMetadata(true);
       await metadataAPI.refreshAllMetadata(true);
-      setTimeOut(() => {
+      setTimeout(() => {
         loadBooks();
         setRefreshingMetadata(false);
       }, 2000);
