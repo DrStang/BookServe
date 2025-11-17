@@ -181,58 +181,102 @@ async function searchNZBHydra(title, author) {
       searchQuery += ` ${author}`;
     }
 
+    console.log(`Searching NZBHydra for: "${searchQuery}"`);
+
     const response = await axios.get(`${nzbhydraUrl}/api`, {
       params: {
         apikey: apiKey,
         t: 'search',
         q: searchQuery,
-        cat: 7020, // eBook category
-        extended: 1
+        cat: 7020,
+        extended: 1,
+        output: 'json'
       }
     });
 
-    // Parse results (NZBHydra returns Newznab format)
-    // This is a simplified version - you might need to parse XML
-    return response.data;
+    // Debug: log the actual response structure
+    console.log('NZBHydra response structure:', JSON.stringify(response.data).substring(0, 500));
+
+    // Handle different response formats from NZBHydra
+    let results = [];
+    
+    if (response.data.results) {
+      results = response.data.results;
+    } else if (response.data.searchResults) {
+      results = response.data.searchResults;
+    } else if (Array.isArray(response.data)) {
+      results = response.data;
+    }
+    
+    console.log(`NZBHydra returned ${results.length} results`);
+
+    // Map results to a consistent format with proper link extraction
+    return results.map(result => {
+      // Try different possible field names for the download link
+      const downloadLink = result.link || result.guid || result.downloadUrl || result.url;
+      
+      return {
+        title: result.title,
+        link: typeof downloadLink === 'string' ? downloadLink : null,
+        guid: result.guid,
+        indexer: result.indexer || result.indexerName,
+        size: result.size,
+        category: result.category
+      };
+    }).filter(r => r.link); // Only return results that have a valid link
+
   } catch (error) {
-    console.error('NZBHydra search error:', error);
+    console.error('NZBHydra search error:', error.message);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', JSON.stringify(error.response.data).substring(0, 500));
+    }
     return null;
   }
 }
 
-// Send to SABnzbd
 // Send to SABnzbd - Downloads NZB content first, then sends to SABnzbd
 async function sendToSABnzbd(nzbData) {
   try {
     const sabnzbdUrl = process.env.SABNZBD_URL;
     const apiKey = process.env.SABNZBD_API_KEY;
     const nzbhydraApiKey = process.env.NZBHYDRA_API_KEY;
+    const nzbhydraUrl = process.env.NZBHYDRA_URL;
 
     if (!sabnzbdUrl || !apiKey) {
       console.error('SABnzbd configuration missing');
       return null;
     }
 
-    const nzbLink = nzbData.link || nzbData.url;
+    let nzbLink = nzbData.link;
     
-    if (!nzbLink) {
-      console.error('No NZB link found in data');
+    // Ensure link is a string
+    if (typeof nzbLink !== 'string') {
+      console.error('Invalid NZB link type:', typeof nzbLink);
+      console.error('NZB data:', JSON.stringify(nzbData));
       return null;
     }
 
+    // If the link is relative, make it absolute with NZBHydra URL
+    if (nzbLink.startsWith('/')) {
+      nzbLink = `${nzbhydraUrl}${nzbLink}`;
+    }
+    
     console.log('Downloading NZB from:', nzbLink);
 
     // Download the NZB file content from NZBHydra
     const nzbResponse = await axios.get(nzbLink, {
       params: nzbhydraApiKey ? { apikey: nzbhydraApiKey } : {},
       responseType: 'arraybuffer',
-      timeout: 30000 // 30 second timeout
+      timeout: 30000
     });
+
+    console.log(`Downloaded NZB (${nzbResponse.data.length} bytes)`);
 
     const nzbContent = Buffer.from(nzbResponse.data).toString('base64');
     const fileName = nzbData.title ? `${nzbData.title.replace(/[^a-z0-9]/gi, '_')}.nzb` : 'book.nzb';
 
-    console.log(`Downloaded NZB (${nzbResponse.data.length} bytes), sending to SABnzbd as: ${fileName}`);
+    console.log(`Sending to SABnzbd as: ${fileName}`);
 
     // Send the NZB file content directly to SABnzbd using addfile mode
     const response = await axios.post(`${sabnzbdUrl}/api`, null, {
