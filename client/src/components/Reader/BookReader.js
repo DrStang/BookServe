@@ -26,25 +26,75 @@ const BookReader = () => {
 
   const bookUrl = booksAPI.getStreamUrl(id);
 
+   // Custom fetch function that adds auth token to all EPUB requests
+
+  const customFetch = (input, init) => {
+
+    const token = localStorage.getItem('token');
+
+    const url = new URL(input, window.location.origin);
+
+ 
+
+    // Add token to query string if not already present
+
+    if (token && !url.searchParams.has('token')) {
+
+      url.searchParams.append('token', token);
+
+    }
+
+ 
+
+    return fetch(url.toString(), init);
+
+  };
+
+ 
+
   return (
+
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+
       <AppBar position="static" sx={{ backgroundColor: '#1a1a1a' }}>
+
         <Toolbar>
+
           <IconButton edge="start" color="inherit" onClick={() => navigate('/')}>
+
             <BackIcon />
+
           </IconButton>
+
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+
             {book?.title || 'Loading...'}
+
           </Typography>
+
         </Toolbar>
+
       </AppBar>
 
+ 
+
       <Box sx={{ flexGrow: 1, position: 'relative' }}>
+
         {book && (
+
           <ReactReader
+
             url={bookUrl}
+
             location={location}
+
             locationChanged={(epubcfi) => setLocation(epubcfi)}
+
+            loadOptions={{
+
+              requestMethod: customFetch
+
+            }}
             getRendition={(rendition) => {
               rendition.themes.default({
                 '::selection': {
