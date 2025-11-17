@@ -45,7 +45,7 @@ export const booksAPI = {
   download: (id) => api.get(`/books/${id}/download`, { responseType: 'blob' }),
   getStreamUrl: (id) => {
     const token = localStorage.getItem('token');
-    return `${API_BASE_URL}/books/${id}/stream${token ? `?token=${token}` : ''}`;
+    return `${API_BASE_URL}/books/${id}/${token ? `?token=${token}` : ''}`;
   },
   getCoverUrl: (id) => {
     const token = localStorage.getItem('token');
