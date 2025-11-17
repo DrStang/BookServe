@@ -37,6 +37,7 @@ const BookCard = ({ book, onUpdate }) => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [coverError, setCoverError] = useState(false);
 
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
@@ -100,9 +101,10 @@ const BookCard = ({ book, onUpdate }) => {
         <CardMedia
           component="img"
           height="300"
-          image={book.cover_image ? booksAPI.getCoverUrl(book.id) : defaultCover}
+          image={book.cover_image && !coverError ? booksAPI.getCoverUrl(book.id) : defaultCover}
           alt={book.title}
           onClick={handleRead}
+          onError={() => setCoverError(true)}
           sx={{ objectFit: 'cover' }}
         />
         <CardContent sx={{ flexGrow: 1 }}>
