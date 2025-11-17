@@ -167,7 +167,7 @@ async function processBookRequest(requestId) {
   }
 }
 
-// Search NZBHydra - Parse XML response
+// Search NZBHydra - Parse XML response and prefer EPUB
 async function searchNZBHydra(title, author) {
   try {
     const nzbhydraUrl = process.env.NZBHYDRA_URL;
@@ -182,6 +182,8 @@ async function searchNZBHydra(title, author) {
     if (author) {
       searchQuery += ` ${author}`;
     }
+    // Add "epub" to search query to prefer EPUB results
+    searchQuery += ' epub';
 
     console.log(`Searching NZBHydra for: "${searchQuery}"`);
 
@@ -213,7 +215,7 @@ async function searchNZBHydra(title, author) {
     console.log(`NZBHydra returned ${items.length} results`);
 
     // Map XML items to our format
-    return items.map(item => {
+    const mappedResults = items.map(item => {
       // Extract the link - it's in the <link> or <guid> tag
       const link = (item.link && item.link[0]) || (item.guid && item.guid[0]._) || (item.guid && item.guid[0]);
       const title = item.title && item.title[0];
@@ -233,13 +235,39 @@ async function searchNZBHydra(title, author) {
         });
       }
 
+      // Check if title contains epub/mobi/azw
+      const titleLower = title ? title.toLowerCase() : '';
+      const isEpub = titleLower.includes('epub');
+      const isMobi = titleLower.includes('mobi');
+      const isAzw = titleLower.includes('azw');
+      const isEbook = isEpub || isMobi || isAzw;
+
       return {
         title: title,
         link: link,
         guid: guid || link,
-        size: size
+        size: size,
+        isEpub: isEpub,
+        isEbook: isEbook,
+        format: isEpub ? 'epub' : (isMobi ? 'mobi' : (isAzw ? 'azw' : 'unknown'))
       };
     }).filter(item => item.link); // Only return items with valid links
+
+    // Prioritize EPUB files
+    const epubResults = mappedResults.filter(r => r.isEpub);
+    const otherEbookResults = mappedResults.filter(r => r.isEbook && !r.isEpub);
+    const allOtherResults = mappedResults.filter(r => !r.isEbook);
+
+    // Return EPUB first, then other ebook formats, then everything else
+    const sortedResults = [...epubResults, ...otherEbookResults, ...allOtherResults];
+
+    console.log(`Found ${epubResults.length} EPUB, ${otherEbookResults.length} other ebooks, ${allOtherResults.length} other files`);
+    
+    if (sortedResults.length > 0) {
+      console.log(`Best match: ${sortedResults[0].title} (${sortedResults[0].format})`);
+    }
+
+    return sortedResults;
 
   } catch (error) {
     console.error('NZBHydra search error:', error.message);
@@ -250,7 +278,6 @@ async function searchNZBHydra(title, author) {
     return null;
   }
 }
-
 async function sendToSABnzbd(nzbData) {
   try {
     const sabnzbdUrl = process.env.SABNZBD_URL;
