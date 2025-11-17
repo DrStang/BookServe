@@ -28,6 +28,12 @@ const BookReader = () => {
 
    // Custom fetch function that adds auth token to all EPUB requests
 
+  console.log('[BookReader] Stream URL:', bookUrl);
+
+ 
+
+  // Custom fetch function that adds auth token to all EPUB requests
+
   const customFetch = (input, init) => {
 
     const token = localStorage.getItem('token');
@@ -45,6 +51,8 @@ const BookReader = () => {
     }
 
  
+
+    console.log('[BookReader] Fetching:', url.toString());
 
     return fetch(url.toString(), init);
 
