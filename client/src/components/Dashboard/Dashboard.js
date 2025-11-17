@@ -11,6 +11,11 @@ import {
   TextField,
   InputAdornment,
   IconButton,
+  TablePagination,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -28,16 +33,21 @@ const Dashboard = ({ onLogout }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshingMetadata, setRefreshingMetadata] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(24);
+  const [totalBooks, setTotalBooks] = useState(0);
 
   useEffect(() => {
     loadBooks();
-  }, []);
+  }, [page, rowsPerPage]);
 
   const loadBooks = async () => {
     try {
       setLoading(true);
-      const response = await booksAPI.getAll();
+      const offset = page * rowsPerPage;
+      const response = await booksAPI.getAll(rowsPerPage, offset);
       setBooks(response.data.books);
+      setTotalBooks(response.data.total);
     } catch (error) {
       console.error('Error loading books:', error);
     } finally {
@@ -48,19 +58,31 @@ const Dashboard = ({ onLogout }) => {
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!searchQuery.trim()) {
+      setPage(0);
       loadBooks();
       return;
     }
 
     try {
       setLoading(true);
+      setPage(0);
       const response = await booksAPI.search(searchQuery);
       setBooks(response.data.books);
+      setTotalBooks(response.data.books.length);
     } catch (error) {
       console.error('Error searching books:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
   };
   const handleRefreshAllMetadata = async () => {
     try {
@@ -160,7 +182,7 @@ const Dashboard = ({ onLogout }) => {
 
               <Typography variant="h5" gutterBottom sx={{ mb: 0 }}>
 
-                Your Library ({books.length} books)
+                Your Library ({totalBooks} books)
 
               </Typography>
 
@@ -204,6 +226,33 @@ const Dashboard = ({ onLogout }) => {
                 </Grid>
               ))}
             </Grid>
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+              <TablePagination
+                component="div"
+                count={totalBooks}
+                page={page}
+                onPageChange={handleChangePage}
+                rowsPerPage={rowsPerPage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+                rowsPerPageOptions={[12, 24, 48, 96]}
+                labelRowsPerPage="Books per page:"
+                sx={{
+                  color: '#fff',
+                  '& .MuiTablePagination-select': {
+                    color: '#fff',
+                  },
+                  '& .MuiTablePagination-selectIcon': {
+                    color: '#fff',
+                  },
+                  '& .MuiTablePagination-displayedRows': {
+                    color: '#fff',
+                  },
+                  '& .MuiIconButton-root': {
+                    color: '#fff',
+                  },
+                }}
+              />
+            </Box>
           </>
         )}
       </Container>
