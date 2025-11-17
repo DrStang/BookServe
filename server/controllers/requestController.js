@@ -1,6 +1,7 @@
 const BookRequest = require('../models/BookRequest');
 const axios = require('axios');
 const xml2js = require('xml2js');
+const FormData = require('form-data');
 
 // Search OpenLibrary
 exports.searchOpenLibrary = async (req, res) => {
@@ -250,7 +251,6 @@ async function searchNZBHydra(title, author) {
   }
 }
 
-// Updated sendToSABnzbd to handle NZBHydra internal API links
 async function sendToSABnzbd(nzbData) {
   try {
     const sabnzbdUrl = process.env.SABNZBD_URL;
@@ -265,10 +265,8 @@ async function sendToSABnzbd(nzbData) {
 
     let nzbLink = nzbData.link;
     
-    // Ensure link is a string
     if (typeof nzbLink !== 'string') {
       console.error('Invalid NZB link type:', typeof nzbLink);
-      console.error('NZB data:', JSON.stringify(nzbData));
       return null;
     }
 
@@ -279,7 +277,6 @@ async function sendToSABnzbd(nzbData) {
     
     console.log('Downloading NZB from:', nzbLink);
 
-    // Download the NZB file content from NZBHydra
     const nzbResponse = await axios.get(nzbLink, {
       responseType: 'arraybuffer',
       timeout: 30000
@@ -287,20 +284,24 @@ async function sendToSABnzbd(nzbData) {
 
     console.log(`Downloaded NZB (${nzbResponse.data.length} bytes)`);
 
-    const nzbContent = Buffer.from(nzbResponse.data).toString('base64');
     const fileName = nzbData.title ? `${nzbData.title.replace(/[^a-z0-9]/gi, '_')}.nzb` : 'book.nzb';
 
     console.log(`Sending to SABnzbd as: ${fileName}`);
 
-    // Send the NZB file content directly to SABnzbd using addfile mode
-    const response = await axios.post(`${sabnzbdUrl}/api`, null, {
-      params: {
-        apikey: apiKey,
-        mode: 'addfile',
-        name: nzbContent,
-        cat: 'books',
-        output: 'json'
-      },
+    // Create form data with the NZB file
+    const formData = new FormData();
+    formData.append('name', Buffer.from(nzbResponse.data), {
+      filename: fileName,
+      contentType: 'application/x-nzb'
+    });
+    formData.append('apikey', apiKey);
+    formData.append('mode', 'addfile');
+    formData.append('cat', 'books');
+    formData.append('output', 'json');
+
+    // Send as multipart/form-data
+    const response = await axios.post(`${sabnzbdUrl}/api`, formData, {
+      headers: formData.getHeaders(),
       timeout: 30000
     });
 
@@ -315,6 +316,12 @@ async function sendToSABnzbd(nzbData) {
       console.error('SABnzbd returned error:', response.data.error);
     }
 
+    // Sometimes SABnzbd returns success in a different format
+    if (response.data.nzo_ids && response.data.nzo_ids[0]) {
+      console.log('Successfully added to SABnzbd (alternate format):', response.data.nzo_ids[0]);
+      return response.data.nzo_ids[0];
+    }
+
     return null;
   } catch (error) {
     console.error('SABnzbd error:', error.message);
@@ -325,5 +332,4 @@ async function sendToSABnzbd(nzbData) {
     return null;
   }
 }
-
 module.exports.processBookRequest = processBookRequest;
