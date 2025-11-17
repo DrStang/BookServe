@@ -8,7 +8,7 @@
 
 require('dotenv').config();
 const { initDatabase } = require('../server/database/init');
-const Book = require('../models/Book');
+const Book = require('../server/models/Book');
 const fs = require('fs').promises;
 const readline = require('readline');
 
