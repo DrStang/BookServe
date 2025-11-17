@@ -36,12 +36,18 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail, onUpd
   const [editing, setEditing] = useState(false);
   const [editedBook, setEditedBook] = useState({});
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [coverError, setCoverError] = useState(false);
 
   useEffect(() => {
     if (open && bookId) {
       loadBookDetails();
     }
   }, [open, bookId]);
+
+  // Reset cover error when book cover changes
+  useEffect(() => {
+    setCoverError(false);
+  }, [book?.cover_image]);
 
   const loadBookDetails = async () => {
     try {
@@ -167,13 +173,14 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail, onUpd
               <Box
                 component="img"
                 src={
-                  book.cover_image
+                  book.cover_image && !coverError
                     ? booksAPI.getCoverUrl(book.id)
                     : `https://via.placeholder.com/300x450/1a1a1a/ffffff?text=${encodeURIComponent(
                         book.title
                       )}`
                 }
                 alt={book.title}
+                onError={() => setCoverError(true)}
                 sx={{
                   width: '100%',
                   borderRadius: 2,

@@ -24,84 +24,55 @@ const BookReader = () => {
     }
   };
 
+  const token = localStorage.getItem('token');
   const bookUrl = booksAPI.getStreamUrl(id);
-
-   // Custom fetch function that adds auth token to all EPUB requests
 
   console.log('[BookReader] Stream URL:', bookUrl);
 
- 
-
   // Custom fetch function that adds auth token to all EPUB requests
-
   const customFetch = (input, init) => {
-
     const token = localStorage.getItem('token');
 
-    const url = new URL(input, window.location.origin);
-
- 
-
-    // Add token to query string if not already present
-
-    if (token && !url.searchParams.has('token')) {
-
-      url.searchParams.append('token', token);
-
+    // Handle both relative and absolute URLs
+    let url;
+    try {
+      url = new URL(input, window.location.origin);
+    } catch (e) {
+      // If input is already absolute, use it directly
+      url = new URL(input);
     }
 
- 
+    // Add token to query string if not already present
+    if (token && !url.searchParams.has('token')) {
+      url.searchParams.append('token', token);
+    }
 
     console.log('[BookReader] Fetching:', url.toString());
-
     return fetch(url.toString(), init);
-
   };
 
- 
-
   return (
-
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-
       <AppBar position="static" sx={{ backgroundColor: '#1a1a1a' }}>
-
         <Toolbar>
-
           <IconButton edge="start" color="inherit" onClick={() => navigate('/')}>
-
             <BackIcon />
-
           </IconButton>
-
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-
             {book?.title || 'Loading...'}
-
           </Typography>
-
         </Toolbar>
-
       </AppBar>
 
- 
-
       <Box sx={{ flexGrow: 1, position: 'relative' }}>
-
         {book && (
-
           <ReactReader
-
             url={bookUrl}
-
             location={location}
-
             locationChanged={(epubcfi) => setLocation(epubcfi)}
-
-            loadOptions={{
-
-              requestMethod: customFetch
-
+            epubOptions={{
+              requestMethod: customFetch,
+              openAs: 'epub'
             }}
             getRendition={(rendition) => {
               rendition.themes.default({
