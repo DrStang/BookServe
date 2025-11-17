@@ -27,7 +27,7 @@ const Dashboard = ({ onLogout }) => {
   const [books, setBooks] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
-  const [refreshingMetadata, setRefreshMetadata} = useState(false);
+  const [refreshingMetadata, setRefreshMetadata] = useState(false);
 
   useEffect(() => {
     loadBooks();
