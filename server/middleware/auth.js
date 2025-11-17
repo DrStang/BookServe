@@ -36,7 +36,12 @@ const authMiddlewareFlexible = async (req, res, next) => {
       token = req.query.token;
     }
 
+    console.log('[authMiddlewareFlexible] Request URL:', req.url);
+    console.log('[authMiddlewareFlexible] Token from query:', req.query.token ? 'present' : 'missing');
+    console.log('[authMiddlewareFlexible] Token from header:', req.header('Authorization') ? 'present' : 'missing');
+
     if (!token) {
+      console.log('[authMiddlewareFlexible] No token found - returning 401');
       return res.status(401).json({ error: 'Authentication required' });
     }
 
@@ -44,13 +49,16 @@ const authMiddlewareFlexible = async (req, res, next) => {
     const user = await User.findById(decoded.userId);
 
     if (!user) {
+      console.log('[authMiddlewareFlexible] User not found - returning 401');
       return res.status(401).json({ error: 'User not found' });
     }
 
+    console.log('[authMiddlewareFlexible] Authentication successful for user:', user.username);
     req.user = user;
     req.token = token;
     next();
   } catch (error) {
+    console.log('[authMiddlewareFlexible] Error:', error.message);
     res.status(401).json({ error: 'Invalid authentication token' });
   }
 };
