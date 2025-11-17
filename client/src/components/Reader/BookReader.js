@@ -25,6 +25,21 @@ const BookReader = () => {
   };
 
   const bookUrl = booksAPI.getStreamUrl(id);
+  console.log('[BookReader] Stream URL:', bookUrl);
+
+  // Custom fetch function that adds auth token to all EPUB requests
+  const customFetch = (input, init) => {
+    const token = localStorage.getItem('token');
+    const url = new URL(input, window.location.origin);
+
+    // Add token to query string if not already present
+    if (token && !url.searchParams.has('token')) {
+      url.searchParams.append('token', token);
+    }
+
+    console.log('[BookReader] Fetching:', url.toString());
+    return fetch(url.toString(), init);
+  };
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -45,6 +60,9 @@ const BookReader = () => {
             url={bookUrl}
             location={location}
             locationChanged={(epubcfi) => setLocation(epubcfi)}
+            loadOptions={{
+              requestMethod: customFetch
+            }}
             getRendition={(rendition) => {
               rendition.themes.default({
                 '::selection': {
