@@ -167,7 +167,7 @@ async function processBookRequest(requestId) {
   }
 }
 
-// Search NZBHydra - Parse XML response and prefer EPUB
+// Search NZBHydra - Parse XML response and prefer EPUB with relevance scoring
 async function searchNZBHydra(title, author) {
   try {
     const nzbhydraUrl = process.env.NZBHYDRA_URL;
@@ -214,11 +214,22 @@ async function searchNZBHydra(title, author) {
     const items = result.rss.channel[0].item;
     console.log(`NZBHydra returned ${items.length} results`);
 
-    // Map XML items to our format
+    // Normalize title and author for matching
+    const normalizeText = (text) => {
+      return text.toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+        .replace(/\s+/g, ' ') // Normalize spaces
+        .trim();
+    };
+
+    const searchTitle = normalizeText(title);
+    const searchAuthor = author ? normalizeText(author) : '';
+
+    // Map XML items to our format with relevance scoring
     const mappedResults = items.map(item => {
       // Extract the link - it's in the <link> or <guid> tag
       const link = (item.link && item.link[0]) || (item.guid && item.guid[0]._) || (item.guid && item.guid[0]);
-      const title = item.title && item.title[0];
+      const itemTitle = item.title && item.title[0];
       
       // Extract newznab attributes if present
       let size = null;
@@ -236,35 +247,95 @@ async function searchNZBHydra(title, author) {
       }
 
       // Check if title contains epub/mobi/azw
-      const titleLower = title ? title.toLowerCase() : '';
+      const titleLower = itemTitle ? itemTitle.toLowerCase() : '';
       const isEpub = titleLower.includes('epub');
       const isMobi = titleLower.includes('mobi');
       const isAzw = titleLower.includes('azw');
       const isEbook = isEpub || isMobi || isAzw;
 
+      // Calculate relevance score
+      const normalizedItemTitle = normalizeText(itemTitle || '');
+      let relevanceScore = 0;
+
+      // Split search terms into words
+      const titleWords = searchTitle.split(' ');
+      const authorWords = searchAuthor.split(' ');
+      const itemWords = normalizedItemTitle.split(' ');
+
+      // Check for exact title match (highest score)
+      if (normalizedItemTitle.includes(searchTitle)) {
+        relevanceScore += 100;
+      }
+
+      // Check for all title words present
+      const allTitleWordsPresent = titleWords.every(word => 
+        word.length > 2 && normalizedItemTitle.includes(word)
+      );
+      if (allTitleWordsPresent) {
+        relevanceScore += 50;
+      }
+
+      // Check for author match
+      if (searchAuthor) {
+        if (normalizedItemTitle.includes(searchAuthor)) {
+          relevanceScore += 50;
+        }
+        const allAuthorWordsPresent = authorWords.every(word =>
+          word.length > 2 && normalizedItemTitle.includes(word)
+        );
+        if (allAuthorWordsPresent) {
+          relevanceScore += 25;
+        }
+      }
+
+      // Bonus for title appearing early in the result
+      const titlePosition = normalizedItemTitle.indexOf(searchTitle);
+      if (titlePosition !== -1 && titlePosition < 10) {
+        relevanceScore += 20;
+      }
+
+      // Format bonus (prefer EPUB)
+      if (isEpub) {
+        relevanceScore += 10;
+      } else if (isEbook) {
+        relevanceScore += 5;
+      }
+
+      // Penalize very long titles (likely collections/bundles)
+      if (itemTitle && itemTitle.length > 150) {
+        relevanceScore -= 20;
+      }
+
       return {
-        title: title,
+        title: itemTitle,
         link: link,
         guid: guid || link,
         size: size,
         isEpub: isEpub,
         isEbook: isEbook,
-        format: isEpub ? 'epub' : (isMobi ? 'mobi' : (isAzw ? 'azw' : 'unknown'))
+        format: isEpub ? 'epub' : (isMobi ? 'mobi' : (isAzw ? 'azw' : 'unknown')),
+        relevanceScore: relevanceScore
       };
     }).filter(item => item.link); // Only return items with valid links
 
-    // Prioritize EPUB files
-    const epubResults = mappedResults.filter(r => r.isEpub);
-    const otherEbookResults = mappedResults.filter(r => r.isEbook && !r.isEpub);
-    const allOtherResults = mappedResults.filter(r => !r.isEbook);
+    // Sort by relevance score (highest first)
+    const sortedResults = mappedResults.sort((a, b) => b.relevanceScore - a.relevanceScore);
 
-    // Return EPUB first, then other ebook formats, then everything else
-    const sortedResults = [...epubResults, ...otherEbookResults, ...allOtherResults];
+    // Filter and log
+    const epubResults = sortedResults.filter(r => r.isEpub);
+    const otherEbookResults = sortedResults.filter(r => r.isEbook && !r.isEpub);
 
-    console.log(`Found ${epubResults.length} EPUB, ${otherEbookResults.length} other ebooks, ${allOtherResults.length} other files`);
+    console.log(`Found ${epubResults.length} EPUB, ${otherEbookResults.length} other ebooks`);
     
     if (sortedResults.length > 0) {
-      console.log(`Best match: ${sortedResults[0].title} (${sortedResults[0].format})`);
+      console.log(`Best match (score ${sortedResults[0].relevanceScore}): ${sortedResults[0].title} (${sortedResults[0].format})`);
+      // Show top 3 for debugging
+      if (sortedResults.length > 1) {
+        console.log(`  2nd: (score ${sortedResults[1].relevanceScore}) ${sortedResults[1].title}`);
+      }
+      if (sortedResults.length > 2) {
+        console.log(`  3rd: (score ${sortedResults[2].relevanceScore}) ${sortedResults[2].title}`);
+      }
     }
 
     return sortedResults;
