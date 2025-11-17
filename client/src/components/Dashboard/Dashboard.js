@@ -17,8 +17,9 @@ import {
   Logout as LogoutIcon,
   Add as AddIcon,
   LibraryBooks as LibraryIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { booksAPI } from '../../services/api';
+import { booksAPI, metadataAPI } from '../../services/api';
 import BookCard from './BookCard';
 
 const Dashboard = ({ onLogout }) => {
@@ -26,6 +27,7 @@ const Dashboard = ({ onLogout }) => {
   const [books, setBooks] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [refreshingMetadata, setRefreshingMetadata] = useState(false);
 
   useEffect(() => {
     loadBooks();
@@ -58,6 +60,21 @@ const Dashboard = ({ onLogout }) => {
       console.error('Error searching books:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRefreshAllMetadata = async () => {
+    try {
+      setRefreshingMetadata(true);
+      await metadataAPI.refreshAllMetadata(true);
+      // Wait a bit for background processing, then reload
+      setTimeout(() => {
+        loadBooks();
+        setRefreshingMetadata(false);
+      }, 2000);
+    } catch (error) {
+      console.error('Error refreshing metadata:', error);
+      setRefreshingMetadata(false);
     }
   };
 
@@ -141,9 +158,27 @@ const Dashboard = ({ onLogout }) => {
           </Box>
         ) : (
           <>
-            <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
-              Your Library ({books.length} books)
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography variant="h5" gutterBottom sx={{ mb: 0 }}>
+                Your Library ({books.length} books)
+              </Typography>
+              <Button
+                variant="outlined"
+                startIcon={<RefreshIcon />}
+                onClick={handleRefreshAllMetadata}
+                disabled={refreshingMetadata}
+                sx={{
+                  borderColor: '#e50914',
+                  color: '#e50914',
+                  '&:hover': {
+                    borderColor: '#e50914',
+                    backgroundColor: 'rgba(229, 9, 20, 0.1)',
+                  },
+                }}
+              >
+                {refreshingMetadata ? 'Refreshing All...' : 'Refresh All Covers'}
+              </Button>
+            </Box>
             <Grid container spacing={3}>
               {books.map((book) => (
                 <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={book.id}>
