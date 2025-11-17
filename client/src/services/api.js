@@ -79,7 +79,7 @@ export const metadataAPI = {
   refreshBookMetadata: (id, force = false) =>
     api.post(`/metadata/books/${id}/refresh`, {}, { params: { force } }),
   refreshAllMetadata: (force = false) =>
-    api.post('/metadata/update-all', {},
+    api.post('/metadata/update-all', {}, {params: { force } }),
   searchGoogleBooks: (query) =>
     api.get('/metadata/google-books/search', { params: { q: query } }),
   searchOpenLibrary: (query) =>
