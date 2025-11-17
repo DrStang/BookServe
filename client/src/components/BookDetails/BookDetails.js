@@ -44,6 +44,11 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail, onUpd
     }
   }, [open, bookId]);
 
+  // Reset cover error when book cover changes
+  useEffect(() => {
+    setCoverError(false);
+  }, [book?.cover_image]);
+
   const loadBookDetails = async () => {
     try {
       setLoading(true);

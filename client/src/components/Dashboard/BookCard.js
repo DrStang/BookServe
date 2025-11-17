@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -38,6 +38,11 @@ const BookCard = ({ book, onUpdate }) => {
   const [email, setEmail] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [coverError, setCoverError] = useState(false);
+
+  // Reset cover error when book changes (e.g., when metadata is refreshed)
+  useEffect(() => {
+    setCoverError(false);
+  }, [book.cover_image, book.id]);
 
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
