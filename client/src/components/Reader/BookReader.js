@@ -30,25 +30,28 @@ const BookReader = () => {
   console.log('[BookReader] Stream URL:', bookUrl);
 
   // Custom fetch function that adds auth token to all EPUB requests
-  const customFetch = (input, init) => {
+  const customFetch = (url, type, withCredentials, headers) => {
     const token = localStorage.getItem('token');
 
     // Handle both relative and absolute URLs
-    let url;
+    let fullUrl;
     try {
-      url = new URL(input, window.location.origin);
+      fullUrl = new URL(url, window.location.origin);
     } catch (e) {
       // If input is already absolute, use it directly
-      url = new URL(input);
+      fullUrl = new URL(input);
     }
 
     // Add token to query string if not already present
-    if (token && !url.searchParams.has('token')) {
-      url.searchParams.append('token', token);
+    if (token && !fullUrl.searchParams.has('token')) {
+      fullUrl.searchParams.append('token', token);
     }
 
     console.log('[BookReader] Fetching:', url.toString());
-    return fetch(url.toString(), init);
+    
+    return fetch(fullUrl.toString(), {
+      headers: headers || {}
+    }).then(response => response.arrayBuffer());  
   };
 
   return (
@@ -70,7 +73,7 @@ const BookReader = () => {
             url={bookUrl}
             location={location}
             locationChanged={(epubcfi) => setLocation(epubcfi)}
-            epubOptions={{
+            epubInitOptions={{
               requestMethod: customFetch,
               openAs: 'epub'
             }}
