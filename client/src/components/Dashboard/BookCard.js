@@ -110,7 +110,7 @@ const BookCard = ({ book, onUpdate }) => {
           alt={book.title}
           onClick={handleRead}
           onError={() => setCoverError(true)}
-          sx={{ objectFit: 'cover' }}
+          sx={{ objectFit: 'contain' }}
         />
         <CardContent sx={{ flexGrow: 1 }}>
           <Typography gutterBottom variant="h6" component="div" noWrap>
