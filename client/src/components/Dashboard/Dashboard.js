@@ -19,6 +19,10 @@ import {
   Chip,
   Divider,
   Collapse,
+  MenuItem,
+  Select,
+  FormControl,
+  Pagination,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -29,21 +33,26 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   FilterList as FilterIcon,
+  Sort as SortIcon,
 } from '@mui/icons-material';
 import { booksAPI, metadataAPI } from '../../services/api';
 import BookCard from './BookCard';
 
 const DRAWER_WIDTH = 280;
+const BOOKS_PER_PAGE = 24;
 
 const Dashboard = ({ onLogout }) => {
   const navigate = useNavigate();
   const [allBooks, setAllBooks] = useState([]);
   const [filteredBooks, setFilteredBooks] = useState([]);
+  const [displayedBooks, setDisplayedBooks] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAuthor, setSelectedAuthor] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshingMetadata, setRefreshingMetadata] = useState(false);
   const [authorFilterOpen, setAuthorFilterOpen] = useState(true);
+  const [sortBy, setSortBy] = useState('added_desc');
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     loadBooks();
@@ -51,7 +60,16 @@ const Dashboard = ({ onLogout }) => {
 
   useEffect(() => {
     applyFilters();
-  }, [allBooks, selectedAuthor, searchQuery]);
+  }, [allBooks, selectedAuthor, searchQuery, sortBy]);
+
+  useEffect(() => {
+    applyPagination();
+  }, [filteredBooks, currentPage]);
+
+  useEffect(() => {
+    // Reset to page 1 when filters change
+    setCurrentPage(1);
+  }, [selectedAuthor, searchQuery, sortBy]);
 
   const loadBooks = async () => {
     try {
@@ -97,7 +115,60 @@ const Dashboard = ({ onLogout }) => {
       );
     }
 
+    // Apply sorting
+    filtered = sortBooks(filtered);
+
     setFilteredBooks(filtered);
+  };
+
+  const sortBooks = (books) => {
+    const sorted = [...books];
+    
+    switch (sortBy) {
+      case 'title_asc':
+        return sorted.sort((a, b) => a.title.localeCompare(b.title));
+      case 'title_desc':
+        return sorted.sort((a, b) => b.title.localeCompare(a.title));
+      case 'author_asc':
+        return sorted.sort((a, b) => 
+          (a.author || 'Unknown').localeCompare(b.author || 'Unknown')
+        );
+      case 'author_desc':
+        return sorted.sort((a, b) => 
+          (b.author || 'Unknown').localeCompare(a.author || 'Unknown')
+        );
+      case 'rating_desc':
+        return sorted.sort((a, b) => 
+          (b.average_rating || 0) - (a.average_rating || 0)
+        );
+      case 'rating_asc':
+        return sorted.sort((a, b) => 
+          (a.average_rating || 0) - (b.average_rating || 0)
+        );
+      case 'added_desc':
+        return sorted.sort((a, b) => 
+          new Date(b.added_at) - new Date(a.added_at)
+        );
+      case 'added_asc':
+        return sorted.sort((a, b) => 
+          new Date(a.added_at) - new Date(b.added_at)
+        );
+      default:
+        return sorted;
+    }
+  };
+
+  const applyPagination = () => {
+    const startIndex = (currentPage - 1) * BOOKS_PER_PAGE;
+    const endIndex = startIndex + BOOKS_PER_PAGE;
+    setDisplayedBooks(filteredBooks.slice(startIndex, endIndex));
+  };
+
+  const totalPages = Math.ceil(filteredBooks.length / BOOKS_PER_PAGE);
+
+  const handlePageChange = (event, value) => {
+    setCurrentPage(value);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSearch = (e) => {
@@ -322,7 +393,7 @@ const Dashboard = ({ onLogout }) => {
             </Box>
           ) : (
             <>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
                 <Typography variant="h5" gutterBottom sx={{ mb: 0 }}>
                   {selectedAuthor ? (
                     <>
@@ -334,30 +405,90 @@ const Dashboard = ({ onLogout }) => {
                     </>
                   )}
                 </Typography>
-                <Button
-                  variant="outlined"
-                  startIcon={<RefreshIcon />}
-                  onClick={handleRefreshAllMetadata}
-                  disabled={refreshingMetadata}
-                  sx={{
-                    borderColor: '#e50914',
-                    color: '#e50914',
-                    '&:hover': {
+                
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                  {/* Sort Dropdown */}
+                  <FormControl size="small" sx={{ minWidth: 200 }}>
+                    <Select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      startAdornment={
+                        <InputAdornment position="start">
+                          <SortIcon />
+                        </InputAdornment>
+                      }
+                      sx={{
+                        backgroundColor: '#1a1a1a',
+                        '& .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#333',
+                        },
+                        '&:hover .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#e50914',
+                        },
+                      }}
+                    >
+                      <MenuItem value="added_desc">Recently Added</MenuItem>
+                      <MenuItem value="added_asc">Oldest First</MenuItem>
+                      <MenuItem value="title_asc">Title (A-Z)</MenuItem>
+                      <MenuItem value="title_desc">Title (Z-A)</MenuItem>
+                      <MenuItem value="author_asc">Author (A-Z)</MenuItem>
+                      <MenuItem value="author_desc">Author (Z-A)</MenuItem>
+                      <MenuItem value="rating_desc">Rating (High-Low)</MenuItem>
+                      <MenuItem value="rating_asc">Rating (Low-High)</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  <Button
+                    variant="outlined"
+                    startIcon={<RefreshIcon />}
+                    onClick={handleRefreshAllMetadata}
+                    disabled={refreshingMetadata}
+                    sx={{
                       borderColor: '#e50914',
-                      backgroundColor: 'rgba(229, 9, 20, 0.1)',
-                    },
-                  }}
-                >
-                  {refreshingMetadata ? 'Refreshing All...' : 'Refresh All Covers'}
-                </Button>
+                      color: '#e50914',
+                      '&:hover': {
+                        borderColor: '#e50914',
+                        backgroundColor: 'rgba(229, 9, 20, 0.1)',
+                      },
+                    }}
+                  >
+                    {refreshingMetadata ? 'Refreshing...' : 'Refresh Covers'}
+                  </Button>
+                </Box>
               </Box>
+
+              {/* Book Grid */}
               <Grid container spacing={3}>
-                {filteredBooks.map((book) => (
+                {displayedBooks.map((book) => (
                   <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={book.id}>
                     <BookCard book={book} onUpdate={loadBooks} />
                   </Grid>
                 ))}
               </Grid>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                  <Pagination
+                    count={totalPages}
+                    page={currentPage}
+                    onChange={handlePageChange}
+                    color="primary"
+                    size="large"
+                    showFirstButton
+                    showLastButton
+                    sx={{
+                      '& .MuiPaginationItem-root': {
+                        color: '#fff',
+                        borderColor: '#333',
+                      },
+                      '& .Mui-selected': {
+                        backgroundColor: '#e50914 !important',
+                      },
+                    }}
+                  />
+                </Box>
+              )}
             </>
           )}
         </Container>
