@@ -74,7 +74,8 @@ const Dashboard = ({ onLogout }) => {
   const loadBooks = async () => {
     try {
       setLoading(true);
-      const response = await booksAPI.getAll();
+      // Fetch all books with a high limit to ensure we get everything
+      const response = await booksAPI.getAll(10000, 0);
       setAllBooks(response.data.books);
     } catch (error) {
       console.error('Error loading books:', error);
