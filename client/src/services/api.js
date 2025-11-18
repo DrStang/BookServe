@@ -38,8 +38,10 @@ export const authAPI = {
 
 // Books
 export const booksAPI = {
-  getAll: (limit = 100, offset = 0) =>
-    api.get('/books', { params: { limit, offset } }),
+  getAll: (limit = 100, offset = 0, sortBy = 'added_at', sortOrder = 'DESC', filters = {}) => {
+    const params = { limit, offset, sortBy, sortOrder, ...filters };
+    return api.get('/books', { params });
+  },
   getById: (id) => api.get(`/books/${id}`),
   search: (query) => api.get('/books/search', { params: { q: query } }),
   download: (id) => api.get(`/books/${id}/download`, { responseType: 'blob' }),
