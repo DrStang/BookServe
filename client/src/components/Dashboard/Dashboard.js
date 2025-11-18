@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AppBar,
@@ -11,11 +11,14 @@ import {
   TextField,
   InputAdornment,
   IconButton,
-  TablePagination,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  Chip,
+  Divider,
+  Collapse,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -23,49 +26,38 @@ import {
   Add as AddIcon,
   LibraryBooks as LibraryIcon,
   Refresh as RefreshIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  FilterList as FilterIcon,
 } from '@mui/icons-material';
 import { booksAPI, metadataAPI } from '../../services/api';
 import BookCard from './BookCard';
 
+const DRAWER_WIDTH = 280;
+
 const Dashboard = ({ onLogout }) => {
   const navigate = useNavigate();
-  const [books, setBooks] = useState([]);
+  const [allBooks, setAllBooks] = useState([]);
+  const [filteredBooks, setFilteredBooks] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedAuthor, setSelectedAuthor] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshingMetadata, setRefreshingMetadata] = useState(false);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(24);
-  const [totalBooks, setTotalBooks] = useState(0);
-
-  // Sort and filter states
-  const [sortBy, setSortBy] = useState('added_at');
-  const [sortOrder, setSortOrder] = useState('DESC');
-  const [filterAuthor, setFilterAuthor] = useState('');
-  const [filterYear, setFilterYear] = useState('');
-  const [filterPublisher, setFilterPublisher] = useState('');
-  const [filterLanguage, setFilterLanguage] = useState('');
-  const [filterFormat, setFilterFormat] = useState('');
+  const [authorFilterOpen, setAuthorFilterOpen] = useState(true);
 
   useEffect(() => {
     loadBooks();
-  }, [page, rowsPerPage, sortBy, sortOrder, filterAuthor, filterYear, filterPublisher, filterLanguage, filterFormat]);
+  }, []);
+
+  useEffect(() => {
+    applyFilters();
+  }, [allBooks, selectedAuthor, searchQuery]);
 
   const loadBooks = async () => {
     try {
       setLoading(true);
-      const offset = page * rowsPerPage;
-
-      // Build filters object
-      const filters = {};
-      if (filterAuthor) filters.author = filterAuthor;
-      if (filterYear) filters.year = filterYear;
-      if (filterPublisher) filters.publisher = filterPublisher;
-      if (filterLanguage) filters.language = filterLanguage;
-      if (filterFormat) filters.format = filterFormat;
-
-      const response = await booksAPI.getAll(rowsPerPage, offset, sortBy, sortOrder, filters);
-      setBooks(response.data.books);
-      setTotalBooks(response.data.total);
+      const response = await booksAPI.getAll();
+      setAllBooks(response.data.books);
     } catch (error) {
       console.error('Error loading books:', error);
     } finally {
@@ -73,35 +65,50 @@ const Dashboard = ({ onLogout }) => {
     }
   };
 
-  const handleSearch = async (e) => {
+  // Calculate author counts
+  const authorCounts = useMemo(() => {
+    const counts = {};
+    allBooks.forEach(book => {
+      const author = book.author || 'Unknown Author';
+      counts[author] = (counts[author] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1]) // Sort by count descending
+      .map(([author, count]) => ({ author, count }));
+  }, [allBooks]);
+
+  const applyFilters = () => {
+    let filtered = [...allBooks];
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(book =>
+        book.title?.toLowerCase().includes(query) ||
+        book.author?.toLowerCase().includes(query) ||
+        book.isbn?.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply author filter
+    if (selectedAuthor) {
+      filtered = filtered.filter(book => 
+        (book.author || 'Unknown Author') === selectedAuthor
+      );
+    }
+
+    setFilteredBooks(filtered);
+  };
+
+  const handleSearch = (e) => {
     e.preventDefault();
-    if (!searchQuery.trim()) {
-      setPage(0);
-      loadBooks();
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setPage(0);
-      const response = await booksAPI.search(searchQuery);
-      setBooks(response.data.books);
-      setTotalBooks(response.data.books.length);
-    } catch (error) {
-      console.error('Error searching books:', error);
-    } finally {
-      setLoading(false);
-    }
+    // Search is now handled by useEffect
   };
 
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
+  const handleAuthorClick = (author) => {
+    setSelectedAuthor(selectedAuthor === author ? null : author);
   };
 
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
   const handleRefreshAllMetadata = async () => {
     try {
       setRefreshingMetadata(true);
@@ -114,385 +121,247 @@ const Dashboard = ({ onLogout }) => {
       console.error('Error refreshing metadata:', error);
       setRefreshingMetadata(false);
     }
-  };  
+  };
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#0f0f0f' }}>
-      <AppBar position="static" sx={{ backgroundColor: '#1a1a1a' }}>
-        <Toolbar>
-          <LibraryIcon sx={{ mr: 2 }} />
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            BookServe
-          </Typography>
-          <Button
-            color="inherit"
-            startIcon={<AddIcon />}
-            onClick={() => navigate('/request')}
-            sx={{ mr: 2 }}
-          >
-            Request Book
-          </Button>
-          <Button
-            color="inherit"
-            onClick={() => navigate('/my-requests')}
-            sx={{ mr: 2 }}
-          >
-            My Requests
-          </Button>
-          <IconButton color="inherit" onClick={onLogout}>
-            <LogoutIcon />
-          </IconButton>
-        </Toolbar>
-      </AppBar>
+    <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0f0f0f' }}>
+      {/* Filter Sidebar */}
+      <Drawer
+        variant="permanent"
+        sx={{
+          width: DRAWER_WIDTH,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': {
+            width: DRAWER_WIDTH,
+            boxSizing: 'border-box',
+            backgroundColor: '#1a1a1a',
+            borderRight: '1px solid #333',
+            marginTop: '64px', // Height of AppBar
+          },
+        }}
+      >
+        <Box sx={{ overflow: 'auto', p: 2 }}>
+          {/* Filter Header */}
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <FilterIcon sx={{ mr: 1, color: '#e50914' }} />
+            <Typography variant="h6">Filters</Typography>
+          </Box>
 
-      <Container maxWidth="xl" sx={{ mt: 4, pb: 4 }}>
-        <Box component="form" onSubmit={handleSearch} sx={{ mb: 4 }}>
-          <TextField
-            fullWidth
-            variant="outlined"
-            placeholder="Search books by title, author, or ISBN..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              backgroundColor: '#1a1a1a',
-              '& .MuiOutlinedInput-root': {
-                '& fieldset': {
-                  borderColor: '#333',
-                },
-                '&:hover fieldset': {
-                  borderColor: '#e50914',
-                },
-              },
-            }}
-          />
+          {/* Active Filters */}
+          {selectedAuthor && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                Active Filters:
+              </Typography>
+              <Chip
+                label={selectedAuthor}
+                onDelete={() => setSelectedAuthor(null)}
+                size="small"
+                sx={{ 
+                  backgroundColor: '#e50914',
+                  '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' }
+                }}
+              />
+            </Box>
+          )}
+
+          <Divider sx={{ my: 2, borderColor: '#333' }} />
+
+          {/* Author Filter */}
+          <Box>
+            <ListItemButton onClick={() => setAuthorFilterOpen(!authorFilterOpen)} sx={{ px: 0 }}>
+              <ListItemText 
+                primary="Author" 
+                primaryTypographyProps={{ fontWeight: 600 }}
+              />
+              {authorFilterOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            </ListItemButton>
+
+            <Collapse in={authorFilterOpen} timeout="auto" unmountOnExit>
+              <List sx={{ maxHeight: '500px', overflow: 'auto', pt: 0 }}>
+                {authorCounts.map(({ author, count }) => (
+                  <ListItem key={author} disablePadding>
+                    <ListItemButton
+                      selected={selectedAuthor === author}
+                      onClick={() => handleAuthorClick(author)}
+                      sx={{
+                        py: 0.5,
+                        px: 2,
+                        '&.Mui-selected': {
+                          backgroundColor: 'rgba(229, 9, 20, 0.2)',
+                          '&:hover': {
+                            backgroundColor: 'rgba(229, 9, 20, 0.3)',
+                          },
+                        },
+                      }}
+                    >
+                      <ListItemText 
+                        primary={author}
+                        primaryTypographyProps={{
+                          fontSize: '0.875rem',
+                          noWrap: true,
+                        }}
+                      />
+                      <Chip
+                        label={count}
+                        size="small"
+                        sx={{
+                          height: '20px',
+                          minWidth: '28px',
+                          fontSize: '0.75rem',
+                          backgroundColor: selectedAuthor === author ? '#e50914' : '#333',
+                        }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                ))}
+              </List>
+            </Collapse>
+          </Box>
         </Box>
+      </Drawer>
 
-        {/* Sort and Filter Controls */}
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h6" gutterBottom>
-            Sort & Filter
-          </Typography>
-          <Grid container spacing={2}>
-            {/* Sort By */}
-            <Grid item xs={12} sm={6} md={3}>
-              <FormControl fullWidth>
-                <InputLabel>Sort By</InputLabel>
-                <Select
-                  value={sortBy}
-                  label="Sort By"
-                  onChange={(e) => {
-                    setSortBy(e.target.value);
-                    setPage(0);
-                  }}
-                  sx={{
-                    backgroundColor: '#1a1a1a',
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#333',
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#e50914',
-                    },
-                  }}
-                >
-                  <MenuItem value="title">Title</MenuItem>
-                  <MenuItem value="author">Author</MenuItem>
-                  <MenuItem value="added_at">Date Added</MenuItem>
-                  <MenuItem value="published_date">Publication Date</MenuItem>
-                  <MenuItem value="average_rating">Rating</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            {/* Sort Order */}
-            <Grid item xs={12} sm={6} md={3}>
-              <FormControl fullWidth>
-                <InputLabel>Order</InputLabel>
-                <Select
-                  value={sortOrder}
-                  label="Order"
-                  onChange={(e) => {
-                    setSortOrder(e.target.value);
-                    setPage(0);
-                  }}
-                  sx={{
-                    backgroundColor: '#1a1a1a',
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#333',
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#e50914',
-                    },
-                  }}
-                >
-                  <MenuItem value="ASC">Ascending (A-Z, Old-New)</MenuItem>
-                  <MenuItem value="DESC">Descending (Z-A, New-Old)</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            {/* Filter by Author */}
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                fullWidth
-                label="Filter by Author"
-                value={filterAuthor}
-                onChange={(e) => {
-                  setFilterAuthor(e.target.value);
-                  setPage(0);
-                }}
-                sx={{
-                  backgroundColor: '#1a1a1a',
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': {
-                      borderColor: '#333',
-                    },
-                    '&:hover fieldset': {
-                      borderColor: '#e50914',
-                    },
-                  },
-                }}
-              />
-            </Grid>
-
-            {/* Filter by Year */}
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                fullWidth
-                label="Filter by Year"
-                value={filterYear}
-                onChange={(e) => {
-                  setFilterYear(e.target.value);
-                  setPage(0);
-                }}
-                placeholder="e.g., 2023"
-                sx={{
-                  backgroundColor: '#1a1a1a',
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': {
-                      borderColor: '#333',
-                    },
-                    '&:hover fieldset': {
-                      borderColor: '#e50914',
-                    },
-                  },
-                }}
-              />
-            </Grid>
-
-            {/* Filter by Publisher */}
-            <Grid item xs={12} sm={6} md={4}>
-              <TextField
-                fullWidth
-                label="Filter by Publisher"
-                value={filterPublisher}
-                onChange={(e) => {
-                  setFilterPublisher(e.target.value);
-                  setPage(0);
-                }}
-                sx={{
-                  backgroundColor: '#1a1a1a',
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': {
-                      borderColor: '#333',
-                    },
-                    '&:hover fieldset': {
-                      borderColor: '#e50914',
-                    },
-                  },
-                }}
-              />
-            </Grid>
-
-            {/* Filter by Language */}
-            <Grid item xs={12} sm={6} md={4}>
-              <TextField
-                fullWidth
-                label="Filter by Language"
-                value={filterLanguage}
-                onChange={(e) => {
-                  setFilterLanguage(e.target.value);
-                  setPage(0);
-                }}
-                placeholder="e.g., en"
-                sx={{
-                  backgroundColor: '#1a1a1a',
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': {
-                      borderColor: '#333',
-                    },
-                    '&:hover fieldset': {
-                      borderColor: '#e50914',
-                    },
-                  },
-                }}
-              />
-            </Grid>
-
-            {/* Filter by Format */}
-            <Grid item xs={12} sm={6} md={4}>
-              <FormControl fullWidth>
-                <InputLabel>Filter by Format</InputLabel>
-                <Select
-                  value={filterFormat}
-                  label="Filter by Format"
-                  onChange={(e) => {
-                    setFilterFormat(e.target.value);
-                    setPage(0);
-                  }}
-                  sx={{
-                    backgroundColor: '#1a1a1a',
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#333',
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#e50914',
-                    },
-                  }}
-                >
-                  <MenuItem value="">All Formats</MenuItem>
-                  <MenuItem value="epub">EPUB</MenuItem>
-                  <MenuItem value="pdf">PDF</MenuItem>
-                  <MenuItem value="mobi">MOBI</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            {/* Clear Filters Button */}
-            <Grid item xs={12}>
-              <Button
-                variant="outlined"
-                onClick={() => {
-                  setFilterAuthor('');
-                  setFilterYear('');
-                  setFilterPublisher('');
-                  setFilterLanguage('');
-                  setFilterFormat('');
-                  setSortBy('added_at');
-                  setSortOrder('DESC');
-                  setPage(0);
-                }}
-                sx={{
-                  borderColor: '#e50914',
-                  color: '#e50914',
-                  '&:hover': {
-                    borderColor: '#e50914',
-                    backgroundColor: 'rgba(229, 9, 20, 0.1)',
-                  },
-                }}
-              >
-                Clear All Filters
-              </Button>
-            </Grid>
-          </Grid>
-        </Box>
-
-        {loading ? (
-          <Typography variant="h6" align="center" color="text.secondary">
-            Loading books...
-          </Typography>
-        ) : books.length === 0 ? (
-          <Box sx={{ textAlign: 'center', mt: 8 }}>
-            <Typography variant="h5" color="text.secondary" gutterBottom>
-              No books found
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-              Start building your library by requesting books!
+      {/* Main Content */}
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          width: `calc(100% - ${DRAWER_WIDTH}px)`,
+        }}
+      >
+        <AppBar position="fixed" sx={{ backgroundColor: '#1a1a1a', zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+          <Toolbar>
+            <LibraryIcon sx={{ mr: 2 }} />
+            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+              BookServe
             </Typography>
             <Button
-              variant="contained"
+              color="inherit"
               startIcon={<AddIcon />}
               onClick={() => navigate('/request')}
+              sx={{ mr: 2 }}
             >
-              Request Your First Book
+              Request Book
             </Button>
-          </Box>
-        ) : (
-          <>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Button
+              color="inherit"
+              onClick={() => navigate('/my-requests')}
+              sx={{ mr: 2 }}
+            >
+              My Requests
+            </Button>
+            <IconButton color="inherit" onClick={onLogout}>
+              <LogoutIcon />
+            </IconButton>
+          </Toolbar>
+        </AppBar>
 
-              <Typography variant="h5" gutterBottom sx={{ mb: 0 }}>
-
-                Your Library ({totalBooks} books)
-
-              </Typography>
-
-              <Button
-
-                variant="outlined"
-
-                startIcon={<RefreshIcon />}
-
-                onClick={handleRefreshAllMetadata}
-
-                disabled={refreshingMetadata}
-
-                sx={{
-
-                  borderColor: '#e50914',
-
-                  color: '#e50914',
-
-                  '&:hover': {
-
+        <Container maxWidth="xl" sx={{ mt: 10, pb: 4 }}>
+          {/* Search Bar */}
+          <Box component="form" onSubmit={handleSearch} sx={{ mb: 4 }}>
+            <TextField
+              fullWidth
+              variant="outlined"
+              placeholder="Search books by title, author, or ISBN..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                backgroundColor: '#1a1a1a',
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': {
+                    borderColor: '#333',
+                  },
+                  '&:hover fieldset': {
                     borderColor: '#e50914',
-
-                    backgroundColor: 'rgba(229, 9, 20, 0.1)',
-
                   },
+                },
+              }}
+            />
+          </Box>
 
-                }}
-
+          {loading ? (
+            <Typography variant="h6" align="center" color="text.secondary">
+              Loading books...
+            </Typography>
+          ) : filteredBooks.length === 0 ? (
+            <Box sx={{ textAlign: 'center', mt: 8 }}>
+              <Typography variant="h5" color="text.secondary" gutterBottom>
+                {selectedAuthor || searchQuery ? 'No books match your filters' : 'No books found'}
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                {selectedAuthor || searchQuery 
+                  ? 'Try adjusting your filters or search term' 
+                  : 'Start building your library by requesting books!'}
+              </Typography>
+              {(selectedAuthor || searchQuery) && (
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setSelectedAuthor(null);
+                    setSearchQuery('');
+                  }}
+                  sx={{ mr: 2 }}
+                >
+                  Clear Filters
+                </Button>
+              )}
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => navigate('/request')}
               >
-
-                {refreshingMetadata ? 'Refreshing All...' : 'Refresh All Covers'}
-
+                Request Your First Book
               </Button>
-
             </Box>
-            <Grid container spacing={3}>
-              {books.map((book) => (
-                <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={book.id}>
-                  <BookCard book={book} onUpdate={loadBooks} />
-                </Grid>
-              ))}
-            </Grid>
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-              <TablePagination
-                component="div"
-                count={totalBooks}
-                page={page}
-                onPageChange={handleChangePage}
-                rowsPerPage={rowsPerPage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-                rowsPerPageOptions={[12, 24, 48, 96]}
-                labelRowsPerPage="Books per page:"
-                sx={{
-                  color: '#fff',
-                  '& .MuiTablePagination-select': {
-                    color: '#fff',
-                  },
-                  '& .MuiTablePagination-selectIcon': {
-                    color: '#fff',
-                  },
-                  '& .MuiTablePagination-displayedRows': {
-                    color: '#fff',
-                  },
-                  '& .MuiIconButton-root': {
-                    color: '#fff',
-                  },
-                }}
-              />
-            </Box>
-          </>
-        )}
-      </Container>
+          ) : (
+            <>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h5" gutterBottom sx={{ mb: 0 }}>
+                  {selectedAuthor ? (
+                    <>
+                      Books by {selectedAuthor} ({filteredBooks.length})
+                    </>
+                  ) : (
+                    <>
+                      Your Library ({filteredBooks.length} book{filteredBooks.length !== 1 ? 's' : ''})
+                    </>
+                  )}
+                </Typography>
+                <Button
+                  variant="outlined"
+                  startIcon={<RefreshIcon />}
+                  onClick={handleRefreshAllMetadata}
+                  disabled={refreshingMetadata}
+                  sx={{
+                    borderColor: '#e50914',
+                    color: '#e50914',
+                    '&:hover': {
+                      borderColor: '#e50914',
+                      backgroundColor: 'rgba(229, 9, 20, 0.1)',
+                    },
+                  }}
+                >
+                  {refreshingMetadata ? 'Refreshing All...' : 'Refresh All Covers'}
+                </Button>
+              </Box>
+              <Grid container spacing={3}>
+                {filteredBooks.map((book) => (
+                  <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={book.id}>
+                    <BookCard book={book} onUpdate={loadBooks} />
+                  </Grid>
+                ))}
+              </Grid>
+            </>
+          )}
+        </Container>
+      </Box>
     </Box>
   );
 };
