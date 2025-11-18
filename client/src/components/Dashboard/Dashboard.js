@@ -37,15 +37,33 @@ const Dashboard = ({ onLogout }) => {
   const [rowsPerPage, setRowsPerPage] = useState(24);
   const [totalBooks, setTotalBooks] = useState(0);
 
+  // Sort and filter states
+  const [sortBy, setSortBy] = useState('added_at');
+  const [sortOrder, setSortOrder] = useState('DESC');
+  const [filterAuthor, setFilterAuthor] = useState('');
+  const [filterYear, setFilterYear] = useState('');
+  const [filterPublisher, setFilterPublisher] = useState('');
+  const [filterLanguage, setFilterLanguage] = useState('');
+  const [filterFormat, setFilterFormat] = useState('');
+
   useEffect(() => {
     loadBooks();
-  }, [page, rowsPerPage]);
+  }, [page, rowsPerPage, sortBy, sortOrder, filterAuthor, filterYear, filterPublisher, filterLanguage, filterFormat]);
 
   const loadBooks = async () => {
     try {
       setLoading(true);
       const offset = page * rowsPerPage;
-      const response = await booksAPI.getAll(rowsPerPage, offset);
+
+      // Build filters object
+      const filters = {};
+      if (filterAuthor) filters.author = filterAuthor;
+      if (filterYear) filters.year = filterYear;
+      if (filterPublisher) filters.publisher = filterPublisher;
+      if (filterLanguage) filters.language = filterLanguage;
+      if (filterFormat) filters.format = filterFormat;
+
+      const response = await booksAPI.getAll(rowsPerPage, offset, sortBy, sortOrder, filters);
       setBooks(response.data.books);
       setTotalBooks(response.data.total);
     } catch (error) {
@@ -154,6 +172,225 @@ const Dashboard = ({ onLogout }) => {
               },
             }}
           />
+        </Box>
+
+        {/* Sort and Filter Controls */}
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            Sort & Filter
+          </Typography>
+          <Grid container spacing={2}>
+            {/* Sort By */}
+            <Grid item xs={12} sm={6} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Sort By</InputLabel>
+                <Select
+                  value={sortBy}
+                  label="Sort By"
+                  onChange={(e) => {
+                    setSortBy(e.target.value);
+                    setPage(0);
+                  }}
+                  sx={{
+                    backgroundColor: '#1a1a1a',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#333',
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#e50914',
+                    },
+                  }}
+                >
+                  <MenuItem value="title">Title</MenuItem>
+                  <MenuItem value="author">Author</MenuItem>
+                  <MenuItem value="added_at">Date Added</MenuItem>
+                  <MenuItem value="published_date">Publication Date</MenuItem>
+                  <MenuItem value="average_rating">Rating</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Sort Order */}
+            <Grid item xs={12} sm={6} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Order</InputLabel>
+                <Select
+                  value={sortOrder}
+                  label="Order"
+                  onChange={(e) => {
+                    setSortOrder(e.target.value);
+                    setPage(0);
+                  }}
+                  sx={{
+                    backgroundColor: '#1a1a1a',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#333',
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#e50914',
+                    },
+                  }}
+                >
+                  <MenuItem value="ASC">Ascending (A-Z, Old-New)</MenuItem>
+                  <MenuItem value="DESC">Descending (Z-A, New-Old)</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Filter by Author */}
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                fullWidth
+                label="Filter by Author"
+                value={filterAuthor}
+                onChange={(e) => {
+                  setFilterAuthor(e.target.value);
+                  setPage(0);
+                }}
+                sx={{
+                  backgroundColor: '#1a1a1a',
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': {
+                      borderColor: '#333',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: '#e50914',
+                    },
+                  },
+                }}
+              />
+            </Grid>
+
+            {/* Filter by Year */}
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                fullWidth
+                label="Filter by Year"
+                value={filterYear}
+                onChange={(e) => {
+                  setFilterYear(e.target.value);
+                  setPage(0);
+                }}
+                placeholder="e.g., 2023"
+                sx={{
+                  backgroundColor: '#1a1a1a',
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': {
+                      borderColor: '#333',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: '#e50914',
+                    },
+                  },
+                }}
+              />
+            </Grid>
+
+            {/* Filter by Publisher */}
+            <Grid item xs={12} sm={6} md={4}>
+              <TextField
+                fullWidth
+                label="Filter by Publisher"
+                value={filterPublisher}
+                onChange={(e) => {
+                  setFilterPublisher(e.target.value);
+                  setPage(0);
+                }}
+                sx={{
+                  backgroundColor: '#1a1a1a',
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': {
+                      borderColor: '#333',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: '#e50914',
+                    },
+                  },
+                }}
+              />
+            </Grid>
+
+            {/* Filter by Language */}
+            <Grid item xs={12} sm={6} md={4}>
+              <TextField
+                fullWidth
+                label="Filter by Language"
+                value={filterLanguage}
+                onChange={(e) => {
+                  setFilterLanguage(e.target.value);
+                  setPage(0);
+                }}
+                placeholder="e.g., en"
+                sx={{
+                  backgroundColor: '#1a1a1a',
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': {
+                      borderColor: '#333',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: '#e50914',
+                    },
+                  },
+                }}
+              />
+            </Grid>
+
+            {/* Filter by Format */}
+            <Grid item xs={12} sm={6} md={4}>
+              <FormControl fullWidth>
+                <InputLabel>Filter by Format</InputLabel>
+                <Select
+                  value={filterFormat}
+                  label="Filter by Format"
+                  onChange={(e) => {
+                    setFilterFormat(e.target.value);
+                    setPage(0);
+                  }}
+                  sx={{
+                    backgroundColor: '#1a1a1a',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#333',
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#e50914',
+                    },
+                  }}
+                >
+                  <MenuItem value="">All Formats</MenuItem>
+                  <MenuItem value="epub">EPUB</MenuItem>
+                  <MenuItem value="pdf">PDF</MenuItem>
+                  <MenuItem value="mobi">MOBI</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Clear Filters Button */}
+            <Grid item xs={12}>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setFilterAuthor('');
+                  setFilterYear('');
+                  setFilterPublisher('');
+                  setFilterLanguage('');
+                  setFilterFormat('');
+                  setSortBy('added_at');
+                  setSortOrder('DESC');
+                  setPage(0);
+                }}
+                sx={{
+                  borderColor: '#e50914',
+                  color: '#e50914',
+                  '&:hover': {
+                    borderColor: '#e50914',
+                    backgroundColor: 'rgba(229, 9, 20, 0.1)',
+                  },
+                }}
+              >
+                Clear All Filters
+              </Button>
+            </Grid>
+          </Grid>
         </Box>
 
         {loading ? (

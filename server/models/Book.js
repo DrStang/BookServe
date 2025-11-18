@@ -46,16 +46,57 @@ class Book {
     });
   }
 
-  static async findAll(limit = 100, offset = 0) {
+  static async findAll(limit = 100, offset = 0, sortBy = 'added_at', sortOrder = 'DESC', filters = {}) {
     return new Promise((resolve, reject) => {
-      db.all(
-        'SELECT * FROM books ORDER BY added_at DESC LIMIT ? OFFSET ?',
-        [limit, offset],
-        (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows);
-        }
-      );
+      // Build WHERE clause for filters
+      const whereClauses = [];
+      const params = [];
+
+      if (filters.author) {
+        whereClauses.push('author LIKE ?');
+        params.push(`%${filters.author}%`);
+      }
+
+      if (filters.publisher) {
+        whereClauses.push('publisher LIKE ?');
+        params.push(`%${filters.publisher}%`);
+      }
+
+      if (filters.year) {
+        whereClauses.push('published_date LIKE ?');
+        params.push(`%${filters.year}%`);
+      }
+
+      if (filters.language) {
+        whereClauses.push('language = ?');
+        params.push(filters.language);
+      }
+
+      if (filters.format) {
+        whereClauses.push('format = ?');
+        params.push(filters.format);
+      }
+
+      if (filters.categories) {
+        whereClauses.push('categories LIKE ?');
+        params.push(`%${filters.categories}%`);
+      }
+
+      const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+      // Validate sortBy to prevent SQL injection
+      const validSortFields = ['title', 'author', 'added_at', 'published_date', 'average_rating'];
+      const sortField = validSortFields.includes(sortBy) ? sortBy : 'added_at';
+      const sortDirection = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+      params.push(limit, offset);
+
+      const query = `SELECT * FROM books ${whereClause} ORDER BY ${sortField} ${sortDirection} LIMIT ? OFFSET ?`;
+
+      db.all(query, params, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
     });
   }
 
@@ -107,9 +148,45 @@ class Book {
     });
   }
 
-  static async count() {
+  static async count(filters = {}) {
     return new Promise((resolve, reject) => {
-      db.get('SELECT COUNT(*) as count FROM books', (err, row) => {
+      // Build WHERE clause for filters
+      const whereClauses = [];
+      const params = [];
+
+      if (filters.author) {
+        whereClauses.push('author LIKE ?');
+        params.push(`%${filters.author}%`);
+      }
+
+      if (filters.publisher) {
+        whereClauses.push('publisher LIKE ?');
+        params.push(`%${filters.publisher}%`);
+      }
+
+      if (filters.year) {
+        whereClauses.push('published_date LIKE ?');
+        params.push(`%${filters.year}%`);
+      }
+
+      if (filters.language) {
+        whereClauses.push('language = ?');
+        params.push(filters.language);
+      }
+
+      if (filters.format) {
+        whereClauses.push('format = ?');
+        params.push(filters.format);
+      }
+
+      if (filters.categories) {
+        whereClauses.push('categories LIKE ?');
+        params.push(`%${filters.categories}%`);
+      }
+
+      const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+      db.get(`SELECT COUNT(*) as count FROM books ${whereClause}`, params, (err, row) => {
         if (err) reject(err);
         else resolve(row.count);
       });

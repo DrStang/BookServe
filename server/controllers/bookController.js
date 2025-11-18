@@ -5,15 +5,45 @@ const epubMetadataService = require('../services/epubMetadataService');
 
 exports.getAllBooks = async (req, res) => {
   try {
-    const { limit = 100, offset = 0 } = req.query;
-    const books = await Book.findAll(parseInt(limit), parseInt(offset));
-    const total = await Book.count();
+    const {
+      limit = 100,
+      offset = 0,
+      sortBy = 'added_at',
+      sortOrder = 'DESC',
+      author,
+      publisher,
+      year,
+      language,
+      format,
+      categories
+    } = req.query;
+
+    // Build filters object
+    const filters = {};
+    if (author) filters.author = author;
+    if (publisher) filters.publisher = publisher;
+    if (year) filters.year = year;
+    if (language) filters.language = language;
+    if (format) filters.format = format;
+    if (categories) filters.categories = categories;
+
+    const books = await Book.findAll(
+      parseInt(limit),
+      parseInt(offset),
+      sortBy,
+      sortOrder,
+      filters
+    );
+    const total = await Book.count(filters);
 
     res.json({
       books,
       total,
       limit: parseInt(limit),
-      offset: parseInt(offset)
+      offset: parseInt(offset),
+      sortBy,
+      sortOrder,
+      filters
     });
   } catch (error) {
     console.error('Error fetching books:', error);
