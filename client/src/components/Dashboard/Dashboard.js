@@ -48,9 +48,15 @@ const Dashboard = ({ onLogout }) => {
   const [displayedBooks, setDisplayedBooks] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAuthor, setSelectedAuthor] = useState(null);
+  const [selectedGenre, setSelectedGenre] = useState(null);
+  const [selectedSeries, setSelectedSeries] = useState(null);
+  const [selectedYear, setSelectedYear] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshingMetadata, setRefreshingMetadata] = useState(false);
   const [authorFilterOpen, setAuthorFilterOpen] = useState(true);
+  const [genreFilterOpen, setGenreFilterOpen] = useState(false);
+  const [seriesFilterOpen, setSeriesFilterOpen] = useState(false);
+  const [yearFilterOpen, setYearFilterOpen] = useState(false);
   const [sortBy, setSortBy] = useState('added_desc');
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -60,7 +66,7 @@ const Dashboard = ({ onLogout }) => {
 
   useEffect(() => {
     applyFilters();
-  }, [allBooks, selectedAuthor, searchQuery, sortBy]);
+  }, [allBooks, selectedAuthor, selectedGenre, selectedSeries, selectedYear, searchQuery, sortBy]);
 
   useEffect(() => {
     applyPagination();
@@ -69,7 +75,7 @@ const Dashboard = ({ onLogout }) => {
   useEffect(() => {
     // Reset to page 1 when filters change
     setCurrentPage(1);
-  }, [selectedAuthor, searchQuery, sortBy]);
+  }, [selectedAuthor, selectedGenre, selectedSeries, selectedYear, searchQuery, sortBy]);
 
   const loadBooks = async () => {
     try {
@@ -96,6 +102,55 @@ const Dashboard = ({ onLogout }) => {
       .map(([author, count]) => ({ author, count }));
   }, [allBooks]);
 
+  // Calculate genre counts
+  const genreCounts = useMemo(() => {
+    const counts = {};
+    allBooks.forEach(book => {
+      if (book.categories) {
+        // Split categories by comma and trim
+        const genres = book.categories.split(',').map(g => g.trim());
+        genres.forEach(genre => {
+          if (genre) {
+            counts[genre] = (counts[genre] || 0) + 1;
+          }
+        });
+      }
+    });
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([genre, count]) => ({ genre, count }));
+  }, [allBooks]);
+
+  // Calculate series counts
+  const seriesCounts = useMemo(() => {
+    const counts = {};
+    allBooks.forEach(book => {
+      if (book.series) {
+        counts[book.series] = (counts[book.series] || 0) + 1;
+      }
+    });
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([series, count]) => ({ series, count }));
+  }, [allBooks]);
+
+  // Calculate year counts
+  const yearCounts = useMemo(() => {
+    const counts = {};
+    allBooks.forEach(book => {
+      if (book.published_date) {
+        // Extract year from published_date (could be "2023", "2023-01-01", etc.)
+        const year = book.published_date.split('-')[0];
+        if (year && year.length === 4) {
+          counts[year] = (counts[year] || 0) + 1;
+        }
+      }
+    });
+    return Object.entries(counts)
+      .sort((a, b) => b[0].localeCompare(a[0])) // Sort by year descending
+      .map(([year, count]) => ({ year, count }));
+  }, [allBooks]);
+
   const applyFilters = () => {
     let filtered = [...allBooks];
 
@@ -113,6 +168,25 @@ const Dashboard = ({ onLogout }) => {
     if (selectedAuthor) {
       filtered = filtered.filter(book => 
         (book.author || 'Unknown Author') === selectedAuthor
+      );
+    }
+
+    // Apply genre filter
+    if (selectedGenre) {
+      filtered = filtered.filter(book => 
+        book.categories?.split(',').map(g => g.trim()).includes(selectedGenre)
+      );
+    }
+
+    // Apply series filter
+    if (selectedSeries) {
+      filtered = filtered.filter(book => book.series === selectedSeries);
+    }
+
+    // Apply year filter
+    if (selectedYear) {
+      filtered = filtered.filter(book => 
+        book.published_date?.startsWith(selectedYear)
       );
     }
 
@@ -177,10 +251,6 @@ const Dashboard = ({ onLogout }) => {
     // Search is now handled by useEffect
   };
 
-  const handleAuthorClick = (author) => {
-    setSelectedAuthor(selectedAuthor === author ? null : author);
-  };
-
   const handleRefreshAllMetadata = async () => {
     try {
       setRefreshingMetadata(true);
@@ -220,20 +290,57 @@ const Dashboard = ({ onLogout }) => {
           </Box>
 
           {/* Active Filters */}
-          {selectedAuthor && (
+          {(selectedAuthor || selectedGenre || selectedSeries || selectedYear) && (
             <Box sx={{ mb: 2 }}>
               <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
                 Active Filters:
               </Typography>
-              <Chip
-                label={selectedAuthor}
-                onDelete={() => setSelectedAuthor(null)}
-                size="small"
-                sx={{ 
-                  backgroundColor: '#e50914',
-                  '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' }
-                }}
-              />
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {selectedAuthor && (
+                  <Chip
+                    label={`Author: ${selectedAuthor}`}
+                    onDelete={() => setSelectedAuthor(null)}
+                    size="small"
+                    sx={{ 
+                      backgroundColor: '#e50914',
+                      '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' }
+                    }}
+                  />
+                )}
+                {selectedGenre && (
+                  <Chip
+                    label={`Genre: ${selectedGenre}`}
+                    onDelete={() => setSelectedGenre(null)}
+                    size="small"
+                    sx={{ 
+                      backgroundColor: '#e50914',
+                      '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' }
+                    }}
+                  />
+                )}
+                {selectedSeries && (
+                  <Chip
+                    label={`Series: ${selectedSeries}`}
+                    onDelete={() => setSelectedSeries(null)}
+                    size="small"
+                    sx={{ 
+                      backgroundColor: '#e50914',
+                      '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' }
+                    }}
+                  />
+                )}
+                {selectedYear && (
+                  <Chip
+                    label={`Year: ${selectedYear}`}
+                    onDelete={() => setSelectedYear(null)}
+                    size="small"
+                    sx={{ 
+                      backgroundColor: '#e50914',
+                      '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' }
+                    }}
+                  />
+                )}
+              </Box>
             </Box>
           )}
 
@@ -250,12 +357,12 @@ const Dashboard = ({ onLogout }) => {
             </ListItemButton>
 
             <Collapse in={authorFilterOpen} timeout="auto" unmountOnExit>
-              <List sx={{ maxHeight: '500px', overflow: 'auto', pt: 0 }}>
+              <List sx={{ maxHeight: '300px', overflow: 'auto', pt: 0 }}>
                 {authorCounts.map(({ author, count }) => (
                   <ListItem key={author} disablePadding>
                     <ListItemButton
                       selected={selectedAuthor === author}
-                      onClick={() => handleAuthorClick(author)}
+                      onClick={() => setSelectedAuthor(selectedAuthor === author ? null : author)}
                       sx={{
                         py: 0.5,
                         px: 2,
@@ -290,6 +397,175 @@ const Dashboard = ({ onLogout }) => {
               </List>
             </Collapse>
           </Box>
+
+          <Divider sx={{ my: 2, borderColor: '#333' }} />
+
+          {/* Genre Filter */}
+          {genreCounts.length > 0 && (
+            <>
+              <Box>
+                <ListItemButton onClick={() => setGenreFilterOpen(!genreFilterOpen)} sx={{ px: 0 }}>
+                  <ListItemText 
+                    primary="Genre" 
+                    primaryTypographyProps={{ fontWeight: 600 }}
+                  />
+                  {genreFilterOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </ListItemButton>
+
+                <Collapse in={genreFilterOpen} timeout="auto" unmountOnExit>
+                  <List sx={{ maxHeight: '300px', overflow: 'auto', pt: 0 }}>
+                    {genreCounts.map(({ genre, count }) => (
+                      <ListItem key={genre} disablePadding>
+                        <ListItemButton
+                          selected={selectedGenre === genre}
+                          onClick={() => setSelectedGenre(selectedGenre === genre ? null : genre)}
+                          sx={{
+                            py: 0.5,
+                            px: 2,
+                            '&.Mui-selected': {
+                              backgroundColor: 'rgba(229, 9, 20, 0.2)',
+                              '&:hover': {
+                                backgroundColor: 'rgba(229, 9, 20, 0.3)',
+                              },
+                            },
+                          }}
+                        >
+                          <ListItemText 
+                            primary={genre}
+                            primaryTypographyProps={{
+                              fontSize: '0.875rem',
+                              noWrap: true,
+                            }}
+                          />
+                          <Chip
+                            label={count}
+                            size="small"
+                            sx={{
+                              height: '20px',
+                              minWidth: '28px',
+                              fontSize: '0.75rem',
+                              backgroundColor: selectedGenre === genre ? '#e50914' : '#333',
+                            }}
+                          />
+                        </ListItemButton>
+                      </ListItem>
+                    ))}
+                  </List>
+                </Collapse>
+              </Box>
+              <Divider sx={{ my: 2, borderColor: '#333' }} />
+            </>
+          )}
+
+          {/* Series Filter */}
+          {seriesCounts.length > 0 && (
+            <>
+              <Box>
+                <ListItemButton onClick={() => setSeriesFilterOpen(!seriesFilterOpen)} sx={{ px: 0 }}>
+                  <ListItemText 
+                    primary="Series" 
+                    primaryTypographyProps={{ fontWeight: 600 }}
+                  />
+                  {seriesFilterOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </ListItemButton>
+
+                <Collapse in={seriesFilterOpen} timeout="auto" unmountOnExit>
+                  <List sx={{ maxHeight: '300px', overflow: 'auto', pt: 0 }}>
+                    {seriesCounts.map(({ series, count }) => (
+                      <ListItem key={series} disablePadding>
+                        <ListItemButton
+                          selected={selectedSeries === series}
+                          onClick={() => setSelectedSeries(selectedSeries === series ? null : series)}
+                          sx={{
+                            py: 0.5,
+                            px: 2,
+                            '&.Mui-selected': {
+                              backgroundColor: 'rgba(229, 9, 20, 0.2)',
+                              '&:hover': {
+                                backgroundColor: 'rgba(229, 9, 20, 0.3)',
+                              },
+                            },
+                          }}
+                        >
+                          <ListItemText 
+                            primary={series}
+                            primaryTypographyProps={{
+                              fontSize: '0.875rem',
+                              noWrap: true,
+                            }}
+                          />
+                          <Chip
+                            label={count}
+                            size="small"
+                            sx={{
+                              height: '20px',
+                              minWidth: '28px',
+                              fontSize: '0.75rem',
+                              backgroundColor: selectedSeries === series ? '#e50914' : '#333',
+                            }}
+                          />
+                        </ListItemButton>
+                      </ListItem>
+                    ))}
+                  </List>
+                </Collapse>
+              </Box>
+              <Divider sx={{ my: 2, borderColor: '#333' }} />
+            </>
+          )}
+
+          {/* Year Filter */}
+          {yearCounts.length > 0 && (
+            <Box>
+              <ListItemButton onClick={() => setYearFilterOpen(!yearFilterOpen)} sx={{ px: 0 }}>
+                <ListItemText 
+                  primary="Year Published" 
+                  primaryTypographyProps={{ fontWeight: 600 }}
+                />
+                {yearFilterOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              </ListItemButton>
+
+              <Collapse in={yearFilterOpen} timeout="auto" unmountOnExit>
+                <List sx={{ maxHeight: '300px', overflow: 'auto', pt: 0 }}>
+                  {yearCounts.map(({ year, count }) => (
+                    <ListItem key={year} disablePadding>
+                      <ListItemButton
+                        selected={selectedYear === year}
+                        onClick={() => setSelectedYear(selectedYear === year ? null : year)}
+                        sx={{
+                          py: 0.5,
+                          px: 2,
+                          '&.Mui-selected': {
+                            backgroundColor: 'rgba(229, 9, 20, 0.2)',
+                            '&:hover': {
+                              backgroundColor: 'rgba(229, 9, 20, 0.3)',
+                            },
+                          },
+                        }}
+                      >
+                        <ListItemText 
+                          primary={year}
+                          primaryTypographyProps={{
+                            fontSize: '0.875rem',
+                          }}
+                        />
+                        <Chip
+                          label={count}
+                          size="small"
+                          sx={{
+                            height: '20px',
+                            minWidth: '28px',
+                            fontSize: '0.75rem',
+                            backgroundColor: selectedYear === year ? '#e50914' : '#333',
+                          }}
+                        />
+                      </ListItemButton>
+                    </ListItem>
+                  ))}
+                </List>
+              </Collapse>
+            </Box>
+          )}
         </Box>
       </Drawer>
 
@@ -365,18 +641,21 @@ const Dashboard = ({ onLogout }) => {
           ) : filteredBooks.length === 0 ? (
             <Box sx={{ textAlign: 'center', mt: 8 }}>
               <Typography variant="h5" color="text.secondary" gutterBottom>
-                {selectedAuthor || searchQuery ? 'No books match your filters' : 'No books found'}
+                {selectedAuthor || selectedGenre || selectedSeries || selectedYear || searchQuery ? 'No books match your filters' : 'No books found'}
               </Typography>
               <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                {selectedAuthor || searchQuery 
+                {selectedAuthor || selectedGenre || selectedSeries || selectedYear || searchQuery 
                   ? 'Try adjusting your filters or search term' 
                   : 'Start building your library by requesting books!'}
               </Typography>
-              {(selectedAuthor || searchQuery) && (
+              {(selectedAuthor || selectedGenre || selectedSeries || selectedYear || searchQuery) && (
                 <Button
                   variant="outlined"
                   onClick={() => {
                     setSelectedAuthor(null);
+                    setSelectedGenre(null);
+                    setSelectedSeries(null);
+                    setSelectedYear(null);
                     setSearchQuery('');
                   }}
                   sx={{ mr: 2 }}
