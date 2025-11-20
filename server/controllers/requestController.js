@@ -136,7 +136,7 @@ async function processBookRequest(requestId) {
 
     if (!nzbResults || nzbResults.length === 0) {
       await BookRequest.updateStatus(requestId, 'failed', {
-        error_message: 'No results found in NZBHydra'
+        error_message: 'No books found for download.  Will retry.'
       });
       // Schedule retry
       const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
