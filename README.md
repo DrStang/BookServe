@@ -24,6 +24,8 @@ A Plex-like media server for digital books (EPUB). Manage your personal book lib
 - **Request Tracking** - Monitor the status of your book requests
 - **Auto-Import** - Automatically import completed downloads into your library
 - **Automatic Metadata Enrichment** - Newly added books automatically fetch metadata from Google Books and OpenLibrary
+- **Smart Retry System** - Failed book searches are automatically retried every few days (configurable) until found or max retries reached
+- **Email Notifications** - Get notified when a previously failed book search succeeds on retry
 
 ## Architecture
 
@@ -149,6 +151,11 @@ OPENLIBRARY_API_URL=https://openlibrary.org
 # Auto-import settings
 AUTO_IMPORT_ENABLED=true
 AUTO_IMPORT_INTERVAL=300000
+
+# Book Search Retry Settings
+RETRY_ENABLED=true
+RETRY_CHECK_INTERVAL=21600000  # Check every 6 hours (in milliseconds)
+RETRY_INTERVAL_DAYS=3          # Wait 3 days between retry attempts
 ```
 
 ### Email Configuration
@@ -170,6 +177,21 @@ For Gmail:
 2. Get your API key from Config → General
 3. Add the URL and API key to `.env`
 4. Make sure SABnzbd has a category configured for ebooks
+
+### Book Search Retry Configuration
+
+The retry system automatically re-searches for books that failed to be found on NZBHydra:
+
+1. **RETRY_ENABLED** - Set to `true` to enable automatic retries (default: true)
+2. **RETRY_CHECK_INTERVAL** - How often to check for failed requests to retry in milliseconds (default: 21600000 = 6 hours)
+3. **RETRY_INTERVAL_DAYS** - How many days to wait between retry attempts (default: 3 days)
+4. **Max Retries** - Each request will be retried up to 10 times (stored in database, can be customized per request)
+
+When a book search fails, the system will:
+- Automatically schedule it for retry in X days (configured by RETRY_INTERVAL_DAYS)
+- Re-search NZBHydra every X days until the book is found or max retries is reached
+- Send an email notification to the user when the book is successfully found and downloaded (if email notifications are enabled)
+- Track retry attempts and timing in the database
 
 ## Usage
 
@@ -231,7 +253,7 @@ For Gmail:
    - **Searching** - Searching NZBHydra for the book
    - **Downloading** - Download in progress via SABnzbd
    - **Completed** - Book added to your library
-   - **Failed** - Request failed (with error message)
+   - **Failed** - Request failed (with error message, will be automatically retried if retry system is enabled)
 
 ## API Documentation
 
@@ -386,6 +408,7 @@ BookServe/
 │   │   └── metadata.js
 │   ├── services/         # Background services
 │   │   ├── downloadMonitor.js
+│   │   ├── retryService.js
 │   │   ├── googleBooksService.js
 │   │   ├── openLibraryService.js
 │   │   └── metadataService.js
@@ -434,9 +457,9 @@ BookServe/
 
 The SQLite database includes the following tables:
 
-- **users** - User accounts
+- **users** - User accounts (with email notification preferences)
 - **books** - Book library
-- **book_requests** - Book download requests
+- **book_requests** - Book download requests (with retry tracking: retry_count, max_retries, next_retry_at, last_retry_at)
 - **reading_progress** - User reading progress
 - **download_history** - Download tracking
 

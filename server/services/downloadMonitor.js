@@ -83,6 +83,10 @@ class DownloadMonitor {
           await BookRequest.updateStatus(request.id, 'failed', {
             error_message: 'Download failed in SABnzbd'
           });
+          // Schedule retry
+          const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
+          await BookRequest.scheduleRetry(request.id, retryIntervalDays);
+          console.log(`Scheduled retry for request ${request.id} in ${retryIntervalDays} days`);
         }
       }
     } catch (error) {
@@ -117,6 +121,9 @@ class DownloadMonitor {
         await BookRequest.updateStatus(request.id, 'failed', {
           error_message: `Download directory not found: ${downloadPath}`
         });
+        // Schedule retry
+        const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
+        await BookRequest.scheduleRetry(request.id, retryIntervalDays);
         return;
       }
 
@@ -131,6 +138,9 @@ class DownloadMonitor {
         await BookRequest.updateStatus(request.id, 'failed', {
           error_message: 'No EPUB file found in download'
         });
+        // Schedule retry
+        const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
+        await BookRequest.scheduleRetry(request.id, retryIntervalDays);
         return;
       }
 
@@ -145,6 +155,9 @@ class DownloadMonitor {
         await BookRequest.updateStatus(request.id, 'failed', {
           error_message: `EPUB file not accessible: ${sourcePath}`
         });
+        // Schedule retry
+        const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
+        await BookRequest.scheduleRetry(request.id, retryIntervalDays);
         return;
       }
 
@@ -203,6 +216,9 @@ class DownloadMonitor {
       await BookRequest.updateStatus(request.id, 'failed', {
         error_message: error.message
       });
+      // Schedule retry
+      const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
+      await BookRequest.scheduleRetry(request.id, retryIntervalDays);
     }
   }
 }

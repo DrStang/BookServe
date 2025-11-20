@@ -138,6 +138,10 @@ async function processBookRequest(requestId) {
       await BookRequest.updateStatus(requestId, 'failed', {
         error_message: 'No results found in NZBHydra'
       });
+      // Schedule retry
+      const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
+      await BookRequest.scheduleRetry(requestId, retryIntervalDays);
+      console.log(`Scheduled retry for request ${requestId} in ${retryIntervalDays} days`);
       return;
     }
 
@@ -151,6 +155,10 @@ async function processBookRequest(requestId) {
       await BookRequest.updateStatus(requestId, 'failed', {
         error_message: 'Failed to add to SABnzbd'
       });
+      // Schedule retry
+      const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
+      await BookRequest.scheduleRetry(requestId, retryIntervalDays);
+      console.log(`Scheduled retry for request ${requestId} in ${retryIntervalDays} days`);
       return;
     }
 
@@ -164,6 +172,10 @@ async function processBookRequest(requestId) {
     await BookRequest.updateStatus(requestId, 'failed', {
       error_message: error.message
     });
+    // Schedule retry
+    const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
+    await BookRequest.scheduleRetry(requestId, retryIntervalDays);
+    console.log(`Scheduled retry for request ${requestId} in ${retryIntervalDays} days`);
   }
 }
 

@@ -99,6 +99,15 @@ const initDatabase = () => {
       addColumnIfNotExists('books', 'info_link', 'TEXT');
       addColumnIfNotExists('books', 'metadata_updated_at', 'DATETIME');
 
+      // Add retry columns to book_requests table
+      addColumnIfNotExists('book_requests', 'retry_count', 'INTEGER DEFAULT 0');
+      addColumnIfNotExists('book_requests', 'max_retries', 'INTEGER DEFAULT 10');
+      addColumnIfNotExists('book_requests', 'next_retry_at', 'DATETIME');
+      addColumnIfNotExists('book_requests', 'last_retry_at', 'DATETIME');
+
+      // Add notification preferences to users table
+      addColumnIfNotExists('users', 'email_notifications', 'INTEGER DEFAULT 1');
+
       // Book requests table
       db.run(`
         CREATE TABLE IF NOT EXISTS book_requests (

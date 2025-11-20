@@ -71,3 +71,24 @@ exports.testEmail = async (req, res) => {
     res.status(500).json({ error: 'Email configuration error: ' + error.message });
   }
 };
+
+// Send notification email (for retry service)
+exports.sendNotificationEmail = async (to, subject, text, html) => {
+  try {
+    const transporter = createTransporter();
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: to,
+      subject: subject,
+      text: text,
+      html: html
+    };
+
+    await transporter.sendMail(mailOptions);
+    return { success: true };
+  } catch (error) {
+    console.error('Error sending notification email:', error);
+    throw error;
+  }
+};

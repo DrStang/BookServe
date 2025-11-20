@@ -104,6 +104,74 @@ class BookRequest {
       );
     });
   }
+
+  // Get failed requests that are ready for retry
+  static async getFailedRequestsForRetry() {
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT br.*, u.email, u.username, u.email_notifications
+         FROM book_requests br
+         JOIN users u ON br.user_id = u.id
+         WHERE br.status = 'failed'
+         AND br.retry_count < br.max_retries
+         AND (br.next_retry_at IS NULL OR br.next_retry_at <= datetime('now'))`,
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        }
+      );
+    });
+  }
+
+  // Schedule a request for retry
+  static async scheduleRetry(id, retryIntervalDays = 3) {
+    return new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE book_requests
+         SET next_retry_at = datetime('now', '+' || ? || ' days')
+         WHERE id = ?`,
+        [retryIntervalDays, id],
+        function(err) {
+          if (err) reject(err);
+          else resolve({ updated: this.changes > 0 });
+        }
+      );
+    });
+  }
+
+  // Increment retry count and update last retry timestamp
+  static async incrementRetryCount(id) {
+    return new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE book_requests
+         SET retry_count = retry_count + 1,
+             last_retry_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [id],
+        function(err) {
+          if (err) reject(err);
+          else resolve({ updated: this.changes > 0 });
+        }
+      );
+    });
+  }
+
+  // Reset retry status when moving to a non-failed state
+  static async resetRetryStatus(id) {
+    return new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE book_requests
+         SET next_retry_at = NULL,
+             retry_count = 0
+         WHERE id = ?`,
+        [id],
+        function(err) {
+          if (err) reject(err);
+          else resolve({ updated: this.changes > 0 });
+        }
+      );
+    });
+  }
 }
 
 module.exports = BookRequest;
