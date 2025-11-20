@@ -7,6 +7,7 @@ const morgan = require('morgan');
 const path = require('path');
 const { initDatabase } = require('./database/init');
 const downloadMonitor = require('./services/downloadMonitor');
+const retryService = require('./services/retryService');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -73,6 +74,9 @@ const startServer = async () => {
     // Start download monitor
     downloadMonitor.start();
 
+    // Start retry service
+    retryService.start();
+
     app.listen(PORT, () => {
       console.log(`
 ╔════════════════════════════════════════╗
@@ -95,12 +99,14 @@ const startServer = async () => {
 process.on('SIGTERM', () => {
   console.log('SIGTERM received, shutting down gracefully...');
   downloadMonitor.stop();
+  retryService.stop();
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
   console.log('SIGINT received, shutting down gracefully...');
   downloadMonitor.stop();
+  retryService.stop();
   process.exit(0);
 });
 
