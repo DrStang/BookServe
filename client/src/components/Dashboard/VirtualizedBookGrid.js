@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { FixedSizeGrid as Grid } from 'react-window';
+import { Grid } from 'react-window';
 import { Box } from '@mui/material';
 import BookCard from './BookCard';
 
