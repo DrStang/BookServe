@@ -31,6 +31,8 @@ import {
   TableRow,
   Paper,
   Avatar,
+  Rating,
+  LinearProgress,
 } from '@mui/material';
 import {
   Search as SearchIcon,
