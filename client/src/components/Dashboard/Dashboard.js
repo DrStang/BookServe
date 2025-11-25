@@ -34,6 +34,7 @@ import {
   Rating,
   LinearProgress,
 } from '@mui/material';
+// Material UI Icons
 import {
   Search as SearchIcon,
   Logout as LogoutIcon,
