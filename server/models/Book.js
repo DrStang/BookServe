@@ -54,9 +54,19 @@ class Book {
       const whereClauses = [];
       const params = [];
 
+      if (filters.title) {
+        whereClauses.push('title LIKE ?');
+        params.push(`%${filters.title}%`);
+      }
+
       if (filters.author) {
         whereClauses.push('author LIKE ?');
         params.push(`%${filters.author}%`);
+      }
+
+      if (filters.isbn) {
+        whereClauses.push('(isbn LIKE ? OR isbn_13 LIKE ?)');
+        params.push(`%${filters.isbn}%`, `%${filters.isbn}%`);
       }
 
       if (filters.publisher) {
@@ -67,6 +77,28 @@ class Book {
       if (filters.year) {
         whereClauses.push('published_date LIKE ?');
         params.push(`%${filters.year}%`);
+      }
+
+      // Year range filters (yearFrom/yearTo)
+      if (filters.yearFrom) {
+        whereClauses.push('CAST(substr(published_date, 1, 4) AS INTEGER) >= ?');
+        params.push(parseInt(filters.yearFrom));
+      }
+
+      if (filters.yearTo) {
+        whereClauses.push('CAST(substr(published_date, 1, 4) AS INTEGER) <= ?');
+        params.push(parseInt(filters.yearTo));
+      }
+
+      // Rating range filters (ratingFrom/ratingTo)
+      if (filters.ratingFrom !== undefined && filters.ratingFrom !== null) {
+        whereClauses.push('average_rating >= ?');
+        params.push(parseFloat(filters.ratingFrom));
+      }
+
+      if (filters.ratingTo !== undefined && filters.ratingTo !== null) {
+        whereClauses.push('average_rating <= ?');
+        params.push(parseFloat(filters.ratingTo));
       }
 
       if (filters.language) {
@@ -156,9 +188,19 @@ class Book {
       const whereClauses = [];
       const params = [];
 
+      if (filters.title) {
+        whereClauses.push('title LIKE ?');
+        params.push(`%${filters.title}%`);
+      }
+
       if (filters.author) {
         whereClauses.push('author LIKE ?');
         params.push(`%${filters.author}%`);
+      }
+
+      if (filters.isbn) {
+        whereClauses.push('(isbn LIKE ? OR isbn_13 LIKE ?)');
+        params.push(`%${filters.isbn}%`, `%${filters.isbn}%`);
       }
 
       if (filters.publisher) {
@@ -169,6 +211,28 @@ class Book {
       if (filters.year) {
         whereClauses.push('published_date LIKE ?');
         params.push(`%${filters.year}%`);
+      }
+
+      // Year range filters (yearFrom/yearTo)
+      if (filters.yearFrom) {
+        whereClauses.push('CAST(substr(published_date, 1, 4) AS INTEGER) >= ?');
+        params.push(parseInt(filters.yearFrom));
+      }
+
+      if (filters.yearTo) {
+        whereClauses.push('CAST(substr(published_date, 1, 4) AS INTEGER) <= ?');
+        params.push(parseInt(filters.yearTo));
+      }
+
+      // Rating range filters (ratingFrom/ratingTo)
+      if (filters.ratingFrom !== undefined && filters.ratingFrom !== null) {
+        whereClauses.push('average_rating >= ?');
+        params.push(parseFloat(filters.ratingFrom));
+      }
+
+      if (filters.ratingTo !== undefined && filters.ratingTo !== null) {
+        whereClauses.push('average_rating <= ?');
+        params.push(parseFloat(filters.ratingTo));
       }
 
       if (filters.language) {
@@ -191,6 +255,73 @@ class Book {
       db.get(`SELECT COUNT(*) as count FROM books ${whereClause}`, params, (err, row) => {
         if (err) reject(err);
         else resolve(row.count);
+      });
+    });
+  }
+
+  static async findSimilar(bookId, limit = 10) {
+    return new Promise((resolve, reject) => {
+      // First, get the source book
+      db.get('SELECT * FROM books WHERE id = ?', [bookId], (err, sourceBook) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        if (!sourceBook) {
+          resolve([]);
+          return;
+        }
+
+        // Build similarity scoring query
+        const scoreComponents = [];
+        const params = [];
+
+        // Score by matching categories (highest weight)
+        if (sourceBook.categories) {
+          const categories = sourceBook.categories.split(',').map(c => c.trim());
+          categories.forEach(category => {
+            scoreComponents.push('CASE WHEN categories LIKE ? THEN 3 ELSE 0 END');
+            params.push(`%${category}%`);
+          });
+        }
+
+        // Score by same author (medium weight)
+        if (sourceBook.author) {
+          scoreComponents.push('CASE WHEN author = ? THEN 2 ELSE 0 END');
+          params.push(sourceBook.author);
+        }
+
+        // Score by similar rating (low weight)
+        if (sourceBook.average_rating) {
+          scoreComponents.push('CASE WHEN ABS(average_rating - ?) <= 0.5 THEN 1 ELSE 0 END');
+          params.push(sourceBook.average_rating);
+        }
+
+        // Score by same series (high weight)
+        if (sourceBook.series) {
+          scoreComponents.push('CASE WHEN series = ? THEN 4 ELSE 0 END');
+          params.push(sourceBook.series);
+        }
+
+        const scoreExpression = scoreComponents.length > 0
+          ? `(${scoreComponents.join(' + ')})`
+          : '0';
+
+        params.push(bookId); // Exclude the source book
+        params.push(limit);
+
+        const query = `
+          SELECT *, ${scoreExpression} as similarity_score
+          FROM books
+          WHERE id != ? AND ${scoreExpression} > 0
+          ORDER BY similarity_score DESC, average_rating DESC
+          LIMIT ?
+        `;
+
+        db.all(query, params, (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        });
       });
     });
   }

@@ -11,9 +11,15 @@ exports.getAllBooks = async (req, res) => {
       offset = 0,
       sortBy = 'added_at',
       sortOrder = 'DESC',
+      title,
       author,
+      isbn,
       publisher,
       year,
+      yearFrom,
+      yearTo,
+      ratingFrom,
+      ratingTo,
       language,
       format,
       categories
@@ -21,9 +27,15 @@ exports.getAllBooks = async (req, res) => {
 
     // Build filters object
     const filters = {};
+    if (title) filters.title = title;
     if (author) filters.author = author;
+    if (isbn) filters.isbn = isbn;
     if (publisher) filters.publisher = publisher;
     if (year) filters.year = year;
+    if (yearFrom) filters.yearFrom = yearFrom;
+    if (yearTo) filters.yearTo = yearTo;
+    if (ratingFrom !== undefined) filters.ratingFrom = ratingFrom;
+    if (ratingTo !== undefined) filters.ratingTo = ratingTo;
     if (language) filters.language = language;
     if (format) filters.format = format;
     if (categories) filters.categories = categories;
@@ -451,5 +463,23 @@ exports.updateBook = async (req, res) => {
     console.error('Error updating book:', error);
 
     res.status(500).json({ error: 'Error updating book' });
+  }
+};
+
+exports.getSimilarBooks = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { limit = 10 } = req.query;
+
+    const similarBooks = await Book.findSimilar(id, parseInt(limit));
+
+    res.json({
+      success: true,
+      books: similarBooks,
+      count: similarBooks.length
+    });
+  } catch (error) {
+    console.error('Error fetching similar books:', error);
+    res.status(500).json({ error: 'Error fetching similar books' });
   }
 };

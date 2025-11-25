@@ -35,6 +35,7 @@ import {
   LinearProgress,
 
 } from '@mui/material';
+// Material UI Icons
 import {
   Search as SearchIcon,
   Logout as LogoutIcon,
@@ -47,11 +48,14 @@ import {
   Sort as SortIcon,
   ViewModule as GridViewIcon,
   ViewList as ListViewIcon,
-     MenuBook as ReadIcon,
+  MenuBook as ReadIcon,
   Download as DownloadIcon,
 } from '@mui/icons-material';
 import { booksAPI, metadataAPI, progressAPI } from '../../services/api';
 import BookCard from './BookCard';
+import AdvancedSearch from '../Search/AdvancedSearch';
+import BookDetailModal from '../Books/BookDetailModal';
+import VirtualizedBookGrid from './VirtualizedBookGrid';
 
 const DRAWER_WIDTH = 280;
 const BOOKS_PER_PAGE = 24;
@@ -83,6 +87,10 @@ const Dashboard = ({ onLogout }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null);
   const [uploadError, setUploadError] = useState(null);
+  const [advancedSearchOpen, setAdvancedSearchOpen] = useState(false);
+  const [advancedSearchCriteria, setAdvancedSearchCriteria] = useState(null);
+  const [selectedBookForDetail, setSelectedBookForDetail] = useState(null);
+  const [bookDetailOpen, setBookDetailOpen] = useState(false);
 
   useEffect(() => {
     loadBooks();
@@ -96,10 +104,21 @@ const Dashboard = ({ onLogout }) => {
     localStorage.setItem('viewMode', viewMode);
   }, [viewMode]);
 
+  // Listen for custom event to open book detail modal
+  useEffect(() => {
+    const handleOpenBookDetail = (event) => {
+      setSelectedBookForDetail(event.detail);
+      setBookDetailOpen(true);
+    };
+
+    window.addEventListener('openBookDetail', handleOpenBookDetail);
+    return () => window.removeEventListener('openBookDetail', handleOpenBookDetail);
+  }, []);
+
   // Load books when filters, sort, or page changes
   useEffect(() => {
     loadBooks();
-  }, [selectedAuthor, selectedGenre, selectedYear, searchQuery, sortBy, currentPage, quickFilter]);
+  }, [selectedAuthor, selectedGenre, selectedYear, searchQuery, sortBy, currentPage, quickFilter, advancedSearchCriteria]);
 
   // Reset to page 1 when filters change (but not on initial load)
   useEffect(() => {
@@ -114,9 +133,16 @@ const Dashboard = ({ onLogout }) => {
 
       // Build filter parameters for API
       const filters = {};
-      if (selectedAuthor) filters.author = selectedAuthor;
-      if (selectedGenre) filters.categories = selectedGenre;
-      if (selectedYear) filters.year = selectedYear;
+
+      // If advanced search is active, use its criteria
+      if (advancedSearchCriteria) {
+        Object.assign(filters, advancedSearchCriteria);
+      } else {
+        // Otherwise use sidebar filters
+        if (selectedAuthor) filters.author = selectedAuthor;
+        if (selectedGenre) filters.categories = selectedGenre;
+        if (selectedYear) filters.year = selectedYear;
+      }
 
       // Handle quick filters
       let limit = BOOKS_PER_PAGE;
@@ -304,6 +330,17 @@ const Dashboard = ({ onLogout }) => {
       console.error('Error refreshing metadata:', error);
       setRefreshingMetadata(false);
     }
+  };
+
+  const handleAdvancedSearch = (criteria) => {
+    setAdvancedSearchCriteria(criteria);
+    setCurrentPage(1);
+    // Clear other filters when using advanced search
+    setSelectedAuthor(null);
+    setSelectedGenre(null);
+    setSelectedYear(null);
+    setQuickFilter('all');
+    setSearchQuery('');
   };
 
   // Drag and drop handlers
@@ -793,6 +830,25 @@ const Dashboard = ({ onLogout }) => {
                     <SearchIcon />
                   </InputAdornment>
                 ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => setAdvancedSearchOpen(true)}
+                      sx={{
+                        borderColor: '#e50914',
+                        color: '#e50914',
+                        '&:hover': {
+                          borderColor: '#b20710',
+                          backgroundColor: 'rgba(229, 9, 20, 0.1)',
+                        },
+                      }}
+                    >
+                      Advanced Search
+                    </Button>
+                  </InputAdornment>
+                ),
               }}
               sx={{
                 backgroundColor: '#1a1a1a',
@@ -1000,17 +1056,35 @@ const Dashboard = ({ onLogout }) => {
 
               {/* Book Display - Grid or List View */}
               {viewMode === 'grid' ? (
-                <Grid container spacing={3}>
-                  {books.map((book) => (
-                    <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={book.id}>
-                      <BookCard
-                        book={book}
-                        onUpdate={loadBooks}
-                        readingProgress={readingProgress[book.id]}
-                      />
-                    </Grid>
-                  ))}
-                </Grid>
+                books.length > 50 ? (
+                  // Use virtual scrolling for large libraries (> 50 books)
+                  <VirtualizedBookGrid
+                    books={books}
+                    readingProgress={readingProgress}
+                    onUpdate={loadBooks}
+                    onBookClick={(book) => {
+                      setSelectedBookForDetail(book);
+                      setBookDetailOpen(true);
+                    }}
+                  />
+                ) : (
+                  // Use regular grid for smaller libraries
+                  <Grid container spacing={3}>
+                    {books.map((book) => (
+                      <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={book.id}>
+                        <BookCard
+                          book={book}
+                          onUpdate={loadBooks}
+                          readingProgress={readingProgress[book.id]}
+                          onClick={() => {
+                            setSelectedBookForDetail(book);
+                            setBookDetailOpen(true);
+                          }}
+                        />
+                      </Grid>
+                    ))}
+                  </Grid>
+                )
               ) : (
                 <TableContainer
                   component={Paper}
@@ -1069,7 +1143,25 @@ const Dashboard = ({ onLogout }) => {
                                 {book.title}
                               </Typography>
                             </TableCell>
-                            <TableCell>{book.author || 'Unknown'}</TableCell>
+                            <TableCell>
+                              <Typography
+                                variant="body2"
+                                onClick={() => {
+                                  if (book.author) {
+                                    navigate(`/author/${encodeURIComponent(book.author)}`);
+                                  }
+                                }}
+                                sx={{
+                                  cursor: book.author ? 'pointer' : 'default',
+                                  '&:hover': book.author ? {
+                                    color: '#e50914',
+                                    textDecoration: 'underline'
+                                  } : {}
+                                }}
+                              >
+                                {book.author || 'Unknown'}
+                              </Typography>
+                            </TableCell>
                             <TableCell>
                               {book.average_rating && (
                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -1180,6 +1272,24 @@ const Dashboard = ({ onLogout }) => {
           )}
         </Container>
       </Box>
+
+      {/* Advanced Search Dialog */}
+      <AdvancedSearch
+        open={advancedSearchOpen}
+        onClose={() => setAdvancedSearchOpen(false)}
+        onSearch={handleAdvancedSearch}
+      />
+
+      {/* Book Detail Modal with Similar Books */}
+      <BookDetailModal
+        open={bookDetailOpen}
+        onClose={() => {
+          setBookDetailOpen(false);
+          setSelectedBookForDetail(null);
+        }}
+        book={selectedBookForDetail}
+        readingProgress={readingProgress}
+      />
     </Box>
   );
 };

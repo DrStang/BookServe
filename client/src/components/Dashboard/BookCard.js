@@ -32,7 +32,7 @@ import {
 import { booksAPI, emailAPI } from '../../services/api';
 import BookDetails from '../BookDetails/BookDetails';
 
-const BookCard = ({ book, onUpdate, readingProgress }) => {
+const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
@@ -93,15 +93,16 @@ const BookCard = ({ book, onUpdate, readingProgress }) => {
   return (
     <>
       <Card
+        onClick={onClick}
         sx={{
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
           backgroundColor: '#1a1a1a',
           transition: 'transform 0.2s',
+          cursor: 'pointer',
           '&:hover': {
             transform: 'scale(1.05)',
-            cursor: 'pointer',
           },
         }}
       >
@@ -111,7 +112,6 @@ const BookCard = ({ book, onUpdate, readingProgress }) => {
             height="300"
             image={book.cover_image && !coverError ? booksAPI.getCoverUrl(book.id) : defaultCover}
             alt={book.title}
-            onClick={handleRead}
             onError={() => setCoverError(true)}
             sx={{ objectFit: 'contain' }}
           />
@@ -139,7 +139,24 @@ const BookCard = ({ book, onUpdate, readingProgress }) => {
           <Typography gutterBottom variant="h6" component="div" noWrap>
             {book.title}
           </Typography>
-          <Typography variant="body2" color="text.secondary" noWrap>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            noWrap
+            onClick={(e) => {
+              e.stopPropagation();
+              if (book.author) {
+                navigate(`/author/${encodeURIComponent(book.author)}`);
+              }
+            }}
+            sx={{
+              cursor: book.author ? 'pointer' : 'default',
+              '&:hover': book.author ? {
+                color: '#e50914',
+                textDecoration: 'underline'
+              } : {}
+            }}
+          >
             {book.author || 'Unknown Author'}
           </Typography>
           {book.average_rating && (
