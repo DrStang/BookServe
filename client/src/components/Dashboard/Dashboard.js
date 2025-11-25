@@ -54,6 +54,7 @@ import { booksAPI, metadataAPI, progressAPI } from '../../services/api';
 import BookCard from './BookCard';
 import AdvancedSearch from '../Search/AdvancedSearch';
 import BookDetailModal from '../Books/BookDetailModal';
+import VirtualizedBookGrid from './VirtualizedBookGrid';
 
 const DRAWER_WIDTH = 280;
 const BOOKS_PER_PAGE = 24;
@@ -1054,21 +1055,35 @@ const Dashboard = ({ onLogout }) => {
 
               {/* Book Display - Grid or List View */}
               {viewMode === 'grid' ? (
-                <Grid container spacing={3}>
-                  {books.map((book) => (
-                    <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={book.id}>
-                      <BookCard
-                        book={book}
-                        onUpdate={loadBooks}
-                        readingProgress={readingProgress[book.id]}
-                        onClick={() => {
-                          setSelectedBookForDetail(book);
-                          setBookDetailOpen(true);
-                        }}
-                      />
-                    </Grid>
-                  ))}
-                </Grid>
+                books.length > 50 ? (
+                  // Use virtual scrolling for large libraries (> 50 books)
+                  <VirtualizedBookGrid
+                    books={books}
+                    readingProgress={readingProgress}
+                    onUpdate={loadBooks}
+                    onBookClick={(book) => {
+                      setSelectedBookForDetail(book);
+                      setBookDetailOpen(true);
+                    }}
+                  />
+                ) : (
+                  // Use regular grid for smaller libraries
+                  <Grid container spacing={3}>
+                    {books.map((book) => (
+                      <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={book.id}>
+                        <BookCard
+                          book={book}
+                          onUpdate={loadBooks}
+                          readingProgress={readingProgress[book.id]}
+                          onClick={() => {
+                            setSelectedBookForDetail(book);
+                            setBookDetailOpen(true);
+                          }}
+                        />
+                      </Grid>
+                    ))}
+                  </Grid>
+                )
               ) : (
                 <TableContainer
                   component={Paper}
