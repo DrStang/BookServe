@@ -1069,7 +1069,25 @@ const Dashboard = ({ onLogout }) => {
                                 {book.title}
                               </Typography>
                             </TableCell>
-                            <TableCell>{book.author || 'Unknown'}</TableCell>
+                            <TableCell>
+                              <Typography
+                                variant="body2"
+                                onClick={() => {
+                                  if (book.author) {
+                                    navigate(`/author/${encodeURIComponent(book.author)}`);
+                                  }
+                                }}
+                                sx={{
+                                  cursor: book.author ? 'pointer' : 'default',
+                                  '&:hover': book.author ? {
+                                    color: '#e50914',
+                                    textDecoration: 'underline'
+                                  } : {}
+                                }}
+                              >
+                                {book.author || 'Unknown'}
+                              </Typography>
+                            </TableCell>
                             <TableCell>
                               {book.average_rating && (
                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>

@@ -139,7 +139,24 @@ const BookCard = ({ book, onUpdate, readingProgress }) => {
           <Typography gutterBottom variant="h6" component="div" noWrap>
             {book.title}
           </Typography>
-          <Typography variant="body2" color="text.secondary" noWrap>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            noWrap
+            onClick={(e) => {
+              e.stopPropagation();
+              if (book.author) {
+                navigate(`/author/${encodeURIComponent(book.author)}`);
+              }
+            }}
+            sx={{
+              cursor: book.author ? 'pointer' : 'default',
+              '&:hover': book.author ? {
+                color: '#e50914',
+                textDecoration: 'underline'
+              } : {}
+            }}
+          >
             {book.author || 'Unknown Author'}
           </Typography>
           {book.average_rating && (

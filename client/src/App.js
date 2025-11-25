@@ -9,6 +9,7 @@ import Dashboard from './components/Dashboard/Dashboard';
 import BookReader from './components/Reader/BookReader';
 import RequestBook from './components/Requests/RequestBook';
 import MyRequests from './components/Requests/MyRequests';
+import AuthorPage from './components/Author/AuthorPage';
 import PrivateRoute from './components/Common/PrivateRoute';
 
 const darkTheme = createTheme({
@@ -99,6 +100,14 @@ function App() {
             element={
               <PrivateRoute isAuthenticated={isAuthenticated}>
                 <MyRequests />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/author/:authorName"
+            element={
+              <PrivateRoute isAuthenticated={isAuthenticated}>
+                <AuthorPage />
               </PrivateRoute>
             }
           />
