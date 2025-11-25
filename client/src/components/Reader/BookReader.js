@@ -24,13 +24,23 @@ const BookReader = () => {
     const handleKeyDown = (e) => {
       if (!rendition) return;
 
+      // Check if user is typing in an input field
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        return;
+      }
+
       switch (e.key) {
         case 'ArrowLeft':
+        case 'PageUp':
           e.preventDefault();
+          // Navigate to previous page
           rendition.prev();
           break;
         case 'ArrowRight':
+        case 'PageDown':
+        case ' ': // Spacebar
           e.preventDefault();
+          // Navigate to next page
           rendition.next();
           break;
         case 'Escape':
@@ -41,6 +51,16 @@ const BookReader = () => {
           e.preventDefault();
           // Go to beginning of book
           rendition.display(0);
+          break;
+        case 'End':
+          e.preventDefault();
+          // Go to end of book (if spine is available)
+          if (rendition.book && rendition.book.spine) {
+            const lastSection = rendition.book.spine.get(rendition.book.spine.length - 1);
+            if (lastSection) {
+              rendition.display(lastSection.href);
+            }
+          }
           break;
         default:
           break;
