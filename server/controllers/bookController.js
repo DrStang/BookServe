@@ -2,6 +2,7 @@ const Book = require('../models/Book');
 const path = require('path');
 const fs = require('fs').promises;
 const epubMetadataService = require('../services/epubMetadataService');
+const seriesDetectionService = require('../services/seriesDetectionService');
 
 exports.getAllBooks = async (req, res) => {
   try {
@@ -96,9 +97,13 @@ exports.uploadBook = async (req, res) => {
       extractedMetadata = epubMetadataService.extractMetadata(req.file.path);
     }
 
+    // Detect series from title and metadata
+    const title = req.body.title || extractedMetadata.title || path.parse(req.file.originalname).name;
+    const seriesInfo = seriesDetectionService.detectSeries(title, extractedMetadata);
+
     // Use extracted metadata as fallback, but allow manual overrides from request body
     const bookData = {
-      title: req.body.title || extractedMetadata.title || path.parse(req.file.originalname).name,
+      title: seriesInfo.cleanTitle || title,
       author: req.body.author || extractedMetadata.author || 'Unknown',
       isbn: req.body.isbn || extractedMetadata.isbn || null,
       isbn_13: req.body.isbn_13 || extractedMetadata.isbn_13 || null,
@@ -110,6 +115,8 @@ exports.uploadBook = async (req, res) => {
       file_size: req.file.size,
       format: format,
       language: req.body.language || extractedMetadata.language || 'en',
+      series: req.body.series || seriesInfo.series || null,
+      series_number: req.body.series_number || seriesInfo.seriesNumber || null,
       added_by: req.user.id
     };
 
