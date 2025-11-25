@@ -90,4 +90,15 @@ export const metadataAPI = {
     api.get('/metadata/search', { params }),
 };
 
+// Reading Progress
+export const progressAPI = {
+  getBookProgress: (bookId) => api.get(`/progress/${bookId}`),
+  updateBookProgress: (bookId, progress, currentLocation) =>
+    api.post(`/progress/${bookId}`, { progress, current_location: currentLocation }),
+  getAllProgress: () => api.get('/progress'),
+  getRecentlyRead: (limit = 10) => api.get('/progress/recently-read', { params: { limit } }),
+  getContinueReading: (limit = 10) => api.get('/progress/continue-reading', { params: { limit } }),
+  deleteProgress: (bookId) => api.delete(`/progress/${bookId}`),
+};
+
 export default api;
