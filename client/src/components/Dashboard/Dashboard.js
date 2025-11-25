@@ -53,9 +53,8 @@ const BOOKS_PER_PAGE = 24;
 
 const Dashboard = ({ onLogout }) => {
   const navigate = useNavigate();
-  const [allBooks, setAllBooks] = useState([]);
-  const [filteredBooks, setFilteredBooks] = useState([]);
-  const [displayedBooks, setDisplayedBooks] = useState([]);
+  const [books, setBooks] = useState([]);
+  const [totalBooks, setTotalBooks] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAuthor, setSelectedAuthor] = useState(null);
   const [selectedGenre, setSelectedGenre] = useState(null);
@@ -85,35 +84,101 @@ const Dashboard = ({ onLogout }) => {
     loadReadingProgress();
     loadContinueReading();
     loadRecentlyRead();
+    loadAllBooksForFilters();
   }, []);
 
   useEffect(() => {
     localStorage.setItem('viewMode', viewMode);
   }, [viewMode]);
 
+  // Load books when filters, sort, or page changes
   useEffect(() => {
-    applyFilters();
-  }, [allBooks, selectedAuthor, selectedGenre, selectedSeries, selectedYear, searchQuery, sortBy, quickFilter, continueReadingBooks, recentlyReadBooks]);
+    loadBooks();
+  }, [selectedAuthor, selectedGenre, selectedYear, searchQuery, sortBy, currentPage, quickFilter]);
 
+  // Reset to page 1 when filters change (but not on initial load)
   useEffect(() => {
-    applyPagination();
-  }, [filteredBooks, currentPage]);
-
-  useEffect(() => {
-    // Reset to page 1 when filters change
-    setCurrentPage(1);
-  }, [selectedAuthor, selectedGenre, selectedSeries, selectedYear, searchQuery, sortBy, quickFilter]);
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
+  }, [selectedAuthor, selectedGenre, selectedYear, searchQuery, sortBy, quickFilter]);
 
   const loadBooks = async () => {
     try {
       setLoading(true);
-      // Fetch all books with a high limit to ensure we get everything
-      const response = await booksAPI.getAll(10000, 0);
-      setAllBooks(response.data.books);
+
+      // Build filter parameters for API
+      const filters = {};
+      if (selectedAuthor) filters.author = selectedAuthor;
+      if (selectedGenre) filters.categories = selectedGenre;
+      if (selectedYear) filters.year = selectedYear;
+
+      // Handle quick filters
+      let limit = BOOKS_PER_PAGE;
+      let offset = (currentPage - 1) * BOOKS_PER_PAGE;
+      let bookIds = null;
+
+      if (quickFilter === 'continue_reading') {
+        bookIds = continueReadingBooks.map(b => b.book_id);
+        // For quick filters, we need a different approach - fetch by IDs
+        // For now, increase limit and filter client-side
+        // TODO: Add backend support for filtering by book IDs
+      } else if (quickFilter === 'recently_read') {
+        bookIds = recentlyReadBooks.map(b => b.book_id);
+      } else if (quickFilter === 'recently_added') {
+        // Backend doesn't support date range filtering yet
+        // Will filter client-side for now
+      }
+
+      // Convert sortBy format (e.g., 'added_desc' to sortBy='added_at', sortOrder='DESC')
+      let [sortField, sortDirection] = sortBy.split('_');
+      if (sortField === 'added') sortField = 'added_at';
+      if (sortField === 'rating') sortField = 'average_rating';
+      const sortOrder = sortDirection?.toUpperCase() || 'DESC';
+
+      // If using quick filters with IDs, fetch more and filter client-side
+      if (bookIds && bookIds.length > 0) {
+        const response = await booksAPI.getAll(1000, 0, sortField, sortOrder, filters);
+        const filteredBooks = response.data.books.filter(book => bookIds.includes(book.id));
+        setBooks(filteredBooks.slice(offset, offset + limit));
+        setTotalBooks(filteredBooks.length);
+      } else if (quickFilter === 'recently_added') {
+        // Fetch recent books and filter by date
+        const response = await booksAPI.getAll(1000, 0, 'added_at', 'DESC', filters);
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const filteredBooks = response.data.books.filter(book => new Date(book.added_at) >= thirtyDaysAgo);
+        setBooks(filteredBooks.slice(offset, offset + limit));
+        setTotalBooks(filteredBooks.length);
+      } else {
+        // Server-side pagination and filtering
+        let searchQuery = '';
+        if (searchQuery.trim()) {
+          // Use search endpoint
+          const response = await booksAPI.search(searchQuery);
+          setBooks(response.data.books.slice(offset, offset + limit));
+          setTotalBooks(response.data.count);
+        } else {
+          const response = await booksAPI.getAll(limit, offset, sortField, sortOrder, filters);
+          setBooks(response.data.books);
+          setTotalBooks(response.data.total);
+        }
+      }
     } catch (error) {
       console.error('Error loading books:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load all books for filter counts (in background)
+  const [allBooksForFilters, setAllBooksForFilters] = useState([]);
+  const loadAllBooksForFilters = async () => {
+    try {
+      const response = await booksAPI.getAll(10000, 0);
+      setAllBooksForFilters(response.data.books);
+    } catch (error) {
+      console.error('Error loading books for filters:', error);
     }
   };
 
@@ -152,19 +217,19 @@ const Dashboard = ({ onLogout }) => {
   // Calculate author counts
   const authorCounts = useMemo(() => {
     const counts = {};
-    allBooks.forEach(book => {
+    allBooksForFilters.forEach(book => {
       const author = book.author || 'Unknown Author';
       counts[author] = (counts[author] || 0) + 1;
     });
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1]) // Sort by count descending
       .map(([author, count]) => ({ author, count }));
-  }, [allBooks]);
+  }, [allBooksForFilters]);
 
   // Calculate genre counts
   const genreCounts = useMemo(() => {
     const counts = {};
-    allBooks.forEach(book => {
+    allBooksForFilters.forEach(book => {
       if (book.categories) {
         // Split categories by comma and trim
         const genres = book.categories.split(',').map(g => g.trim());
@@ -178,12 +243,12 @@ const Dashboard = ({ onLogout }) => {
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
       .map(([genre, count]) => ({ genre, count }));
-  }, [allBooks]);
+  }, [allBooksForFilters]);
 
   // Calculate series counts
   const seriesCounts = useMemo(() => {
     const counts = {};
-    allBooks.forEach(book => {
+    allBooksForFilters.forEach(book => {
       if (book.series) {
         counts[book.series] = (counts[book.series] || 0) + 1;
       }
@@ -191,12 +256,12 @@ const Dashboard = ({ onLogout }) => {
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
       .map(([series, count]) => ({ series, count }));
-  }, [allBooks]);
+  }, [allBooksForFilters]);
 
   // Calculate year counts
   const yearCounts = useMemo(() => {
     const counts = {};
-    allBooks.forEach(book => {
+    allBooksForFilters.forEach(book => {
       if (book.published_date) {
         // Extract year from published_date (could be "2023", "2023-01-01", etc.)
         const year = book.published_date.split('-')[0];
@@ -208,110 +273,9 @@ const Dashboard = ({ onLogout }) => {
     return Object.entries(counts)
       .sort((a, b) => b[0].localeCompare(a[0])) // Sort by year descending
       .map(([year, count]) => ({ year, count }));
-  }, [allBooks]);
+  }, [allBooksForFilters]);
 
-  const applyFilters = () => {
-    let filtered = [...allBooks];
-
-    // Apply quick filter
-    if (quickFilter === 'continue_reading') {
-      const continueReadingIds = new Set(continueReadingBooks.map(b => b.book_id));
-      filtered = filtered.filter(book => continueReadingIds.has(book.id));
-    } else if (quickFilter === 'recently_read') {
-      const recentlyReadIds = new Set(recentlyReadBooks.map(b => b.book_id));
-      filtered = filtered.filter(book => recentlyReadIds.has(book.id));
-    } else if (quickFilter === 'recently_added') {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      filtered = filtered.filter(book => new Date(book.added_at) >= thirtyDaysAgo);
-    }
-
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(book =>
-        book.title?.toLowerCase().includes(query) ||
-        book.author?.toLowerCase().includes(query) ||
-        book.isbn?.toLowerCase().includes(query)
-      );
-    }
-
-    // Apply author filter
-    if (selectedAuthor) {
-      filtered = filtered.filter(book => 
-        (book.author || 'Unknown Author') === selectedAuthor
-      );
-    }
-
-    // Apply genre filter
-    if (selectedGenre) {
-      filtered = filtered.filter(book => 
-        book.categories?.split(',').map(g => g.trim()).includes(selectedGenre)
-      );
-    }
-
-    // Apply series filter
-    if (selectedSeries) {
-      filtered = filtered.filter(book => book.series === selectedSeries);
-    }
-
-    // Apply year filter
-    if (selectedYear) {
-      filtered = filtered.filter(book => 
-        book.published_date?.startsWith(selectedYear)
-      );
-    }
-
-    // Apply sorting
-    filtered = sortBooks(filtered);
-
-    setFilteredBooks(filtered);
-  };
-
-  const sortBooks = (books) => {
-    const sorted = [...books];
-    
-    switch (sortBy) {
-      case 'title_asc':
-        return sorted.sort((a, b) => a.title.localeCompare(b.title));
-      case 'title_desc':
-        return sorted.sort((a, b) => b.title.localeCompare(a.title));
-      case 'author_asc':
-        return sorted.sort((a, b) => 
-          (a.author || 'Unknown').localeCompare(b.author || 'Unknown')
-        );
-      case 'author_desc':
-        return sorted.sort((a, b) => 
-          (b.author || 'Unknown').localeCompare(a.author || 'Unknown')
-        );
-      case 'rating_desc':
-        return sorted.sort((a, b) => 
-          (b.average_rating || 0) - (a.average_rating || 0)
-        );
-      case 'rating_asc':
-        return sorted.sort((a, b) => 
-          (a.average_rating || 0) - (b.average_rating || 0)
-        );
-      case 'added_desc':
-        return sorted.sort((a, b) => 
-          new Date(b.added_at) - new Date(a.added_at)
-        );
-      case 'added_asc':
-        return sorted.sort((a, b) => 
-          new Date(a.added_at) - new Date(b.added_at)
-        );
-      default:
-        return sorted;
-    }
-  };
-
-  const applyPagination = () => {
-    const startIndex = (currentPage - 1) * BOOKS_PER_PAGE;
-    const endIndex = startIndex + BOOKS_PER_PAGE;
-    setDisplayedBooks(filteredBooks.slice(startIndex, endIndex));
-  };
-
-  const totalPages = Math.ceil(filteredBooks.length / BOOKS_PER_PAGE);
+  const totalPages = Math.ceil(totalBooks / BOOKS_PER_PAGE);
 
   const handlePageChange = (event, value) => {
     setCurrentPage(value);
@@ -891,7 +855,7 @@ const Dashboard = ({ onLogout }) => {
             <Typography variant="h6" align="center" color="text.secondary">
               Loading books...
             </Typography>
-          ) : filteredBooks.length === 0 ? (
+          ) : books.length === 0 ? (
             <Box sx={{ textAlign: 'center', mt: 8 }}>
               <Typography variant="h5" color="text.secondary" gutterBottom>
                 {selectedAuthor || selectedGenre || selectedSeries || selectedYear || searchQuery ? 'No books match your filters' : 'No books found'}
@@ -930,11 +894,11 @@ const Dashboard = ({ onLogout }) => {
                 <Typography variant="h5" gutterBottom sx={{ mb: 0 }}>
                   {selectedAuthor ? (
                     <>
-                      Books by {selectedAuthor} ({filteredBooks.length})
+                      Books by {selectedAuthor} ({totalBooks})
                     </>
                   ) : (
                     <>
-                      Your Library ({filteredBooks.length} book{filteredBooks.length !== 1 ? 's' : ''})
+                      Your Library ({totalBooks} book{totalBooks !== 1 ? 's' : ''})
                     </>
                   )}
                 </Typography>
@@ -1032,7 +996,7 @@ const Dashboard = ({ onLogout }) => {
               {/* Book Display - Grid or List View */}
               {viewMode === 'grid' ? (
                 <Grid container spacing={3}>
-                  {displayedBooks.map((book) => (
+                  {books.map((book) => (
                     <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={book.id}>
                       <BookCard
                         book={book}
@@ -1066,7 +1030,7 @@ const Dashboard = ({ onLogout }) => {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {displayedBooks.map((book) => {
+                      {books.map((book) => {
                         const progress = readingProgress[book.id];
                         return (
                           <TableRow
