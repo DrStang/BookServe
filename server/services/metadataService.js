@@ -1,5 +1,6 @@
 const googleBooksService = require('./googleBooksService');
 const openLibraryService = require('./openLibraryService');
+const coverCacheService = require('./coverCacheService');
 const Book = require('../models/Book');
 
 class MetadataService {
@@ -128,6 +129,18 @@ class MetadataService {
         return book;
       }
 
+      // Download and cache cover image
+      let coverPath = book.cover_image;
+      if (metadata.merged.cover_image_url) {
+        const localPath = await coverCacheService.downloadCover(metadata.merged.cover_image_url, bookId);
+        if (localPath) {
+          coverPath = localPath;
+        } else if (!book.cover_image) {
+          // Fallback to URL if download failed
+          coverPath = metadata.merged.cover_image_url;
+        }
+      }
+
       // Prepare update data
       const updateData = {
         description: metadata.merged.description || book.description,
@@ -141,11 +154,9 @@ class MetadataService {
         ratings_count: metadata.merged.ratings_count,
         preview_link: metadata.merged.preview_link,
         info_link: metadata.merged.info_link,
+        cover_image: coverPath,
         metadata_updated_at: new Date().toISOString(),
       };
-      if (metadata.merged.cover_image_url && !book.cover_image) {
-        updateData.cover_image = metadata.merged.cover_image_url;
-      }
     
       // Only update ISBN if we don't have one
       if (!book.isbn_13 && metadata.merged.isbn_13) {
