@@ -53,6 +53,7 @@ import {
 import { booksAPI, metadataAPI, progressAPI } from '../../services/api';
 import BookCard from './BookCard';
 import AdvancedSearch from '../Search/AdvancedSearch';
+import BookDetailModal from '../Books/BookDetailModal';
 
 const DRAWER_WIDTH = 280;
 const BOOKS_PER_PAGE = 24;
@@ -86,6 +87,8 @@ const Dashboard = ({ onLogout }) => {
   const [uploadError, setUploadError] = useState(null);
   const [advancedSearchOpen, setAdvancedSearchOpen] = useState(false);
   const [advancedSearchCriteria, setAdvancedSearchCriteria] = useState(null);
+  const [selectedBookForDetail, setSelectedBookForDetail] = useState(null);
+  const [bookDetailOpen, setBookDetailOpen] = useState(false);
 
   useEffect(() => {
     loadBooks();
@@ -98,6 +101,17 @@ const Dashboard = ({ onLogout }) => {
   useEffect(() => {
     localStorage.setItem('viewMode', viewMode);
   }, [viewMode]);
+
+  // Listen for custom event to open book detail modal
+  useEffect(() => {
+    const handleOpenBookDetail = (event) => {
+      setSelectedBookForDetail(event.detail);
+      setBookDetailOpen(true);
+    };
+
+    window.addEventListener('openBookDetail', handleOpenBookDetail);
+    return () => window.removeEventListener('openBookDetail', handleOpenBookDetail);
+  }, []);
 
   // Load books when filters, sort, or page changes
   useEffect(() => {
@@ -1047,6 +1061,10 @@ const Dashboard = ({ onLogout }) => {
                         book={book}
                         onUpdate={loadBooks}
                         readingProgress={readingProgress[book.id]}
+                        onClick={() => {
+                          setSelectedBookForDetail(book);
+                          setBookDetailOpen(true);
+                        }}
                       />
                     </Grid>
                   ))}
@@ -1244,6 +1262,17 @@ const Dashboard = ({ onLogout }) => {
         open={advancedSearchOpen}
         onClose={() => setAdvancedSearchOpen(false)}
         onSearch={handleAdvancedSearch}
+      />
+
+      {/* Book Detail Modal with Similar Books */}
+      <BookDetailModal
+        open={bookDetailOpen}
+        onClose={() => {
+          setBookDetailOpen(false);
+          setSelectedBookForDetail(null);
+        }}
+        book={selectedBookForDetail}
+        readingProgress={readingProgress}
       />
     </Box>
   );

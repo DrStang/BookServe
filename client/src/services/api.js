@@ -59,6 +59,7 @@ export const booksAPI = {
     }),
   update: (id,data) => api.put(`/books/${id}`, data),
   delete: (id) => api.delete(`/books/${id}`),
+  getSimilar: (id, limit = 10) => api.get(`/books/${id}/similar`, { params: { limit } }),
 };
 
 // Requests

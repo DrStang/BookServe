@@ -465,3 +465,21 @@ exports.updateBook = async (req, res) => {
     res.status(500).json({ error: 'Error updating book' });
   }
 };
+
+exports.getSimilarBooks = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { limit = 10 } = req.query;
+
+    const similarBooks = await Book.findSimilar(id, parseInt(limit));
+
+    res.json({
+      success: true,
+      books: similarBooks,
+      count: similarBooks.length
+    });
+  } catch (error) {
+    console.error('Error fetching similar books:', error);
+    res.status(500).json({ error: 'Error fetching similar books' });
+  }
+};
