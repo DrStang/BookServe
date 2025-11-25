@@ -15,6 +15,7 @@ const bookRoutes = require('./routes/books');
 const requestRoutes = require('./routes/requests');
 const emailRoutes = require('./routes/email');
 const metadataRoutes = require('./routes/metadata');
+const progressRoutes = require('./routes/progress');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -33,6 +34,7 @@ app.use('/api/books', bookRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/metadata', metadataRoutes);
+app.use('/api/progress', progressRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

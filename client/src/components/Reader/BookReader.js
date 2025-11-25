@@ -1,19 +1,55 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ReactReader } from 'react-reader';
-import { AppBar, Toolbar, IconButton, Typography, Box } from '@mui/material';
+import { AppBar, Toolbar, IconButton, Typography, Box, LinearProgress } from '@mui/material';
 import { ArrowBack as BackIcon } from '@mui/icons-material';
-import { booksAPI } from '../../services/api';
+import { booksAPI, progressAPI } from '../../services/api';
 
 const BookReader = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [book, setBook] = useState(null);
   const [location, setLocation] = useState(0);
+  const [rendition, setRendition] = useState(null);
+  const [progress, setProgress] = useState(0);
+  const saveTimeoutRef = useRef(null);
 
   useEffect(() => {
     loadBook();
+    loadProgress();
   }, [id]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!rendition) return;
+
+      switch (e.key) {
+        case 'ArrowLeft':
+          e.preventDefault();
+          rendition.prev();
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          rendition.next();
+          break;
+        case 'Escape':
+          e.preventDefault();
+          navigate('/');
+          break;
+        case 'Home':
+          e.preventDefault();
+          // Go to beginning of book
+          rendition.display(0);
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [rendition, navigate]);
 
   const loadBook = async () => {
     try {
@@ -23,6 +59,59 @@ const BookReader = () => {
       console.error('Error loading book:', error);
     }
   };
+
+  const loadProgress = async () => {
+    try {
+      const response = await progressAPI.getBookProgress(id);
+      const savedProgress = response.data.progress;
+
+      if (savedProgress && savedProgress.current_location) {
+        setLocation(savedProgress.current_location);
+        setProgress(savedProgress.progress || 0);
+      }
+    } catch (error) {
+      console.error('Error loading progress:', error);
+    }
+  };
+
+  const saveProgress = async (currentLocation) => {
+    try {
+      // Calculate progress percentage from rendition
+      let progressPercent = 0;
+      if (rendition && currentLocation) {
+        const currentPage = rendition.location?.start?.displayed?.page || 0;
+        const totalPages = rendition.location?.start?.displayed?.total || 1;
+        progressPercent = Math.round((currentPage / totalPages) * 100);
+      }
+
+      await progressAPI.updateBookProgress(id, progressPercent, currentLocation);
+      setProgress(progressPercent);
+    } catch (error) {
+      console.error('Error saving progress:', error);
+    }
+  };
+
+  const handleLocationChanged = (epubcfi) => {
+    setLocation(epubcfi);
+
+    // Debounce progress saving to avoid too many API calls
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      saveProgress(epubcfi);
+    }, 2000); // Save 2 seconds after user stops navigating
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const token = localStorage.getItem('token');
   const bookUrl = booksAPI.getStreamUrl(id);
@@ -64,7 +153,25 @@ const BookReader = () => {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             {book?.title || 'Loading...'}
           </Typography>
+          {progress > 0 && (
+            <Typography variant="body2" sx={{ mr: 2 }}>
+              {progress}%
+            </Typography>
+          )}
         </Toolbar>
+        {progress > 0 && (
+          <LinearProgress
+            variant="determinate"
+            value={progress}
+            sx={{
+              height: 2,
+              backgroundColor: 'rgba(255,255,255,0.1)',
+              '& .MuiLinearProgress-bar': {
+                backgroundColor: '#e50914'
+              }
+            }}
+          />
+        )}
       </AppBar>
 
       <Box sx={{ flexGrow: 1, position: 'relative' }}>
@@ -72,13 +179,14 @@ const BookReader = () => {
           <ReactReader
             url={bookUrl}
             location={location}
-            locationChanged={(epubcfi) => setLocation(epubcfi)}
+            locationChanged={handleLocationChanged}
             epubInitOptions={{
               requestMethod: customFetch,
               openAs: 'epub'
             }}
-            getRendition={(rendition) => {
-              rendition.themes.default({
+            getRendition={(rend) => {
+              setRendition(rend);
+              rend.themes.default({
                 '::selection': {
                   background: 'rgba(255, 255, 0, 0.3)',
                 },

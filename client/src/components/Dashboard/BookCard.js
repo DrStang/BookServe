@@ -19,6 +19,8 @@ import {
   Alert,
   Rating,
   Box,
+  LinearProgress,
+  Chip,
 } from '@mui/material';
 import {
   MoreVert as MoreIcon,
@@ -30,7 +32,7 @@ import {
 import { booksAPI, emailAPI } from '../../services/api';
 import BookDetails from '../BookDetails/BookDetails';
 
-const BookCard = ({ book, onUpdate }) => {
+const BookCard = ({ book, onUpdate, readingProgress }) => {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
@@ -103,15 +105,36 @@ const BookCard = ({ book, onUpdate }) => {
           },
         }}
       >
-        <CardMedia
-          component="img"
-          height="300"
-          image={book.cover_image && !coverError ? booksAPI.getCoverUrl(book.id) : defaultCover}
-          alt={book.title}
-          onClick={handleRead}
-          onError={() => setCoverError(true)}
-          sx={{ objectFit: 'contain' }}
-        />
+        <Box sx={{ position: 'relative' }}>
+          <CardMedia
+            component="img"
+            height="300"
+            image={book.cover_image && !coverError ? booksAPI.getCoverUrl(book.id) : defaultCover}
+            alt={book.title}
+            onClick={handleRead}
+            onError={() => setCoverError(true)}
+            sx={{ objectFit: 'contain' }}
+          />
+          {readingProgress && readingProgress.progress > 0 && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+              }}
+            >
+              <Chip
+                label={`${Math.round(readingProgress.progress)}%`}
+                size="small"
+                sx={{
+                  backgroundColor: 'rgba(229, 9, 20, 0.9)',
+                  color: 'white',
+                  fontWeight: 'bold',
+                }}
+              />
+            </Box>
+          )}
+        </Box>
         <CardContent sx={{ flexGrow: 1 }}>
           <Typography gutterBottom variant="h6" component="div" noWrap>
             {book.title}
@@ -128,8 +151,29 @@ const BookCard = ({ book, onUpdate }) => {
             </Box>
           )}
         </CardContent>
+        {readingProgress && readingProgress.progress > 0 && (
+          <Box sx={{ px: 2, pb: 1 }}>
+            <LinearProgress
+              variant="determinate"
+              value={readingProgress.progress}
+              sx={{
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                '& .MuiLinearProgress-bar': {
+                  backgroundColor: '#e50914',
+                  borderRadius: 2,
+                }
+              }}
+            />
+          </Box>
+        )}
         <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
-          <IconButton color="primary" onClick={handleRead} title="Read">
+          <IconButton
+            color="primary"
+            onClick={handleRead}
+            title={readingProgress && readingProgress.progress > 0 ? 'Continue Reading' : 'Read'}
+          >
             <ReadIcon />
           </IconButton>
           <IconButton onClick={handleMenuOpen} title="More options">

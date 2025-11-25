@@ -14,6 +14,8 @@ class Book {
       file_size,
       format,
       language,
+      series,
+      series_number,
       added_by
     } = bookData;
 
@@ -22,10 +24,10 @@ class Book {
         `INSERT INTO books (
           title, author, isbn, publisher, published_date,
           description, cover_image, file_path, file_size,
-          format, language, added_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          format, language, series, series_number, added_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [title, author, isbn, publisher, published_date, description,
-         cover_image, file_path, file_size, format, language, added_by],
+         cover_image, file_path, file_size, format, language, series, series_number, added_by],
         function(err) {
           if (err) {
             reject(err);

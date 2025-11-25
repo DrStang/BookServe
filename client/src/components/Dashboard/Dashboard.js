@@ -23,6 +23,14 @@ import {
   Select,
   FormControl,
   Pagination,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Avatar,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -34,8 +42,10 @@ import {
   ExpandLess as ExpandLessIcon,
   FilterList as FilterIcon,
   Sort as SortIcon,
+  ViewModule as GridViewIcon,
+  ViewList as ListViewIcon,
 } from '@mui/icons-material';
-import { booksAPI, metadataAPI } from '../../services/api';
+import { booksAPI, metadataAPI, progressAPI } from '../../services/api';
 import BookCard from './BookCard';
 
 const DRAWER_WIDTH = 280;
@@ -43,9 +53,8 @@ const BOOKS_PER_PAGE = 24;
 
 const Dashboard = ({ onLogout }) => {
   const navigate = useNavigate();
-  const [allBooks, setAllBooks] = useState([]);
-  const [filteredBooks, setFilteredBooks] = useState([]);
-  const [displayedBooks, setDisplayedBooks] = useState([]);
+  const [books, setBooks] = useState([]);
+  const [totalBooks, setTotalBooks] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAuthor, setSelectedAuthor] = useState(null);
   const [selectedGenre, setSelectedGenre] = useState(null);
@@ -59,30 +68,102 @@ const Dashboard = ({ onLogout }) => {
   const [yearFilterOpen, setYearFilterOpen] = useState(false);
   const [sortBy, setSortBy] = useState('added_desc');
   const [currentPage, setCurrentPage] = useState(1);
+  const [readingProgress, setReadingProgress] = useState({});
+  const [viewMode, setViewMode] = useState(() => {
+    return localStorage.getItem('viewMode') || 'grid';
+  });
+  const [quickFilter, setQuickFilter] = useState('all');
+  const [continueReadingBooks, setContinueReadingBooks] = useState([]);
+  const [recentlyReadBooks, setRecentlyReadBooks] = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null);
+  const [uploadError, setUploadError] = useState(null);
 
   useEffect(() => {
     loadBooks();
+    loadReadingProgress();
+    loadContinueReading();
+    loadRecentlyRead();
+    loadAllBooksForFilters();
   }, []);
 
   useEffect(() => {
-    applyFilters();
-  }, [allBooks, selectedAuthor, selectedGenre, selectedSeries, selectedYear, searchQuery, sortBy]);
+    localStorage.setItem('viewMode', viewMode);
+  }, [viewMode]);
 
+  // Load books when filters, sort, or page changes
   useEffect(() => {
-    applyPagination();
-  }, [filteredBooks, currentPage]);
+    loadBooks();
+  }, [selectedAuthor, selectedGenre, selectedYear, searchQuery, sortBy, currentPage, quickFilter]);
 
+  // Reset to page 1 when filters change (but not on initial load)
   useEffect(() => {
-    // Reset to page 1 when filters change
-    setCurrentPage(1);
-  }, [selectedAuthor, selectedGenre, selectedSeries, selectedYear, searchQuery, sortBy]);
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
+  }, [selectedAuthor, selectedGenre, selectedYear, searchQuery, sortBy, quickFilter]);
 
   const loadBooks = async () => {
     try {
       setLoading(true);
-      // Fetch all books with a high limit to ensure we get everything
-      const response = await booksAPI.getAll(10000, 0);
-      setAllBooks(response.data.books);
+
+      // Build filter parameters for API
+      const filters = {};
+      if (selectedAuthor) filters.author = selectedAuthor;
+      if (selectedGenre) filters.categories = selectedGenre;
+      if (selectedYear) filters.year = selectedYear;
+
+      // Handle quick filters
+      let limit = BOOKS_PER_PAGE;
+      let offset = (currentPage - 1) * BOOKS_PER_PAGE;
+      let bookIds = null;
+
+      if (quickFilter === 'continue_reading') {
+        bookIds = continueReadingBooks.map(b => b.book_id);
+        // For quick filters, we need a different approach - fetch by IDs
+        // For now, increase limit and filter client-side
+        // TODO: Add backend support for filtering by book IDs
+      } else if (quickFilter === 'recently_read') {
+        bookIds = recentlyReadBooks.map(b => b.book_id);
+      } else if (quickFilter === 'recently_added') {
+        // Backend doesn't support date range filtering yet
+        // Will filter client-side for now
+      }
+
+      // Convert sortBy format (e.g., 'added_desc' to sortBy='added_at', sortOrder='DESC')
+      let [sortField, sortDirection] = sortBy.split('_');
+      if (sortField === 'added') sortField = 'added_at';
+      if (sortField === 'rating') sortField = 'average_rating';
+      const sortOrder = sortDirection?.toUpperCase() || 'DESC';
+
+      // If using quick filters with IDs, fetch more and filter client-side
+      if (bookIds && bookIds.length > 0) {
+        const response = await booksAPI.getAll(1000, 0, sortField, sortOrder, filters);
+        const filteredBooks = response.data.books.filter(book => bookIds.includes(book.id));
+        setBooks(filteredBooks.slice(offset, offset + limit));
+        setTotalBooks(filteredBooks.length);
+      } else if (quickFilter === 'recently_added') {
+        // Fetch recent books and filter by date
+        const response = await booksAPI.getAll(1000, 0, 'added_at', 'DESC', filters);
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const filteredBooks = response.data.books.filter(book => new Date(book.added_at) >= thirtyDaysAgo);
+        setBooks(filteredBooks.slice(offset, offset + limit));
+        setTotalBooks(filteredBooks.length);
+      } else {
+        // Server-side pagination and filtering
+        let searchQuery = '';
+        if (searchQuery.trim()) {
+          // Use search endpoint
+          const response = await booksAPI.search(searchQuery);
+          setBooks(response.data.books.slice(offset, offset + limit));
+          setTotalBooks(response.data.count);
+        } else {
+          const response = await booksAPI.getAll(limit, offset, sortField, sortOrder, filters);
+          setBooks(response.data.books);
+          setTotalBooks(response.data.total);
+        }
+      }
     } catch (error) {
       console.error('Error loading books:', error);
     } finally {
@@ -90,22 +171,65 @@ const Dashboard = ({ onLogout }) => {
     }
   };
 
+  // Load all books for filter counts (in background)
+  const [allBooksForFilters, setAllBooksForFilters] = useState([]);
+  const loadAllBooksForFilters = async () => {
+    try {
+      const response = await booksAPI.getAll(10000, 0);
+      setAllBooksForFilters(response.data.books);
+    } catch (error) {
+      console.error('Error loading books for filters:', error);
+    }
+  };
+
+  const loadReadingProgress = async () => {
+    try {
+      const response = await progressAPI.getAllProgress();
+      // Create a map of book_id to progress for quick lookup
+      const progressMap = {};
+      response.data.progress.forEach(p => {
+        progressMap[p.book_id] = p;
+      });
+      setReadingProgress(progressMap);
+    } catch (error) {
+      console.error('Error loading reading progress:', error);
+    }
+  };
+
+  const loadContinueReading = async () => {
+    try {
+      const response = await progressAPI.getContinueReading(20);
+      setContinueReadingBooks(response.data.books);
+    } catch (error) {
+      console.error('Error loading continue reading:', error);
+    }
+  };
+
+  const loadRecentlyRead = async () => {
+    try {
+      const response = await progressAPI.getRecentlyRead(20);
+      setRecentlyReadBooks(response.data.books);
+    } catch (error) {
+      console.error('Error loading recently read:', error);
+    }
+  };
+
   // Calculate author counts
   const authorCounts = useMemo(() => {
     const counts = {};
-    allBooks.forEach(book => {
+    allBooksForFilters.forEach(book => {
       const author = book.author || 'Unknown Author';
       counts[author] = (counts[author] || 0) + 1;
     });
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1]) // Sort by count descending
       .map(([author, count]) => ({ author, count }));
-  }, [allBooks]);
+  }, [allBooksForFilters]);
 
   // Calculate genre counts
   const genreCounts = useMemo(() => {
     const counts = {};
-    allBooks.forEach(book => {
+    allBooksForFilters.forEach(book => {
       if (book.categories) {
         // Split categories by comma and trim
         const genres = book.categories.split(',').map(g => g.trim());
@@ -119,12 +243,12 @@ const Dashboard = ({ onLogout }) => {
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
       .map(([genre, count]) => ({ genre, count }));
-  }, [allBooks]);
+  }, [allBooksForFilters]);
 
   // Calculate series counts
   const seriesCounts = useMemo(() => {
     const counts = {};
-    allBooks.forEach(book => {
+    allBooksForFilters.forEach(book => {
       if (book.series) {
         counts[book.series] = (counts[book.series] || 0) + 1;
       }
@@ -132,12 +256,12 @@ const Dashboard = ({ onLogout }) => {
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
       .map(([series, count]) => ({ series, count }));
-  }, [allBooks]);
+  }, [allBooksForFilters]);
 
   // Calculate year counts
   const yearCounts = useMemo(() => {
     const counts = {};
-    allBooks.forEach(book => {
+    allBooksForFilters.forEach(book => {
       if (book.published_date) {
         // Extract year from published_date (could be "2023", "2023-01-01", etc.)
         const year = book.published_date.split('-')[0];
@@ -149,97 +273,9 @@ const Dashboard = ({ onLogout }) => {
     return Object.entries(counts)
       .sort((a, b) => b[0].localeCompare(a[0])) // Sort by year descending
       .map(([year, count]) => ({ year, count }));
-  }, [allBooks]);
+  }, [allBooksForFilters]);
 
-  const applyFilters = () => {
-    let filtered = [...allBooks];
-
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(book =>
-        book.title?.toLowerCase().includes(query) ||
-        book.author?.toLowerCase().includes(query) ||
-        book.isbn?.toLowerCase().includes(query)
-      );
-    }
-
-    // Apply author filter
-    if (selectedAuthor) {
-      filtered = filtered.filter(book => 
-        (book.author || 'Unknown Author') === selectedAuthor
-      );
-    }
-
-    // Apply genre filter
-    if (selectedGenre) {
-      filtered = filtered.filter(book => 
-        book.categories?.split(',').map(g => g.trim()).includes(selectedGenre)
-      );
-    }
-
-    // Apply series filter
-    if (selectedSeries) {
-      filtered = filtered.filter(book => book.series === selectedSeries);
-    }
-
-    // Apply year filter
-    if (selectedYear) {
-      filtered = filtered.filter(book => 
-        book.published_date?.startsWith(selectedYear)
-      );
-    }
-
-    // Apply sorting
-    filtered = sortBooks(filtered);
-
-    setFilteredBooks(filtered);
-  };
-
-  const sortBooks = (books) => {
-    const sorted = [...books];
-    
-    switch (sortBy) {
-      case 'title_asc':
-        return sorted.sort((a, b) => a.title.localeCompare(b.title));
-      case 'title_desc':
-        return sorted.sort((a, b) => b.title.localeCompare(a.title));
-      case 'author_asc':
-        return sorted.sort((a, b) => 
-          (a.author || 'Unknown').localeCompare(b.author || 'Unknown')
-        );
-      case 'author_desc':
-        return sorted.sort((a, b) => 
-          (b.author || 'Unknown').localeCompare(a.author || 'Unknown')
-        );
-      case 'rating_desc':
-        return sorted.sort((a, b) => 
-          (b.average_rating || 0) - (a.average_rating || 0)
-        );
-      case 'rating_asc':
-        return sorted.sort((a, b) => 
-          (a.average_rating || 0) - (b.average_rating || 0)
-        );
-      case 'added_desc':
-        return sorted.sort((a, b) => 
-          new Date(b.added_at) - new Date(a.added_at)
-        );
-      case 'added_asc':
-        return sorted.sort((a, b) => 
-          new Date(a.added_at) - new Date(b.added_at)
-        );
-      default:
-        return sorted;
-    }
-  };
-
-  const applyPagination = () => {
-    const startIndex = (currentPage - 1) * BOOKS_PER_PAGE;
-    const endIndex = startIndex + BOOKS_PER_PAGE;
-    setDisplayedBooks(filteredBooks.slice(startIndex, endIndex));
-  };
-
-  const totalPages = Math.ceil(filteredBooks.length / BOOKS_PER_PAGE);
+  const totalPages = Math.ceil(totalBooks / BOOKS_PER_PAGE);
 
   const handlePageChange = (event, value) => {
     setCurrentPage(value);
@@ -265,8 +301,141 @@ const Dashboard = ({ onLogout }) => {
     }
   };
 
+  // Drag and drop handlers
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set dragging false if leaving the whole drop zone
+    if (e.target === e.currentTarget) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    const bookFiles = files.filter(file => {
+      const ext = file.name.split('.').pop().toLowerCase();
+      return ['epub', 'pdf', 'mobi'].includes(ext);
+    });
+
+    if (bookFiles.length === 0) {
+      setUploadError('Please drop valid book files (.epub, .pdf, .mobi)');
+      setTimeout(() => setUploadError(null), 3000);
+      return;
+    }
+
+    // Upload files one by one
+    for (let i = 0; i < bookFiles.length; i++) {
+      const file = bookFiles[i];
+      setUploadProgress(`Uploading ${i + 1}/${bookFiles.length}: ${file.name}`);
+
+      try {
+        const formData = new FormData();
+        formData.append('book', file);
+
+        await booksAPI.upload(formData);
+      } catch (error) {
+        console.error(`Error uploading ${file.name}:`, error);
+        setUploadError(`Failed to upload ${file.name}`);
+        setTimeout(() => setUploadError(null), 5000);
+      }
+    }
+
+    setUploadProgress(null);
+    loadBooks();
+    loadReadingProgress();
+  };
+
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0f0f0f' }}>
+    <Box
+      sx={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0f0f0f', position: 'relative' }}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drag and Drop Overlay */}
+      {isDragging && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(229, 9, 20, 0.9)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+          }}
+        >
+          <Box sx={{ textAlign: 'center' }}>
+            <LibraryIcon sx={{ fontSize: 100, mb: 2 }} />
+            <Typography variant="h3" gutterBottom>
+              Drop Books Here
+            </Typography>
+            <Typography variant="h6">
+              Supports EPUB, PDF, and MOBI files
+            </Typography>
+          </Box>
+        </Box>
+      )}
+
+      {/* Upload Progress Snackbar */}
+      {uploadProgress && (
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: 20,
+            right: 20,
+            backgroundColor: '#1a1a1a',
+            padding: 2,
+            borderRadius: 1,
+            zIndex: 10000,
+            minWidth: 300,
+            boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+          }}
+        >
+          <Typography variant="body1">{uploadProgress}</Typography>
+        </Box>
+      )}
+
+      {/* Upload Error Snackbar */}
+      {uploadError && (
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: 20,
+            right: 20,
+            backgroundColor: '#e50914',
+            padding: 2,
+            borderRadius: 1,
+            zIndex: 10000,
+            minWidth: 300,
+            boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+          }}
+        >
+          <Typography variant="body1">{uploadError}</Typography>
+        </Box>
+      )}
+
       {/* Filter Sidebar */}
       <Drawer
         variant="permanent"
@@ -634,11 +803,59 @@ const Dashboard = ({ onLogout }) => {
             />
           </Box>
 
+          {/* Quick Filters */}
+          <Box sx={{ mb: 3, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Chip
+              label="All Books"
+              onClick={() => setQuickFilter('all')}
+              color={quickFilter === 'all' ? 'primary' : 'default'}
+              sx={{
+                backgroundColor: quickFilter === 'all' ? '#e50914' : '#1a1a1a',
+                '&:hover': {
+                  backgroundColor: quickFilter === 'all' ? '#b20710' : '#333',
+                },
+              }}
+            />
+            <Chip
+              label={`Continue Reading (${continueReadingBooks.length})`}
+              onClick={() => setQuickFilter('continue_reading')}
+              color={quickFilter === 'continue_reading' ? 'primary' : 'default'}
+              sx={{
+                backgroundColor: quickFilter === 'continue_reading' ? '#e50914' : '#1a1a1a',
+                '&:hover': {
+                  backgroundColor: quickFilter === 'continue_reading' ? '#b20710' : '#333',
+                },
+              }}
+            />
+            <Chip
+              label={`Recently Read (${recentlyReadBooks.length})`}
+              onClick={() => setQuickFilter('recently_read')}
+              color={quickFilter === 'recently_read' ? 'primary' : 'default'}
+              sx={{
+                backgroundColor: quickFilter === 'recently_read' ? '#e50914' : '#1a1a1a',
+                '&:hover': {
+                  backgroundColor: quickFilter === 'recently_read' ? '#b20710' : '#333',
+                },
+              }}
+            />
+            <Chip
+              label="Recently Added"
+              onClick={() => setQuickFilter('recently_added')}
+              color={quickFilter === 'recently_added' ? 'primary' : 'default'}
+              sx={{
+                backgroundColor: quickFilter === 'recently_added' ? '#e50914' : '#1a1a1a',
+                '&:hover': {
+                  backgroundColor: quickFilter === 'recently_added' ? '#b20710' : '#333',
+                },
+              }}
+            />
+          </Box>
+
           {loading ? (
             <Typography variant="h6" align="center" color="text.secondary">
               Loading books...
             </Typography>
-          ) : filteredBooks.length === 0 ? (
+          ) : books.length === 0 ? (
             <Box sx={{ textAlign: 'center', mt: 8 }}>
               <Typography variant="h5" color="text.secondary" gutterBottom>
                 {selectedAuthor || selectedGenre || selectedSeries || selectedYear || searchQuery ? 'No books match your filters' : 'No books found'}
@@ -677,16 +894,55 @@ const Dashboard = ({ onLogout }) => {
                 <Typography variant="h5" gutterBottom sx={{ mb: 0 }}>
                   {selectedAuthor ? (
                     <>
-                      Books by {selectedAuthor} ({filteredBooks.length})
+                      Books by {selectedAuthor} ({totalBooks})
                     </>
                   ) : (
                     <>
-                      Your Library ({filteredBooks.length} book{filteredBooks.length !== 1 ? 's' : ''})
+                      Your Library ({totalBooks} book{totalBooks !== 1 ? 's' : ''})
                     </>
                   )}
                 </Typography>
                 
                 <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                  {/* View Mode Toggle */}
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      border: '1px solid #333',
+                      borderRadius: 1,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <IconButton
+                      onClick={() => setViewMode('grid')}
+                      sx={{
+                        borderRadius: 0,
+                        color: viewMode === 'grid' ? '#e50914' : 'inherit',
+                        backgroundColor: viewMode === 'grid' ? 'rgba(229, 9, 20, 0.1)' : 'transparent',
+                        '&:hover': {
+                          backgroundColor: viewMode === 'grid' ? 'rgba(229, 9, 20, 0.2)' : 'rgba(255,255,255,0.1)',
+                        },
+                      }}
+                      title="Grid View"
+                    >
+                      <GridViewIcon />
+                    </IconButton>
+                    <IconButton
+                      onClick={() => setViewMode('list')}
+                      sx={{
+                        borderRadius: 0,
+                        color: viewMode === 'list' ? '#e50914' : 'inherit',
+                        backgroundColor: viewMode === 'list' ? 'rgba(229, 9, 20, 0.1)' : 'transparent',
+                        '&:hover': {
+                          backgroundColor: viewMode === 'list' ? 'rgba(229, 9, 20, 0.2)' : 'rgba(255,255,255,0.1)',
+                        },
+                      }}
+                      title="List View"
+                    >
+                      <ListViewIcon />
+                    </IconButton>
+                  </Box>
+
                   {/* Sort Dropdown */}
                   <FormControl size="small" sx={{ minWidth: 200 }}>
                     <Select
@@ -737,14 +993,160 @@ const Dashboard = ({ onLogout }) => {
                 </Box>
               </Box>
 
-              {/* Book Grid */}
-              <Grid container spacing={3}>
-                {displayedBooks.map((book) => (
-                  <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={book.id}>
-                    <BookCard book={book} onUpdate={loadBooks} />
-                  </Grid>
-                ))}
-              </Grid>
+              {/* Book Display - Grid or List View */}
+              {viewMode === 'grid' ? (
+                <Grid container spacing={3}>
+                  {books.map((book) => (
+                    <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={book.id}>
+                      <BookCard
+                        book={book}
+                        onUpdate={loadBooks}
+                        readingProgress={readingProgress[book.id]}
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+              ) : (
+                <TableContainer
+                  component={Paper}
+                  sx={{
+                    backgroundColor: '#1a1a1a',
+                    '& .MuiTableCell-root': {
+                      borderColor: '#333',
+                    },
+                  }}
+                >
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell width="60px">Cover</TableCell>
+                        <TableCell>Title</TableCell>
+                        <TableCell>Author</TableCell>
+                        <TableCell>Rating</TableCell>
+                        <TableCell>Format</TableCell>
+                        <TableCell>Progress</TableCell>
+                        <TableCell>Added</TableCell>
+                        <TableCell width="120px">Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {books.map((book) => {
+                        const progress = readingProgress[book.id];
+                        return (
+                          <TableRow
+                            key={book.id}
+                            sx={{
+                              '&:hover': {
+                                backgroundColor: 'rgba(229, 9, 20, 0.05)',
+                              },
+                            }}
+                          >
+                            <TableCell>
+                              <Avatar
+                                src={book.cover_image ? booksAPI.getCoverUrl(book.id) : null}
+                                variant="rounded"
+                                sx={{ width: 40, height: 60, cursor: 'pointer' }}
+                                onClick={() => navigate(`/read/${book.id}`)}
+                              >
+                                {book.title[0]}
+                              </Avatar>
+                            </TableCell>
+                            <TableCell>
+                              <Typography
+                                variant="body1"
+                                sx={{
+                                  cursor: 'pointer',
+                                  '&:hover': { color: '#e50914' },
+                                  fontWeight: progress && progress.progress > 0 ? 'bold' : 'normal',
+                                }}
+                                onClick={() => navigate(`/read/${book.id}`)}
+                              >
+                                {book.title}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>{book.author || 'Unknown'}</TableCell>
+                            <TableCell>
+                              {book.average_rating && (
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                  <Rating value={book.average_rating} precision={0.5} size="small" readOnly />
+                                  <Typography variant="caption" sx={{ ml: 0.5 }}>
+                                    ({book.average_rating.toFixed(1)})
+                                  </Typography>
+                                </Box>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={book.format?.toUpperCase() || 'EPUB'}
+                                size="small"
+                                sx={{ backgroundColor: '#333' }}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              {progress && progress.progress > 0 ? (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <LinearProgress
+                                    variant="determinate"
+                                    value={progress.progress}
+                                    sx={{
+                                      width: 80,
+                                      height: 6,
+                                      borderRadius: 3,
+                                      backgroundColor: 'rgba(255,255,255,0.1)',
+                                      '& .MuiLinearProgress-bar': {
+                                        backgroundColor: '#e50914',
+                                        borderRadius: 3,
+                                      },
+                                    }}
+                                  />
+                                  <Typography variant="caption">
+                                    {Math.round(progress.progress)}%
+                                  </Typography>
+                                </Box>
+                              ) : (
+                                <Typography variant="caption" color="text.secondary">
+                                  Not started
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {new Date(book.added_at).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell>
+                              <IconButton
+                                size="small"
+                                onClick={() => navigate(`/read/${book.id}`)}
+                                title={progress && progress.progress > 0 ? 'Continue Reading' : 'Read'}
+                              >
+                                <ReadIcon />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                onClick={async () => {
+                                  try {
+                                    const response = await booksAPI.download(book.id);
+                                    const url = window.URL.createObjectURL(new Blob([response.data]));
+                                    const link = document.createElement('a');
+                                    link.href = url;
+                                    link.setAttribute('download', `${book.title}.${book.format}`);
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    link.remove();
+                                  } catch (error) {
+                                    console.error('Download failed:', error);
+                                  }
+                                }}
+                              >
+                                <DownloadIcon />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
 
               {/* Pagination */}
               {totalPages > 1 && (
