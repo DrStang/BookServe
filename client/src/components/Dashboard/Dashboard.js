@@ -52,6 +52,7 @@ import {
 } from '@mui/icons-material';
 import { booksAPI, metadataAPI, progressAPI } from '../../services/api';
 import BookCard from './BookCard';
+import AdvancedSearch from '../Search/AdvancedSearch';
 
 const DRAWER_WIDTH = 280;
 const BOOKS_PER_PAGE = 24;
@@ -83,6 +84,8 @@ const Dashboard = ({ onLogout }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null);
   const [uploadError, setUploadError] = useState(null);
+  const [advancedSearchOpen, setAdvancedSearchOpen] = useState(false);
+  const [advancedSearchCriteria, setAdvancedSearchCriteria] = useState(null);
 
   useEffect(() => {
     loadBooks();
@@ -99,7 +102,7 @@ const Dashboard = ({ onLogout }) => {
   // Load books when filters, sort, or page changes
   useEffect(() => {
     loadBooks();
-  }, [selectedAuthor, selectedGenre, selectedYear, searchQuery, sortBy, currentPage, quickFilter]);
+  }, [selectedAuthor, selectedGenre, selectedYear, searchQuery, sortBy, currentPage, quickFilter, advancedSearchCriteria]);
 
   // Reset to page 1 when filters change (but not on initial load)
   useEffect(() => {
@@ -114,9 +117,16 @@ const Dashboard = ({ onLogout }) => {
 
       // Build filter parameters for API
       const filters = {};
-      if (selectedAuthor) filters.author = selectedAuthor;
-      if (selectedGenre) filters.categories = selectedGenre;
-      if (selectedYear) filters.year = selectedYear;
+
+      // If advanced search is active, use its criteria
+      if (advancedSearchCriteria) {
+        Object.assign(filters, advancedSearchCriteria);
+      } else {
+        // Otherwise use sidebar filters
+        if (selectedAuthor) filters.author = selectedAuthor;
+        if (selectedGenre) filters.categories = selectedGenre;
+        if (selectedYear) filters.year = selectedYear;
+      }
 
       // Handle quick filters
       let limit = BOOKS_PER_PAGE;
@@ -304,6 +314,17 @@ const Dashboard = ({ onLogout }) => {
       console.error('Error refreshing metadata:', error);
       setRefreshingMetadata(false);
     }
+  };
+
+  const handleAdvancedSearch = (criteria) => {
+    setAdvancedSearchCriteria(criteria);
+    setCurrentPage(1);
+    // Clear other filters when using advanced search
+    setSelectedAuthor(null);
+    setSelectedGenre(null);
+    setSelectedYear(null);
+    setQuickFilter('all');
+    setSearchQuery('');
   };
 
   // Drag and drop handlers
@@ -793,6 +814,25 @@ const Dashboard = ({ onLogout }) => {
                     <SearchIcon />
                   </InputAdornment>
                 ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => setAdvancedSearchOpen(true)}
+                      sx={{
+                        borderColor: '#e50914',
+                        color: '#e50914',
+                        '&:hover': {
+                          borderColor: '#b20710',
+                          backgroundColor: 'rgba(229, 9, 20, 0.1)',
+                        },
+                      }}
+                    >
+                      Advanced Search
+                    </Button>
+                  </InputAdornment>
+                ),
               }}
               sx={{
                 backgroundColor: '#1a1a1a',
@@ -1198,6 +1238,13 @@ const Dashboard = ({ onLogout }) => {
           )}
         </Container>
       </Box>
+
+      {/* Advanced Search Dialog */}
+      <AdvancedSearch
+        open={advancedSearchOpen}
+        onClose={() => setAdvancedSearchOpen(false)}
+        onSearch={handleAdvancedSearch}
+      />
     </Box>
   );
 };

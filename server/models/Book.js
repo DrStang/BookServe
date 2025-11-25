@@ -54,9 +54,19 @@ class Book {
       const whereClauses = [];
       const params = [];
 
+      if (filters.title) {
+        whereClauses.push('title LIKE ?');
+        params.push(`%${filters.title}%`);
+      }
+
       if (filters.author) {
         whereClauses.push('author LIKE ?');
         params.push(`%${filters.author}%`);
+      }
+
+      if (filters.isbn) {
+        whereClauses.push('(isbn LIKE ? OR isbn_13 LIKE ?)');
+        params.push(`%${filters.isbn}%`, `%${filters.isbn}%`);
       }
 
       if (filters.publisher) {
@@ -67,6 +77,28 @@ class Book {
       if (filters.year) {
         whereClauses.push('published_date LIKE ?');
         params.push(`%${filters.year}%`);
+      }
+
+      // Year range filters (yearFrom/yearTo)
+      if (filters.yearFrom) {
+        whereClauses.push('CAST(substr(published_date, 1, 4) AS INTEGER) >= ?');
+        params.push(parseInt(filters.yearFrom));
+      }
+
+      if (filters.yearTo) {
+        whereClauses.push('CAST(substr(published_date, 1, 4) AS INTEGER) <= ?');
+        params.push(parseInt(filters.yearTo));
+      }
+
+      // Rating range filters (ratingFrom/ratingTo)
+      if (filters.ratingFrom !== undefined && filters.ratingFrom !== null) {
+        whereClauses.push('average_rating >= ?');
+        params.push(parseFloat(filters.ratingFrom));
+      }
+
+      if (filters.ratingTo !== undefined && filters.ratingTo !== null) {
+        whereClauses.push('average_rating <= ?');
+        params.push(parseFloat(filters.ratingTo));
       }
 
       if (filters.language) {
@@ -156,9 +188,19 @@ class Book {
       const whereClauses = [];
       const params = [];
 
+      if (filters.title) {
+        whereClauses.push('title LIKE ?');
+        params.push(`%${filters.title}%`);
+      }
+
       if (filters.author) {
         whereClauses.push('author LIKE ?');
         params.push(`%${filters.author}%`);
+      }
+
+      if (filters.isbn) {
+        whereClauses.push('(isbn LIKE ? OR isbn_13 LIKE ?)');
+        params.push(`%${filters.isbn}%`, `%${filters.isbn}%`);
       }
 
       if (filters.publisher) {
@@ -169,6 +211,28 @@ class Book {
       if (filters.year) {
         whereClauses.push('published_date LIKE ?');
         params.push(`%${filters.year}%`);
+      }
+
+      // Year range filters (yearFrom/yearTo)
+      if (filters.yearFrom) {
+        whereClauses.push('CAST(substr(published_date, 1, 4) AS INTEGER) >= ?');
+        params.push(parseInt(filters.yearFrom));
+      }
+
+      if (filters.yearTo) {
+        whereClauses.push('CAST(substr(published_date, 1, 4) AS INTEGER) <= ?');
+        params.push(parseInt(filters.yearTo));
+      }
+
+      // Rating range filters (ratingFrom/ratingTo)
+      if (filters.ratingFrom !== undefined && filters.ratingFrom !== null) {
+        whereClauses.push('average_rating >= ?');
+        params.push(parseFloat(filters.ratingFrom));
+      }
+
+      if (filters.ratingTo !== undefined && filters.ratingTo !== null) {
+        whereClauses.push('average_rating <= ?');
+        params.push(parseFloat(filters.ratingTo));
       }
 
       if (filters.language) {
