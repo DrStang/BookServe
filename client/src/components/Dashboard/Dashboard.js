@@ -33,6 +33,8 @@ import {
   Avatar,
   Rating,
   LinearProgress,
+   MenuBook as ReadIcon,
+  Download as DownloadIcon,
 } from '@mui/material';
 import {
   Search as SearchIcon,
