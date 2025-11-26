@@ -311,16 +311,25 @@ class Book {
         params.push(limit);
 
         const query = `
+
           SELECT *, ${scoreExpression} as similarity_score
+
           FROM books
-          WHERE id != ? AND ${scoreExpression} > 0
+
+          WHERE id != ?
+
           ORDER BY similarity_score DESC, average_rating DESC
+
           LIMIT ?
+
         `;
 
+ 
+
         db.all(query, params, (err, rows) => {
+
           if (err) reject(err);
-          else resolve(rows);
+          else resolve(rows.filter(row => row.similarity_score > 0));
         });
       });
     });
