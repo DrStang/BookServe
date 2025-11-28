@@ -39,7 +39,7 @@ router.get('/recommendations', authMiddleware, async (req, res) => {
     }
 
     // Get user's reading history
-    const progress = await ReadingProgress.findByUserId(req.user.id);
+    const progress = await ReadingProgress.getAllProgress(req.user.id);
     const readBooks = await Promise.all(
       progress.map(p => Book.findById(p.book_id))
     );
@@ -89,7 +89,7 @@ router.get('/insights', authMiddleware, async (req, res) => {
     }
 
     // Get user's reading history
-    const progress = await ReadingProgress.findByUserId(req.user.id);
+    const progress = await ReadingProgress.getAllProgress(req.user.id);
     const readBooks = await Promise.all(
       progress.map(p => Book.findById(p.book_id))
     );
