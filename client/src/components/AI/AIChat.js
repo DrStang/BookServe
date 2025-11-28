@@ -9,16 +9,22 @@ import {
   ListItem,
   Avatar,
   Alert,
-  CircularProgress
+  CircularProgress,
+  AppBar,
+  Toolbar
 } from '@mui/material';
 import {
   Send as SendIcon,
   SmartToy as BotIcon,
-  Person as PersonIcon
+  Person as PersonIcon,
+  ArrowBack as BackIcon
 } from '@mui/icons-material';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import AINavMenu from './AINavMenu';
 
 const AIChat = () => {
+  const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -106,21 +112,42 @@ const AIChat = () => {
   }
 
   return (
-    <Box
-      sx={{
-        height: 'calc(100vh - 200px)',
-        display: 'flex',
-        flexDirection: 'column',
-        bgcolor: '#0f0f0f'
-      }}
-    >
-      {/* Chat Header */}
-      <Paper sx={{ p: 2, bgcolor: '#1e1e1e', borderRadius: 0 }}>
-        <Box display="flex" alignItems="center" gap={1}>
-          <BotIcon color="primary" />
-          <Typography variant="h6">AI Book Assistant</Typography>
-        </Box>
-      </Paper>
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      {/* Sidebar */}
+      <Box
+        sx={{
+          width: 250,
+          flexShrink: 0,
+          bgcolor: '#1a1a1a',
+          borderRight: '1px solid rgba(255,255,255,0.1)'
+        }}
+      >
+        <AINavMenu />
+      </Box>
+
+      {/* Main Content */}
+      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+        <AppBar position="static" sx={{ bgcolor: '#1a1a1a' }}>
+          <Toolbar>
+            <IconButton edge="start" color="inherit" onClick={() => navigate('/')}>
+              <BackIcon />
+            </IconButton>
+            <BotIcon sx={{ ml: 2, mr: 1 }} color="primary" />
+            <Typography variant="h6" sx={{ flexGrow: 1 }}>
+              AI Book Assistant
+            </Typography>
+          </Toolbar>
+        </AppBar>
+
+        <Box
+          sx={{
+            flexGrow: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            height: 'calc(100vh - 64px)',
+            bgcolor: '#0f0f0f'
+          }}
+        >
 
       {/* Messages */}
       <Box
@@ -218,6 +245,8 @@ const AIChat = () => {
           </IconButton>
         </Box>
       </Paper>
+        </Box>
+      </Box>
     </Box>
   );
 };
