@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import {
   AutoAwesome as AIIcon,
+  Recommend as RecommendIcon,
   Psychology as InsightsIcon,
   Chat as ChatIcon,
   Home as HomeIcon
@@ -23,6 +24,7 @@ const AINavMenu = () => {
 
   const menuItems = [
     { path: '/', label: 'Library', icon: <HomeIcon /> },
+    { path: '/ai/recommendations', label: 'Recommendations', icon: <RecommendIcon /> },
     { path: '/ai/insights', label: 'Reading Insights', icon: <InsightsIcon /> },
     { path: '/ai/chat', label: 'AI Chat', icon: <ChatIcon /> }
   ];
