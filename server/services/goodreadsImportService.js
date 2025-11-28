@@ -20,8 +20,8 @@ class GoodreadsImportService {
             title: row['Title'],
             author: row['Author'] || row['Author l-f'],
             additionalAuthors: row['Additional Authors'],
-            isbn: row['ISBN'] ? `="${row['ISBN']}"` : null, // Goodreads prefixes with =
-            isbn13: row['ISBN13'] ? `="${row['ISBN13']}"` : null,
+            isbn: row['ISBN'] || null,
+            isbn13: row['ISBN13'] || null,
             publisher: row['Publisher'],
             publishedYear: row['Year Published'] || row['Original Publication Year'],
             pageCount: row['Number of Pages'] ? parseInt(row['Number of Pages']) : null,
@@ -69,21 +69,26 @@ class GoodreadsImportService {
       errors: []
     };
 
+    console.log(`\n=== Matching ${importedBooks.length} books for user ${userId} ===`);
+
     for (const importedBook of importedBooks) {
       try {
         // Try to find book by ISBN first (most accurate)
         let matchedBook = null;
 
         if (importedBook.isbn13) {
+          console.log(`Searching by ISBN13: ${importedBook.isbn13} for "${importedBook.title}"`);
           matchedBook = await Book.findByISBN(importedBook.isbn13);
         }
 
         if (!matchedBook && importedBook.isbn) {
+          console.log(`Searching by ISBN: ${importedBook.isbn} for "${importedBook.title}"`);
           matchedBook = await Book.findByISBN(importedBook.isbn);
         }
 
         // If no ISBN match, try title + author
         if (!matchedBook) {
+          console.log(`Searching by title/author: "${importedBook.title}" by ${importedBook.author}`);
           matchedBook = await Book.findByTitleAndAuthor(
             importedBook.title,
             importedBook.author
@@ -93,8 +98,15 @@ class GoodreadsImportService {
         const isToRead = importedBook.exclusiveShelf === 'to-read';
 
         if (matchedBook) {
+          console.log(`✓ MATCHED: "${importedBook.title}" -> Book ID ${matchedBook.id}`);
+
           // Save to goodreads_imports tracking table
-          await this.saveImportedBook(userId, matchedBook.id, importedBook);
+          try {
+            await this.saveImportedBook(userId, matchedBook.id, importedBook);
+            console.log(`  Saved to tracking table`);
+          } catch (saveError) {
+            console.error(`  Error saving to tracking table:`, saveError);
+          }
 
           results.matched.push({
             imported: importedBook,
@@ -111,6 +123,7 @@ class GoodreadsImportService {
             });
           }
         } else {
+          console.log(`✗ NOT FOUND: "${importedBook.title}" by ${importedBook.author} (shelf: ${importedBook.exclusiveShelf})`);
           results.notFound.push(importedBook);
 
           // Track not found to-read books separately
@@ -119,12 +132,19 @@ class GoodreadsImportService {
           }
         }
       } catch (error) {
+        console.error(`ERROR matching "${importedBook.title}":`, error);
         results.errors.push({
           book: importedBook,
           error: error.message
         });
       }
     }
+
+    console.log(`\n=== Matching Summary ===`);
+    console.log(`Total: ${importedBooks.length}`);
+    console.log(`Matched: ${results.matched.length} (${results.matchedToRead.length} to-read)`);
+    console.log(`Not Found: ${results.notFound.length} (${results.notFoundToRead.length} to-read)`);
+    console.log(`Errors: ${results.errors.length}\n`);
 
     return results;
   }
