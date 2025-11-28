@@ -5,9 +5,16 @@ const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
 const path = require('path');
+const { ApolloServer } = require('apollo-server-express');
 const { initDatabase } = require('./database/init');
 const downloadMonitor = require('./services/downloadMonitor');
 const retryService = require('./services/retryService');
+const cache = require('./services/redisCache');
+const ollamaAI = require('./services/ollamaAI');
+
+// Import GraphQL schema and resolvers
+const typeDefs = require('./graphql/schema');
+const resolvers = require('./graphql/resolvers');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -17,6 +24,7 @@ const emailRoutes = require('./routes/email');
 const metadataRoutes = require('./routes/metadata');
 const progressRoutes = require('./routes/progress');
 const goodreadsRoutes = require('./routes/goodreads');
+const aiRoutes = require('./routes/ai');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -37,6 +45,7 @@ app.use('/api/email', emailRoutes);
 app.use('/api/metadata', metadataRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/goodreads', goodreadsRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -73,7 +82,38 @@ app.use((req, res) => {
 const startServer = async () => {
   try {
     await initDatabase();
-    console.log('Database initialized successfully');
+    console.log('✓ Database initialized successfully');
+
+    // Initialize Redis cache
+    await cache.connect();
+
+    // Initialize Ollama AI service
+    await ollamaAI.initialize();
+
+    // Create GraphQL server with context
+    const apolloServer = new ApolloServer({
+      typeDefs,
+      resolvers,
+      context: ({ req }) => {
+        // Extract user from JWT token
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        let user = null;
+
+        if (token) {
+          try {
+            const jwt = require('jsonwebtoken');
+            user = jwt.verify(token, process.env.JWT_SECRET);
+          } catch (error) {
+            console.error('Invalid token:', error.message);
+          }
+        }
+
+        return { user };
+      }
+    });
+
+    await apolloServer.start();
+    apolloServer.applyMiddleware({ app, path: '/graphql' });
 
     // Start download monitor
     downloadMonitor.start();
@@ -89,7 +129,12 @@ const startServer = async () => {
 ║  Server running on port ${PORT}         ║
 ║  Environment: ${process.env.NODE_ENV || 'development'}              ║
 ║                                        ║
-║  API: http://localhost:${PORT}/api      ║
+║  REST API: http://localhost:${PORT}/api ║
+║  GraphQL: http://localhost:${PORT}${apolloServer.graphqlPath} ║
+║                                        ║
+║  Services:                             ║
+║  ${cache.isConnected ? '✓' : '✗'} Redis Cache                      ║
+║  ${ollamaAI.isAvailable ? '✓' : '✗'} Ollama AI                       ║
 ╚════════════════════════════════════════╝
       `);
     });
@@ -100,17 +145,19 @@ const startServer = async () => {
 };
 
 // Handle graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   console.log('SIGTERM received, shutting down gracefully...');
   downloadMonitor.stop();
   retryService.stop();
+  await cache.disconnect();
   process.exit(0);
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('SIGINT received, shutting down gracefully...');
   downloadMonitor.stop();
   retryService.stop();
+  await cache.disconnect();
   process.exit(0);
 });
 
