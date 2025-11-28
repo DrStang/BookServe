@@ -310,14 +310,13 @@ class Book {
         params.push(bookId); // Exclude the source book
         params.push(limit);
 
+        // Use subquery to avoid parameter duplication
         const query = `
 
           SELECT *, ${scoreExpression} as similarity_score
 
           FROM books
-
           WHERE id != ?
-
           ORDER BY similarity_score DESC, average_rating DESC
 
           LIMIT ?
@@ -332,6 +331,32 @@ class Book {
           else resolve(rows.filter(row => row.similarity_score > 0));
         });
       });
+    });
+  }
+
+  static async findByISBN(isbn) {
+    return new Promise((resolve, reject) => {
+      db.get(
+        'SELECT * FROM books WHERE isbn = ? OR isbn_13 = ? LIMIT 1',
+        [isbn, isbn],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+  }
+
+  static async findByTitleAndAuthor(title, author) {
+    return new Promise((resolve, reject) => {
+      db.get(
+        'SELECT * FROM books WHERE LOWER(title) = LOWER(?) AND LOWER(author) LIKE LOWER(?) LIMIT 1',
+        [title, `%${author}%`],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
     });
   }
 }

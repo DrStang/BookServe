@@ -102,4 +102,16 @@ export const progressAPI = {
   deleteProgress: (bookId) => api.delete(`/progress/${bookId}`),
 };
 
+// Goodreads Import
+export const goodreadsAPI = {
+  previewCSV: (formData) =>
+    api.post('/goodreads/preview', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  importCSV: (formData) =>
+    api.post('/goodreads/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+};
+
 export default api;
