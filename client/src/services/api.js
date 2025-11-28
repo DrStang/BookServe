@@ -112,6 +112,10 @@ export const goodreadsAPI = {
     api.post('/goodreads/import', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
+  getImportedBooks: (shelf = null) => {
+    const params = shelf ? { shelf } : {};
+    return api.get('/goodreads/imported-books', { params });
+  },
 };
 
 export default api;

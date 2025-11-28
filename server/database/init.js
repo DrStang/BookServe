@@ -162,8 +162,27 @@ const initDatabase = () => {
           FOREIGN KEY (book_id) REFERENCES books(id)
         )
       `, (err) => {
+        if (err) console.error('Error creating download_history table:', err);
+      });
+
+      // Goodreads imports tracking table
+      db.run(`
+        CREATE TABLE IF NOT EXISTS goodreads_imports (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          book_id INTEGER,
+          title TEXT NOT NULL,
+          author TEXT,
+          isbn TEXT,
+          shelf TEXT,
+          imported_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id),
+          FOREIGN KEY (book_id) REFERENCES books(id),
+          UNIQUE(user_id, book_id)
+        )
+      `, (err) => {
         if (err) {
-          console.error('Error creating download_history table:', err);
+          console.error('Error creating goodreads_imports table:', err);
           reject(err);
         } else {
           console.log('Database schema initialized');

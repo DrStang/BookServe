@@ -19,7 +19,7 @@ exports.importCSV = async (req, res) => {
     }
 
     // Match books against existing library
-    const matchResults = await GoodreadsImportService.matchBooks(importedBooks);
+    const matchResults = await GoodreadsImportService.matchBooks(importedBooks, userId);
 
     // Optionally create requests for "to-read" books not in library
     const createRequests = req.body.createRequests === 'true' || req.body.createRequests === true;
@@ -99,5 +99,23 @@ exports.previewCSV = async (req, res) => {
     }
 
     res.status(500).json({ error: 'Error previewing CSV file', details: error.message });
+  }
+};
+
+exports.getImportedBooks = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const shelf = req.query.shelf; // Optional shelf filter (to-read, read, etc.)
+
+    const books = await GoodreadsImportService.getImportedBooks(userId, shelf);
+
+    res.json({
+      success: true,
+      count: books.length,
+      books
+    });
+  } catch (error) {
+    console.error('Error fetching imported books:', error);
+    res.status(500).json({ error: 'Error fetching imported books', details: error.message });
   }
 };

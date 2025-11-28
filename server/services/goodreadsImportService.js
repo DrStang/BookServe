@@ -57,9 +57,10 @@ class GoodreadsImportService {
   /**
    * Match imported books against existing library
    * @param {Array} importedBooks - Books from CSV
+   * @param {number} userId - User ID performing the import
    * @returns {Promise<Object>} Match results with found/missing books
    */
-  static async matchBooks(importedBooks) {
+  static async matchBooks(importedBooks, userId) {
     const results = {
       matched: [],
       matchedToRead: [], // Matched books that are on "to-read" shelf
@@ -92,6 +93,9 @@ class GoodreadsImportService {
         const isToRead = importedBook.exclusiveShelf === 'to-read';
 
         if (matchedBook) {
+          // Save to goodreads_imports tracking table
+          await this.saveImportedBook(userId, matchedBook.id, importedBook);
+
           results.matched.push({
             imported: importedBook,
             existing: matchedBook,
@@ -123,6 +127,39 @@ class GoodreadsImportService {
     }
 
     return results;
+  }
+
+  /**
+   * Save imported book to tracking table
+   * @param {number} userId - User ID
+   * @param {number} bookId - Matched book ID
+   * @param {Object} importedBook - Original Goodreads book data
+   */
+  static async saveImportedBook(userId, bookId, importedBook) {
+    const { db } = require('../database/init');
+
+    return new Promise((resolve, reject) => {
+      db.run(
+        `INSERT OR IGNORE INTO goodreads_imports (user_id, book_id, title, author, isbn, shelf)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          userId,
+          bookId,
+          importedBook.title,
+          importedBook.author,
+          importedBook.isbn13 || importedBook.isbn,
+          importedBook.exclusiveShelf
+        ],
+        (err) => {
+          if (err) {
+            console.error('Error saving imported book:', err);
+            reject(err);
+          } else {
+            resolve();
+          }
+        }
+      );
+    });
   }
 
   /**
@@ -333,6 +370,47 @@ class GoodreadsImportService {
       console.error('SABnzbd error:', error);
       return null;
     }
+  }
+
+  /**
+   * Get user's imported books from Goodreads
+   * @param {number} userId - User ID
+   * @param {string} shelf - Optional shelf filter (to-read, read, currently-reading)
+   * @returns {Promise<Array>} Array of imported books with book details
+   */
+  static async getImportedBooks(userId, shelf = null) {
+    const { db } = require('../database/init');
+
+    return new Promise((resolve, reject) => {
+      let query = `
+        SELECT
+          gi.id as import_id,
+          gi.shelf,
+          gi.imported_at,
+          b.*
+        FROM goodreads_imports gi
+        INNER JOIN books b ON gi.book_id = b.id
+        WHERE gi.user_id = ?
+      `;
+
+      const params = [userId];
+
+      if (shelf) {
+        query += ' AND gi.shelf = ?';
+        params.push(shelf);
+      }
+
+      query += ' ORDER BY gi.imported_at DESC';
+
+      db.all(query, params, (err, rows) => {
+        if (err) {
+          console.error('Error fetching imported books:', err);
+          reject(err);
+        } else {
+          resolve(rows || []);
+        }
+      });
+    });
   }
 
   /**
