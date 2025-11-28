@@ -50,6 +50,9 @@ import {
   ViewList as ListViewIcon,
   MenuBook as ReadIcon,
   Download as DownloadIcon,
+  AutoAwesome as AIIcon,
+  Psychology as InsightsIcon,
+  Chat as ChatIcon,
 } from '@mui/icons-material';
 import { booksAPI, metadataAPI, progressAPI } from '../../services/api';
 import BookCard from './BookCard';
@@ -817,6 +820,19 @@ const Dashboard = ({ onLogout }) => {
               sx={{ mr: 2 }}
             >
               My Requests
+            </Button>
+            <Button
+              color="inherit"
+              startIcon={<AIIcon />}
+              onClick={() => navigate('/ai/recommendations')}
+              sx={{
+                mr: 2,
+                borderLeft: '1px solid rgba(255,255,255,0.1)',
+                pl: 2,
+                ml: 1
+              }}
+            >
+              AI Features
             </Button>
             <IconButton color="inherit" onClick={onLogout}>
               <LogoutIcon />

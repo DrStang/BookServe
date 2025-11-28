@@ -12,16 +12,24 @@ import {
   List,
   ListItem,
   ListItemText,
-  Divider
+  Divider,
+  AppBar,
+  Toolbar,
+  IconButton,
+  Container
 } from '@mui/material';
 import {
   Psychology as InsightsIcon,
   TrendingUp as TrendingIcon,
-  Explore as ExploreIcon
+  Explore as ExploreIcon,
+  ArrowBack as BackIcon
 } from '@mui/icons-material';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import AINavMenu from './AINavMenu';
 
 const ReadingInsights = () => {
+  const navigate = useNavigate();
   const [insights, setInsights] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -98,7 +106,43 @@ const ReadingInsights = () => {
   }
 
   return (
-    <Box p={3}>
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      {/* Sidebar */}
+      <Box
+        sx={{
+          width: 250,
+          flexShrink: 0,
+          bgcolor: '#1a1a1a',
+          borderRight: '1px solid rgba(255,255,255,0.1)'
+        }}
+      >
+        <AINavMenu />
+      </Box>
+
+      {/* Main Content */}
+      <Box sx={{ flexGrow: 1 }}>
+        <AppBar position="static" sx={{ bgcolor: '#1a1a1a' }}>
+          <Toolbar>
+            <IconButton edge="start" color="inherit" onClick={() => navigate('/')}>
+              <BackIcon />
+            </IconButton>
+            <Typography variant="h6" sx={{ flexGrow: 1, ml: 2 }}>
+              Reading Insights
+            </Typography>
+          </Toolbar>
+        </AppBar>
+
+        <Container maxWidth="lg" sx={{ mt: 4 }}>
+          {renderContent()}
+        </Container>
+      </Box>
+    </Box>
+  );
+
+  function renderContent() {
+    if (!aiAvailable && !loading) {
+      return (
+        <Box p={3}>
       <Box display="flex" alignItems="center" gap={1} mb={3}>
         <InsightsIcon color="primary" fontSize="large" />
         <Typography variant="h4">Your Reading Insights</Typography>
@@ -176,8 +220,9 @@ const ReadingInsights = () => {
           </Card>
         </Grid>
       </Grid>
-    </Box>
-  );
+      </Box>
+    );
+  }
 };
 
 export default ReadingInsights;
