@@ -133,6 +133,8 @@ class GoodreadsImportService {
    */
   static async createRequests(notFoundBooks, userId) {
     const Request = require('../models/Request');
+    const MetadataService = require('./metadataService');
+    const metadataService = new MetadataService();
     const requests = [];
 
     for (const book of notFoundBooks) {
@@ -148,12 +150,52 @@ class GoodreadsImportService {
           notes: `Imported from Goodreads${book.bookshelves ? ` (${book.bookshelves})` : ''}`
         });
         requests.push(request);
+
+        // Automatically search for metadata (don't await to avoid blocking)
+        this.searchForBook(request.id, book, metadataService).catch(err => {
+          console.error(`Error searching for book ${book.title}:`, err);
+        });
       } catch (error) {
         console.error(`Error creating request for ${book.title}:`, error);
       }
     }
 
     return requests;
+  }
+
+  /**
+   * Search for book metadata and update request
+   * @param {number} requestId - Request ID
+   * @param {Object} bookInfo - Book information
+   * @param {MetadataService} metadataService - Metadata service instance
+   */
+  static async searchForBook(requestId, bookInfo, metadataService) {
+    const Request = require('../models/Request');
+
+    try {
+      // Search for metadata
+      const searchQuery = {
+        title: bookInfo.title,
+        author: bookInfo.author,
+        isbn: bookInfo.isbn13 || bookInfo.isbn
+      };
+
+      const results = await metadataService.fetchMetadata(searchQuery);
+
+      if (results.merged) {
+        // Update request with found metadata
+        await Request.update(requestId, {
+          status: 'found',
+          metadata: JSON.stringify(results.merged)
+        });
+
+        console.log(`Found metadata for: ${bookInfo.title}`);
+      } else {
+        console.log(`No metadata found for: ${bookInfo.title}`);
+      }
+    } catch (error) {
+      console.error(`Error searching for ${bookInfo.title}:`, error);
+    }
   }
 
   /**
