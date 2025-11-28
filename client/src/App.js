@@ -11,6 +11,9 @@ import RequestBook from './components/Requests/RequestBook';
 import MyRequests from './components/Requests/MyRequests';
 import AuthorPage from './components/Author/AuthorPage';
 import ReadingList from './components/ReadingList/ReadingList';
+import ReadingInsights from './components/AI/ReadingInsights';
+import AIChat from './components/AI/AIChat';
+import AIRecommendationsPage from './components/AI/AIRecommendationsPage';
 import PrivateRoute from './components/Common/PrivateRoute';
 
 const darkTheme = createTheme({
@@ -117,6 +120,30 @@ function App() {
             element={
               <PrivateRoute isAuthenticated={isAuthenticated}>
                 <ReadingList />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/ai/recommendations"
+            element={
+              <PrivateRoute isAuthenticated={isAuthenticated}>
+                <AIRecommendationsPage onLogout={handleLogout} />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/ai/insights"
+            element={
+              <PrivateRoute isAuthenticated={isAuthenticated}>
+                <ReadingInsights />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/ai/chat"
+            element={
+              <PrivateRoute isAuthenticated={isAuthenticated}>
+                <AIChat />
               </PrivateRoute>
             }
           />
