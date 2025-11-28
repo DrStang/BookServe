@@ -62,7 +62,9 @@ class GoodreadsImportService {
   static async matchBooks(importedBooks) {
     const results = {
       matched: [],
+      matchedToRead: [], // Matched books that are on "to-read" shelf
       notFound: [],
+      notFoundToRead: [], // Not found books that are on "to-read" shelf
       errors: []
     };
 
@@ -87,14 +89,30 @@ class GoodreadsImportService {
           );
         }
 
+        const isToRead = importedBook.exclusiveShelf === 'to-read';
+
         if (matchedBook) {
           results.matched.push({
             imported: importedBook,
             existing: matchedBook,
             matchType: 'found'
           });
+
+          // Track matched to-read books separately
+          if (isToRead) {
+            results.matchedToRead.push({
+              imported: importedBook,
+              existing: matchedBook,
+              matchType: 'found'
+            });
+          }
         } else {
           results.notFound.push(importedBook);
+
+          // Track not found to-read books separately
+          if (isToRead) {
+            results.notFoundToRead.push(importedBook);
+          }
         }
       } catch (error) {
         results.errors.push({
@@ -148,16 +166,30 @@ class GoodreadsImportService {
     return {
       total: matchResults.matched.length + matchResults.notFound.length + matchResults.errors.length,
       matched: matchResults.matched.length,
+      matchedToRead: matchResults.matchedToRead.length,
       notFound: matchResults.notFound.length,
+      notFoundToRead: matchResults.notFoundToRead.length,
       requestsCreated: createdRequests.length,
       errors: matchResults.errors.length,
       details: {
         matchedBooks: matchResults.matched.map(m => ({
           title: m.imported.title,
           author: m.imported.author,
+          existingId: m.existing.id,
+          shelf: m.imported.exclusiveShelf
+        })),
+        matchedToReadBooks: matchResults.matchedToRead.map(m => ({
+          title: m.imported.title,
+          author: m.imported.author,
           existingId: m.existing.id
         })),
         notFoundBooks: matchResults.notFound.map(b => ({
+          title: b.title,
+          author: b.author,
+          isbn: b.isbn13 || b.isbn,
+          shelf: b.exclusiveShelf
+        })),
+        notFoundToReadBooks: matchResults.notFoundToRead.map(b => ({
           title: b.title,
           author: b.author,
           isbn: b.isbn13 || b.isbn

@@ -214,7 +214,7 @@ const GoodreadsImport = ({ open, onClose, onImportComplete }) => {
                   onChange={(e) => setCreateRequests(e.target.checked)}
                 />
               }
-              label="Create book requests for books not in library"
+              label="Create book requests for 'to-read' books not in library"
               sx={{ mt: 2 }}
             />
           </Box>
@@ -248,22 +248,63 @@ const GoodreadsImport = ({ open, onClose, onImportComplete }) => {
                 </Paper>
                 <Paper sx={{ p: 2, backgroundColor: '#1a1a1a' }}>
                   <Typography variant="caption" color="text.secondary">
-                    Not Found
+                    To-Read (Available)
                   </Typography>
-                  <Typography variant="h4" color="warning.main">
-                    {importResults.notFound}
+                  <Typography variant="h4" color="info.main">
+                    {importResults.matchedToRead}
                   </Typography>
                 </Paper>
                 <Paper sx={{ p: 2, backgroundColor: '#1a1a1a' }}>
                   <Typography variant="caption" color="text.secondary">
                     Requests Created
                   </Typography>
-                  <Typography variant="h4" color="info.main">
+                  <Typography variant="h4" color="warning.main">
                     {importResults.requestsCreated}
                   </Typography>
                 </Paper>
               </Box>
             </Box>
+
+            {/* Matched To-Read Books */}
+            {importResults.matchedToRead > 0 && importResults.details?.matchedToReadBooks && (
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  📚 Books Ready to Read ({importResults.matchedToRead})
+                </Typography>
+                <Typography variant="body2" color="text.secondary" paragraph>
+                  These books from your "to-read" shelf are already in the library:
+                </Typography>
+                <Paper sx={{ maxHeight: 250, overflow: 'auto', backgroundColor: '#1a1a1a' }}>
+                  <List dense>
+                    {importResults.details.matchedToReadBooks.map((book, index) => (
+                      <React.Fragment key={index}>
+                        <ListItem
+                          secondaryAction={
+                            <Button
+                              size="small"
+                              variant="contained"
+                              href={`/read/${book.existingId}`}
+                              sx={{
+                                backgroundColor: '#e50914',
+                                '&:hover': { backgroundColor: '#b20710' },
+                              }}
+                            >
+                              Read Now
+                            </Button>
+                          }
+                        >
+                          <ListItemText
+                            primary={book.title}
+                            secondary={`by ${book.author}`}
+                          />
+                        </ListItem>
+                        {index < importResults.details.matchedToReadBooks.length - 1 && <Divider />}
+                      </React.Fragment>
+                    ))}
+                  </List>
+                </Paper>
+              </Box>
+            )}
 
             {importResults.errors > 0 && (
               <Alert severity="warning" icon={<ErrorIcon />}>
