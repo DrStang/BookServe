@@ -56,6 +56,7 @@ import BookCard from './BookCard';
 import AdvancedSearch from '../Search/AdvancedSearch';
 import BookDetailModal from '../Books/BookDetailModal';
 import VirtualizedBookGrid from './VirtualizedBookGrid';
+import GoodreadsImport from '../Import/GoodreadsImport';
 
 const DRAWER_WIDTH = 280;
 const BOOKS_PER_PAGE = 24;
@@ -91,6 +92,7 @@ const Dashboard = ({ onLogout }) => {
   const [advancedSearchCriteria, setAdvancedSearchCriteria] = useState(null);
   const [selectedBookForDetail, setSelectedBookForDetail] = useState(null);
   const [bookDetailOpen, setBookDetailOpen] = useState(false);
+  const [goodreadsImportOpen, setGoodreadsImportOpen] = useState(false);
 
   useEffect(() => {
     loadBooks();
@@ -1051,6 +1053,21 @@ const Dashboard = ({ onLogout }) => {
                   >
                     {refreshingMetadata ? 'Refreshing...' : 'Refresh Covers'}
                   </Button>
+
+                  <Button
+                    variant="outlined"
+                    onClick={() => setGoodreadsImportOpen(true)}
+                    sx={{
+                      borderColor: '#e50914',
+                      color: '#e50914',
+                      '&:hover': {
+                        borderColor: '#e50914',
+                        backgroundColor: 'rgba(229, 9, 20, 0.1)',
+                      },
+                    }}
+                  >
+                    Import from Goodreads
+                  </Button>
                 </Box>
               </Box>
 
@@ -1289,6 +1306,17 @@ const Dashboard = ({ onLogout }) => {
         }}
         book={selectedBookForDetail}
         readingProgress={readingProgress}
+      />
+
+      {/* Goodreads Import Dialog */}
+      <GoodreadsImport
+        open={goodreadsImportOpen}
+        onClose={() => setGoodreadsImportOpen(false)}
+        onImportComplete={(summary) => {
+          // Reload books and requests after import
+          loadBooks();
+          loadAllBooksForFilters();
+        }}
       />
     </Box>
   );

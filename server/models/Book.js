@@ -326,6 +326,32 @@ class Book {
       });
     });
   }
+
+  static async findByISBN(isbn) {
+    return new Promise((resolve, reject) => {
+      db.get(
+        'SELECT * FROM books WHERE isbn = ? OR isbn_13 = ? LIMIT 1',
+        [isbn, isbn],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+  }
+
+  static async findByTitleAndAuthor(title, author) {
+    return new Promise((resolve, reject) => {
+      db.get(
+        'SELECT * FROM books WHERE LOWER(title) = LOWER(?) AND LOWER(author) LIKE LOWER(?) LIMIT 1',
+        [title, `%${author}%`],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+  }
 }
 
 module.exports = Book;
