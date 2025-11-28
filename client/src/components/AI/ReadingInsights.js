@@ -223,6 +223,6 @@ const ReadingInsights = () => {
       </Box>
     );
   }
-};
+;
 
 export default ReadingInsights;
