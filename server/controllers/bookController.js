@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const epubMetadataService = require('../services/epubMetadataService');
 const seriesDetectionService = require('../services/seriesDetectionService');
+const ebookConverter = require('../services/ebookConverter');
 
 exports.getAllBooks = async (req, res) => {
   try {
@@ -176,7 +177,7 @@ exports.streamBook = async (req, res) => {
       return res.status(404).json({ error: 'Book not found' });
     }
 
-    const filePath = path.resolve(book.file_path);
+    let filePath = path.resolve(book.file_path);
 
     // Check if file exists
     try {
@@ -185,22 +186,39 @@ exports.streamBook = async (req, res) => {
       return res.status(404).json({ error: 'Book file not found' });
     }
 
-// Set proper headers for EPUB
+    const format = book.format.toLowerCase();
 
-    res.setHeader('Content-Type', 'application/epub+zip');
+    // Handle MOBI/AZW conversion
+    if (ebookConverter.needsConversion(filePath)) {
+      try {
+        console.log(`Converting ${format} to EPUB for streaming...`);
+        filePath = await ebookConverter.convertToEpub(filePath, book.id);
+        res.setHeader('Content-Type', 'application/epub+zip');
+      } catch (conversionError) {
+        console.error('Conversion error:', conversionError);
+        return res.status(500).json({
+          error: 'Failed to convert book',
+          message: conversionError.message
+        });
+      }
+    } else if (format === 'pdf') {
+      // Stream PDF directly
+      res.setHeader('Content-Type', 'application/pdf');
+    } else if (format === 'epub') {
+      // Stream EPUB
+      res.setHeader('Content-Type', 'application/epub+zip');
+    } else {
+      // Fallback for unknown formats
+      res.setHeader('Content-Type', 'application/octet-stream');
+    }
 
     res.setHeader('Accept-Ranges', 'bytes');
-
     res.sendFile(filePath);
 
   } catch (error) {
-
     console.error('Error streaming book:', error);
-
     res.status(500).json({ error: 'Error streaming book' });
-
   }
-
 };
 
  

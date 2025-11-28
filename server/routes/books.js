@@ -24,12 +24,12 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['.epub', '.pdf', '.mobi'];
+    const allowedTypes = ['.epub', '.pdf', '.mobi', '.azw', '.azw3'];
     const ext = path.extname(file.originalname).toLowerCase();
     if (allowedTypes.includes(ext)) {
       cb(null, true);
     } else {
-      cb(new Error('Only .epub, .pdf, and .mobi files are allowed'));
+      cb(new Error('Only .epub, .pdf, .mobi, .azw, and .azw3 files are allowed'));
     }
   },
   limits: {
