@@ -62,7 +62,7 @@ const resolvers = {
     // Reading progress queries
     myProgress: async (_, __, { user }) => {
       if (!user) throw new Error('Not authenticated');
-      return await ReadingProgress.findByUserId(user.id);
+      return await ReadingProgress.getAllProgress(user.id);
     },
 
     continueReading: async (_, { limit = 10 }, { user }) => {
