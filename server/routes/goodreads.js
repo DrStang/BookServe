@@ -42,4 +42,7 @@ router.post('/preview', authMiddleware, upload.single('csv'), goodreadsControlle
 // Import CSV file
 router.post('/import', authMiddleware, upload.single('csv'), goodreadsController.importCSV);
 
+// Get user's imported books
+router.get('/imported-books', authMiddleware, goodreadsController.getImportedBooks);
+
 module.exports = router;

@@ -20,7 +20,7 @@ import {
   HourglassEmpty as PendingIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { booksAPI, requestsAPI, progressAPI } from '../../services/api';
+import { goodreadsAPI, requestsAPI, progressAPI } from '../../services/api';
 
 const ReadingList = () => {
   const navigate = useNavigate();
@@ -38,7 +38,7 @@ const ReadingList = () => {
     try {
       setLoading(true);
 
-      // Load reading progress to identify to-read books
+      // Load reading progress to identify started books
       const progressRes = await progressAPI.getAllProgress();
       const progressMap = {};
       progressRes.data.progress.forEach(p => {
@@ -46,11 +46,14 @@ const ReadingList = () => {
       });
       setReadingProgress(progressMap);
 
-      // Load all books and filter for to-read (not started or low progress)
-      const booksRes = await booksAPI.getAll(1000, 0);
-      const toReadBooks = booksRes.data.books.filter(book => {
+      // Load books imported from Goodreads with "to-read" shelf
+      const importedRes = await goodreadsAPI.getImportedBooks('to-read');
+      const importedBooks = importedRes.data.books;
+
+      // Filter out books that have been started (>5% progress)
+      const toReadBooks = importedBooks.filter(book => {
         const progress = progressMap[book.id];
-        return !progress || progress.progress < 5; // Less than 5% = to-read
+        return !progress || progress.progress < 5;
       });
       setAvailableBooks(toReadBooks);
 
