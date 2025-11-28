@@ -21,13 +21,13 @@ exports.importCSV = async (req, res) => {
     // Match books against existing library
     const matchResults = await GoodreadsImportService.matchBooks(importedBooks);
 
-    // Optionally create requests for books not in library
+    // Optionally create requests for "to-read" books not in library
     const createRequests = req.body.createRequests === 'true' || req.body.createRequests === true;
     let createdRequests = [];
 
-    if (createRequests && matchResults.notFound.length > 0) {
+    if (createRequests && matchResults.notFoundToRead.length > 0) {
       createdRequests = await GoodreadsImportService.createRequests(
-        matchResults.notFound,
+        matchResults.notFoundToRead,
         userId
       );
     }
