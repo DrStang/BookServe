@@ -114,7 +114,7 @@ class GoodreadsImportService {
    * @returns {Promise<Array>} Created request IDs
    */
   static async createRequests(notFoundBooks, userId) {
-    const Request = require('../models/Request');
+    const Request = require('../models/BookRequest');
     const requests = [];
 
     for (const book of notFoundBooks) {
