@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authenticateToken } = require('../middleware/auth');
+const { authMiddleware } = require('../middleware/auth');
 const ollamaAI = require('../services/ollamaAI');
 const Book = require('../models/Book');
 const ReadingProgress = require('../models/ReadingProgress');
@@ -27,7 +27,7 @@ router.get('/status', async (req, res) => {
  * GET /api/ai/recommendations
  * Get personalized book recommendations
  */
-router.get('/recommendations', authenticateToken, async (req, res) => {
+router.get('/recommendations', authMiddleware, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 5;
 
@@ -79,7 +79,7 @@ router.get('/recommendations', authenticateToken, async (req, res) => {
  * GET /api/ai/insights
  * Get reading insights and patterns
  */
-router.get('/insights', authenticateToken, async (req, res) => {
+router.get('/insights', authMiddleware, async (req, res) => {
   try {
     // Check cache first
     const cacheKey = `ai:insights:${req.user.id}`;
@@ -112,7 +112,7 @@ router.get('/insights', authenticateToken, async (req, res) => {
  * GET /api/ai/summary/:id
  * Get AI-generated summary for a book
  */
-router.get('/summary/:id', authenticateToken, async (req, res) => {
+router.get('/summary/:id', authMiddleware, async (req, res) => {
   try {
     const bookId = req.params.id;
 
@@ -143,7 +143,7 @@ router.get('/summary/:id', authenticateToken, async (req, res) => {
  * POST /api/ai/ask/:id
  * Ask a question about a specific book
  */
-router.post('/ask/:id', authenticateToken, async (req, res) => {
+router.post('/ask/:id', authMiddleware, async (req, res) => {
   try {
     const bookId = req.params.id;
     const { question } = req.body;
@@ -169,7 +169,7 @@ router.post('/ask/:id', authenticateToken, async (req, res) => {
  * POST /api/ai/chat
  * Stream chat with AI
  */
-router.post('/chat', authenticateToken, async (req, res) => {
+router.post('/chat', authMiddleware, async (req, res) => {
   try {
     const { message, context = [] } = req.body;
 
@@ -200,7 +200,7 @@ router.post('/chat', authenticateToken, async (req, res) => {
  * POST /api/ai/invalidate-cache
  * Invalidate AI cache for current user (admin only)
  */
-router.post('/invalidate-cache', authenticateToken, async (req, res) => {
+router.post('/invalidate-cache', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Forbidden' });
