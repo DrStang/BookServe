@@ -133,8 +133,6 @@ class GoodreadsImportService {
    */
   static async createRequests(notFoundBooks, userId) {
     const Request = require('../models/Request');
-    const MetadataService = require('./metadataService');
-    const metadataService = new MetadataService();
     const requests = [];
 
     for (const book of notFoundBooks) {
@@ -151,9 +149,9 @@ class GoodreadsImportService {
         });
         requests.push(request);
 
-        // Automatically search for metadata (don't await to avoid blocking)
-        this.searchForBook(request.id, book, metadataService).catch(err => {
-          console.error(`Error searching for book ${book.title}:`, err);
+        // Automatically trigger NZBHydra search and SABnzbd download (don't await to avoid blocking)
+        this.processBookRequest(request.id).catch(err => {
+          console.error(`Error processing book request for ${book.title}:`, err);
         });
       } catch (error) {
         console.error(`Error creating request for ${book.title}:`, error);
@@ -164,37 +162,176 @@ class GoodreadsImportService {
   }
 
   /**
-   * Search for book metadata and update request
+   * Process book request - search NZBHydra and download via SABnzbd
    * @param {number} requestId - Request ID
-   * @param {Object} bookInfo - Book information
-   * @param {MetadataService} metadataService - Metadata service instance
    */
-  static async searchForBook(requestId, bookInfo, metadataService) {
-    const Request = require('../models/Request');
+  static async processBookRequest(requestId) {
+    // Import the processBookRequest function from requestController
+    // We need to access the internal processing logic
+    const requestController = require('../controllers/requestController');
+
+    // Call the internal processing function directly
+    // Note: This accesses the non-exported function, so we'll need to export it
+    // For now, we'll duplicate the logic here or call it via require if exported
 
     try {
-      // Search for metadata
-      const searchQuery = {
-        title: bookInfo.title,
-        author: bookInfo.author,
-        isbn: bookInfo.isbn13 || bookInfo.isbn
-      };
+      const BookRequest = require('../models/BookRequest');
+      const request = await BookRequest.findById(requestId);
 
-      const results = await metadataService.fetchMetadata(searchQuery);
-
-      if (results.merged) {
-        // Update request with found metadata
-        await Request.update(requestId, {
-          status: 'found',
-          metadata: JSON.stringify(results.merged)
-        });
-
-        console.log(`Found metadata for: ${bookInfo.title}`);
-      } else {
-        console.log(`No metadata found for: ${bookInfo.title}`);
+      if (!request) {
+        console.error(`Request ${requestId} not found`);
+        return;
       }
+
+      console.log(`Auto-processing Goodreads import request: ${request.title} by ${request.author}`);
+
+      // Update status to searching
+      await BookRequest.updateStatus(requestId, 'searching');
+
+      // Search NZBHydra
+      const nzbResults = await this.searchNZBHydra(request.title, request.author);
+
+      if (!nzbResults || nzbResults.length === 0) {
+        await BookRequest.updateStatus(requestId, 'failed', {
+          error_message: 'No books found for download. Will retry.'
+        });
+        // Schedule retry
+        const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
+        await BookRequest.scheduleRetry(requestId, retryIntervalDays);
+        console.log(`Scheduled retry for request ${requestId} in ${retryIntervalDays} days`);
+        return;
+      }
+
+      // Get the best result (first one)
+      const bestResult = nzbResults[0];
+      console.log(`Found book on NZBHydra: ${bestResult.title}`);
+
+      // Send to SABnzbd
+      const sabnzbdId = await this.sendToSABnzbd(bestResult);
+
+      if (!sabnzbdId) {
+        await BookRequest.updateStatus(requestId, 'failed', {
+          error_message: 'Failed to add to SABnzbd'
+        });
+        const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
+        await BookRequest.scheduleRetry(requestId, retryIntervalDays);
+        return;
+      }
+
+      // Update request with SABnzbd ID
+      await BookRequest.updateStatus(requestId, 'downloading', {
+        sabnzbd_id: sabnzbdId
+      });
+
+      console.log(`Successfully queued download for: ${request.title}`);
     } catch (error) {
-      console.error(`Error searching for ${bookInfo.title}:`, error);
+      console.error(`Error processing book request ${requestId}:`, error);
+      const BookRequest = require('../models/BookRequest');
+      await BookRequest.updateStatus(requestId, 'failed', {
+        error_message: error.message
+      });
+    }
+  }
+
+  /**
+   * Search NZBHydra for book
+   */
+  static async searchNZBHydra(title, author) {
+    const axios = require('axios');
+    const xml2js = require('xml2js');
+
+    try {
+      const nzbhydraUrl = process.env.NZBHYDRA_URL;
+      const apiKey = process.env.NZBHYDRA_API_KEY;
+
+      if (!nzbhydraUrl || !apiKey) {
+        console.error('NZBHydra configuration missing');
+        return null;
+      }
+
+      let searchQuery = title;
+      if (author) {
+        searchQuery += ` ${author}`;
+      }
+      searchQuery += ' epub';
+
+      console.log(`Searching NZBHydra for: "${searchQuery}"`);
+
+      const response = await axios.get(`${nzbhydraUrl}/api`, {
+        params: {
+          apikey: apiKey,
+          t: 'search',
+          q: searchQuery,
+          cat: 7020, // eBooks
+          extended: 1
+        },
+        timeout: 30000
+      });
+
+      const parser = new xml2js.Parser();
+      const result = await parser.parseStringPromise(response.data);
+
+      if (!result.rss || !result.rss.channel || !result.rss.channel[0].item) {
+        return [];
+      }
+
+      const items = result.rss.channel[0].item;
+      console.log(`NZBHydra returned ${items.length} results`);
+
+      return items.map(item => ({
+        title: item.title[0],
+        link: item.link[0],
+        guid: item.guid ? item.guid[0]._ || item.guid[0] : null,
+        size: item['newznab:attr']
+          ? item['newznab:attr'].find(attr => attr.$.name === 'size')?.$?.value
+          : null,
+      }));
+    } catch (error) {
+      console.error('NZBHydra search error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Send book to SABnzbd for download
+   */
+  static async sendToSABnzbd(nzbResult) {
+    const axios = require('axios');
+
+    try {
+      const sabnzbdUrl = process.env.SABNZBD_URL;
+      const apiKey = process.env.SABNZBD_API_KEY;
+
+      if (!sabnzbdUrl || !apiKey) {
+        console.error('SABnzbd configuration missing');
+        return null;
+      }
+
+      console.log(`Sending to SABnzbd: ${nzbResult.title}`);
+
+      const response = await axios.get(`${sabnzbdUrl}/api`, {
+        params: {
+          apikey: apiKey,
+          mode: 'addurl',
+          name: nzbResult.link,
+          cat: 'books',
+          priority: 0,
+          output: 'json'
+        },
+        timeout: 10000
+      });
+
+      if (response.data.status === true && response.data.nzo_ids && response.data.nzo_ids.length > 0) {
+        const sabnzbdId = response.data.nzo_ids[0];
+        console.log(`Added to SABnzbd with ID: ${sabnzbdId}`);
+        return sabnzbdId;
+      }
+
+      console.error('SABnzbd did not return a valid ID');
+      return null;
+    } catch (error) {
+      console.error('SABnzbd error:', error);
+      return null;
     }
   }
 
