@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { FixedSizeGrid as Grid } from 'react-window';
+import { FixedSizeGrid } from 'react-window';
 import { Box } from '@mui/material';
 import BookCard from './BookCard';
 
@@ -65,7 +65,7 @@ const VirtualizedBookGrid = ({ books, readingProgress, onUpdate, onBookClick, co
 
   return (
     <Box ref={containerRef} sx={{ width: '100%' }}>
-      <Grid
+      <FixedSizeGrid
         columnCount={dynamicColumnCount}
         columnWidth={cardWidth}
         height={800} // Fixed height for the scrollable area
@@ -77,7 +77,7 @@ const VirtualizedBookGrid = ({ books, readingProgress, onUpdate, onBookClick, co
         }}
       >
         {Cell}
-      </Grid>
+      </FixedSizeGrid>
     </Box>
   );
 };
