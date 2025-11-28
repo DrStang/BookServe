@@ -806,6 +806,13 @@ const Dashboard = ({ onLogout }) => {
             </Button>
             <Button
               color="inherit"
+              onClick={() => navigate('/reading-list')}
+              sx={{ mr: 2 }}
+            >
+              Reading List
+            </Button>
+            <Button
+              color="inherit"
               onClick={() => navigate('/my-requests')}
               sx={{ mr: 2 }}
             >
