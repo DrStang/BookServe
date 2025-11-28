@@ -97,7 +97,7 @@ const resolvers = {
         throw new Error('AI service is not available');
       }
 
-      const progress = await ReadingProgress.findByUserId(user.id);
+      const progress = await ReadingProgress.getAllProgress(user.id);
       const readBooks = await Promise.all(
         progress.map(p => Book.findById(p.book_id))
       );
@@ -124,7 +124,7 @@ const resolvers = {
         throw new Error('AI service is not available');
       }
 
-      const progress = await ReadingProgress.findByUserId(user.id);
+      const progress = await ReadingProgress.getAllProgress(user.id);
       const readBooks = await Promise.all(
         progress.map(p => Book.findById(p.book_id))
       );
