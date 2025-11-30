@@ -4,8 +4,55 @@ const { authMiddleware } = require('../middleware/auth');
 const ollamaAI = require('../services/ollamaAI');
 const Book = require('../models/Book');
 const ReadingProgress = require('../models/ReadingProgress');
+const { db } = require('../database/init');
 const cache = require('../services/redisCache');
 
+/**
+ * Helper function to get Goodreads read books for recommendations
+ */
+async function getGoodreadsReadBooks(userId) {
+  return new Promise((resolve, reject) => {
+    db.all(
+      `SELECT b.*, gi.shelf, gi.imported_at
+       FROM goodreads_imports gi
+       INNER JOIN books b ON gi.book_id = b.id
+       WHERE gi.user_id = ? AND gi.shelf = 'read'
+       ORDER BY gi.imported_at DESC`,
+      [userId],
+      (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      }
+    );
+  });
+}
+
+/**
+ * Deduplicate books by title and author (case-insensitive)
+ * When duplicates found, keep the one with higher rating
+ */
+function deduplicateBooks(books) {
+  const bookMap = new Map();
+  
+  books.forEach(book => {
+    const key = `${book.title.toLowerCase()}|${(book.author || '').toLowerCase()}`;
+    
+    if (!bookMap.has(key)) {
+      bookMap.set(key, book);
+    } else {
+      // Keep book with higher rating
+      const existing = bookMap.get(key);
+      const existingRating = existing.average_rating || 0;
+      const newRating = book.average_rating || 0;
+      
+      if (newRating > existingRating) {
+        bookMap.set(key, book);
+      }
+    }
+  });
+  
+  return Array.from(bookMap.values());
+}
 /**
  * GET /api/ai/status
  * Check if AI service is available
@@ -39,18 +86,37 @@ router.get('/recommendations', authMiddleware, async (req, res) => {
     }
 
     // Get user's reading history
-    const progress = await ReadingProgress.getAllProgress(req.user.id);
-    const readBooks = await Promise.all(
-      progress.map(p => Book.findById(p.book_id))
+    const siteProgress = await ReadingProgress.getAllProgress(req.user.id);
+    const siteReadBooks = await Promise.all(
+      siteProgress
+        .filter(p => p.progress >= 90)
+        .map(p => Book.findById(p.book_id))
     );
+    const goodreadsReadBooks = await getGoodreadsReadBooks(req.user.id);
 
+    console.log(`[AI Recommendations] User ${req.user.id}:`);
+    console.log(`  - Site reads books: ${siteReadBooks.filter(Boolean).length}`);
+    console.log(`  - Goodreads read books: ${goodreadsReadBooks.length}`);
+
+    const allReadBooks = deduplicateBooks([
+      ...siteReadBooks.filter(Boolean),
+      ...goodreadsReadBooks
+    ]);
+
+    console.log(`  - Combined unique books: ${allReadBooks.length}`);
+      
     // Get all available books
-    const allBooks = await Book.findAll();
+    const allBooks = await Book.findAll(1000, 0);
+
+    const readBookIds = new Set(allReadBooks.map(b => b.id));
+    const unreadBooks = allBooks.filter(b => !readBookIds.has(b.id));
+
+    console.log(`  - Available unread books: ${unreadBooks.length}`);
 
     // Get recommendations
     const recommendations = await ollamaAI.getRecommendations(
-      readBooks.filter(Boolean),
-      allBooks,
+      allReadBooks,
+      unreadBooks,
       limit
     );
 
@@ -61,16 +127,28 @@ router.get('/recommendations', authMiddleware, async (req, res) => {
         return {
           book,
           reason: rec.reason,
-          score: rec.score || 0
+          score: rec.score || 0.7
         };
       })
     );
 
-    // Cache for 1 hour
-    await cache.set(cacheKey, enriched, 3600);
+    const result = {
+      recommendations: enriched,
+      metadata: {
+        total_books_analyzed: allReadBooks.length,
+        site_books: siteReadBooks.filter(Boolean).length,
+        goodreads_books: goodreadsReadBooks.length,
+        available_for_recommendation: unreadBooks.length
+      }
+    };
+    
 
-    res.json(enriched);
+    // Cache for 1 hour
+    await cache.set(cacheKey, result, 3600);
+
+    res.json(result);
   } catch (error) {
+    console.error('Error generating recommendations:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -89,21 +167,42 @@ router.get('/insights', authMiddleware, async (req, res) => {
     }
 
     // Get user's reading history
-    const progress = await ReadingProgress.getAllProgress(req.user.id);
-    const readBooks = await Promise.all(
-      progress.map(p => Book.findById(p.book_id))
+    const siteProgress = await ReadingProgress.getAllProgress(req.user.id);
+    const siteReadBooks = await Promise.all(
+      siteProgress.map(p => Book.findById(p.book_id))
     );
 
+    
+    // Get user's Goodreads read books
+    const goodreadsReadBooks = await getGoodreadsReadBooks(req.user.id);
+
+    // Combine and deduplicate
+    const allReadBooks = deduplicateBooks([
+      ...siteReadBooks.filter(Boolean),
+      ...goodreadsReadBooks
+    ]);
+
+    console.log(`[AI Insights] Analyzing ${allReadBooks.length} unique books for user ${req.user.id}`);
+
+
     // Generate insights
-    const insights = await ollamaAI.generateReadingInsights(
-      readBooks.filter(Boolean)
-    );
+    const insights = await ollamaAI.generateReadingInsights(allReadBooks);
+
+    const result = {
+      ...insights,
+      metadata: {
+        total_books_analyzed: allReadBooks.length,
+        site_books: siteReadBooks.filter(Boolean).length,
+        goodreads_books: goodreadsReadBooks.length
+      }
+    };    
 
     // Cache for 6 hours
     await cache.set(cacheKey, insights, 21600);
 
-    res.json(insights);
+    res.json(result);
   } catch (error) {
+    console.error('Error generating insights:', error);
     res.status(500).json({ error: error.message });
   }
 });
