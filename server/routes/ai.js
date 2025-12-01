@@ -53,6 +53,7 @@ function deduplicateBooks(books) {
   
   return Array.from(bookMap.values());
 }
+
 /**
  * GET /api/ai/status
  * Check if AI service is available
@@ -72,7 +73,7 @@ router.get('/status', async (req, res) => {
 
 /**
  * GET /api/ai/recommendations
- * Get personalized book recommendations
+ * Get personalized book recommendations including Goodreads history
  */
 router.get('/recommendations', authMiddleware, async (req, res) => {
   try {
@@ -85,35 +86,39 @@ router.get('/recommendations', authMiddleware, async (req, res) => {
       return res.json(cached);
     }
 
-    // Get user's reading history
+    // Get user's reading history from site
     const siteProgress = await ReadingProgress.getAllProgress(req.user.id);
     const siteReadBooks = await Promise.all(
       siteProgress
-        .filter(p => p.progress >= 90)
+        .filter(p => p.progress >= 90) // Only include mostly-read books
         .map(p => Book.findById(p.book_id))
     );
+
+    // Get user's Goodreads read books
     const goodreadsReadBooks = await getGoodreadsReadBooks(req.user.id);
 
     console.log(`[AI Recommendations] User ${req.user.id}:`);
-    console.log(`  - Site reads books: ${siteReadBooks.filter(Boolean).length}`);
+    console.log(`  - Site read books: ${siteReadBooks.filter(Boolean).length}`);
     console.log(`  - Goodreads read books: ${goodreadsReadBooks.length}`);
 
+    // Combine and deduplicate
     const allReadBooks = deduplicateBooks([
       ...siteReadBooks.filter(Boolean),
       ...goodreadsReadBooks
     ]);
 
     console.log(`  - Combined unique books: ${allReadBooks.length}`);
-      
-    // Get all available books
+
+    // Get all available books for recommendations
     const allBooks = await Book.findAll(1000, 0);
 
+    // Filter out books already read
     const readBookIds = new Set(allReadBooks.map(b => b.id));
     const unreadBooks = allBooks.filter(b => !readBookIds.has(b.id));
 
     console.log(`  - Available unread books: ${unreadBooks.length}`);
 
-    // Get recommendations
+    // Get AI recommendations
     const recommendations = await ollamaAI.getRecommendations(
       allReadBooks,
       unreadBooks,
@@ -132,21 +137,21 @@ router.get('/recommendations', authMiddleware, async (req, res) => {
       })
     );
 
-    const result = {
-      recommendations: enriched,
+    // Add metadata to each recommendation
+    const enrichedWithMetadata = enriched.map(rec => ({
+      ...rec,
       metadata: {
         total_books_analyzed: allReadBooks.length,
         site_books: siteReadBooks.filter(Boolean).length,
         goodreads_books: goodreadsReadBooks.length,
         available_for_recommendation: unreadBooks.length
       }
-    };
-    
+    }));
 
     // Cache for 1 hour
-    await cache.set(cacheKey, result, 3600);
+    await cache.set(cacheKey, enrichedWithMetadata, 3600);
 
-    res.json(result);
+    res.json(enrichedWithMetadata);
   } catch (error) {
     console.error('Error generating recommendations:', error);
     res.status(500).json({ error: error.message });
@@ -155,7 +160,7 @@ router.get('/recommendations', authMiddleware, async (req, res) => {
 
 /**
  * GET /api/ai/insights
- * Get reading insights and patterns
+ * Get reading insights and patterns including Goodreads data
  */
 router.get('/insights', authMiddleware, async (req, res) => {
   try {
@@ -166,13 +171,12 @@ router.get('/insights', authMiddleware, async (req, res) => {
       return res.json(cached);
     }
 
-    // Get user's reading history
+    // Get user's reading history from site
     const siteProgress = await ReadingProgress.getAllProgress(req.user.id);
     const siteReadBooks = await Promise.all(
       siteProgress.map(p => Book.findById(p.book_id))
     );
 
-    
     // Get user's Goodreads read books
     const goodreadsReadBooks = await getGoodreadsReadBooks(req.user.id);
 
@@ -184,10 +188,10 @@ router.get('/insights', authMiddleware, async (req, res) => {
 
     console.log(`[AI Insights] Analyzing ${allReadBooks.length} unique books for user ${req.user.id}`);
 
-
     // Generate insights
     const insights = await ollamaAI.generateReadingInsights(allReadBooks);
 
+    // Add metadata
     const result = {
       ...insights,
       metadata: {
@@ -195,10 +199,10 @@ router.get('/insights', authMiddleware, async (req, res) => {
         site_books: siteReadBooks.filter(Boolean).length,
         goodreads_books: goodreadsReadBooks.length
       }
-    };    
+    };
 
     // Cache for 6 hours
-    await cache.set(cacheKey, insights, 21600);
+    await cache.set(cacheKey, result, 21600);
 
     res.json(result);
   } catch (error) {
