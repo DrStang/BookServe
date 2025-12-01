@@ -11,11 +11,14 @@ import {
   Alert,
   Chip,
   IconButton,
-  Tooltip
+  Tooltip,
+  Paper,
 } from '@mui/material';
 import {
   AutoAwesome as AIIcon,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon,
+  MenuBook as BookIcon,
+  ImportContacts as GoodreadsIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -50,7 +53,13 @@ const AIRecommendations = ({ limit = 5 }) => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      setRecommendations(response.data);
+      const recs = response.data;
+      setRecommendations(recs);
+
+      if (recs.length > 0 && recs[0].metadata) {
+        setMetadata(recs[0].metadata);
+      }
+      
       setAiAvailable(true);
     } catch (err) {
       console.error('Error fetching recommendations:', err);
@@ -65,7 +74,7 @@ const AIRecommendations = ({ limit = 5 }) => {
   }, [limit]);
 
   const handleBookClick = (bookId) => {
-    navigate(`/book/${bookId}`);
+    navigate(`/read/${bookId}`);
   };
 
   if (!aiAvailable && !loading) {
@@ -114,6 +123,48 @@ const AIRecommendations = ({ limit = 5 }) => {
           </IconButton>
         </Tooltip>
       </Box>
+
+    {/* Metadata Card - Show what AI analyzed */}
+      {metadata && (
+        <Paper 
+          sx={{ 
+            p: 2, 
+            mb: 3, 
+            backgroundColor: '#1a1a1a',
+            border: '1px solid rgba(229, 9, 20, 0.3)'
+          }}
+        >
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            AI Analysis Based On:
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>
+            <Chip
+              icon={<BookIcon />}
+              label={`${metadata.total_books_analyzed} books analyzed`}
+              size="small"
+              sx={{ backgroundColor: '#333' }}
+            />
+            <Chip
+              icon={<BookIcon />}
+              label={`${metadata.site_books} from BookServe reader`}
+              size="small"
+              sx={{ backgroundColor: '#333' }}
+            />
+            <Chip
+              icon={<GoodreadsIcon />}
+              label={`${metadata.goodreads_books} from Goodreads import`}
+              size="small"
+              sx={{ backgroundColor: '#333' }}
+            />
+            <Chip
+              label={`${metadata.available_for_recommendation} unread books available`}
+              size="small"
+              variant="outlined"
+              sx={{ borderColor: '#e50914', color: '#e50914' }}
+            />
+          </Box>
+        </Paper>
+      )}
 
       <Grid container spacing={2}>
         {recommendations.map((rec) => (
