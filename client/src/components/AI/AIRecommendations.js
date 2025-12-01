@@ -54,42 +54,26 @@ const AIRecommendations = ({ limit = 5 }) => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      console.log('[AIRecommendations] Raw response:', response.data);
-      console.log('[AIRecommendations] Type:', typeof response.data);
-      console.log('[AIRecommendations] Is Array:', Array.isArray(response.data));
-
-      // Handle the response - should be an array
+      // Handle both response formats:
+      // 1. {recommendations: [...], metadata: {...}} (current backend)
+      // 2. [{...metadata}, {...metadata}] (enhanced backend)
       let recs = response.data;
+      let meta = null;
       
-      // Check if it's wrapped in an object
       if (!Array.isArray(recs)) {
-        console.log('[AIRecommendations] Not an array, checking for nested structure...');
-        
-        // Try common nested structures
-        if (recs.recommendations && Array.isArray(recs.recommendations)) {
-          console.log('[AIRecommendations] Found recs.recommendations array');
-          recs = recs.recommendations;
-        } else if (recs.data && Array.isArray(recs.data)) {
-          console.log('[AIRecommendations] Found recs.data array');
-          recs = recs.data;
-        } else {
-          console.error('[AIRecommendations] Response is not an array and has no array properties:', recs);
-          throw new Error('Invalid response format from server');
-        }
+        // Nested structure - extract both
+        recs = recs.recommendations || [];
+        meta = recs.metadata;
+      } else if (recs.length > 0 && recs[0].metadata) {
+        // Enhanced format - metadata on each item
+        meta = recs[0].metadata;
       }
       
-      console.log('[AIRecommendations] Final recs array length:', recs.length);
       setRecommendations(recs);
-      
-      // Extract metadata from first recommendation (they all have the same metadata)
-      if (recs.length > 0 && recs[0].metadata) {
-        setMetadata(recs[0].metadata);
-      }
-      
+      setMetadata(meta);
       setAiAvailable(true);
     } catch (err) {
       console.error('Error fetching recommendations:', err);
-      console.error('Error details:', err.response?.data);
       setError(err.response?.data?.error || err.message || 'Failed to fetch recommendations');
     } finally {
       setLoading(false);
