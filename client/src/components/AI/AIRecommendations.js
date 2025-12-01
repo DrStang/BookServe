@@ -54,9 +54,11 @@ const AIRecommendations = ({ limit = 5 }) => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
+      // Handle the response - each recommendation now has metadata attached
       const recs = response.data;
       setRecommendations(recs);
-
+      
+      // Extract metadata from first recommendation (they all have the same metadata)
       if (recs.length > 0 && recs[0].metadata) {
         setMetadata(recs[0].metadata);
       }
@@ -125,7 +127,7 @@ const AIRecommendations = ({ limit = 5 }) => {
         </Tooltip>
       </Box>
 
-    {/* Metadata Card - Show what AI analyzed */}
+      {/* Metadata Card - Show what AI analyzed */}
       {metadata && (
         <Paper 
           sx={{ 
@@ -183,7 +185,7 @@ const AIRecommendations = ({ limit = 5 }) => {
               }}
             >
               <CardActionArea onClick={() => handleBookClick(rec.book.id)}>
-                {rec.book.coverImage && (
+                {rec.book.cover_image && (
                   <CardMedia
                     component="img"
                     height="200"
