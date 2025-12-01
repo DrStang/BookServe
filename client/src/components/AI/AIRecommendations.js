@@ -28,6 +28,7 @@ const AIRecommendations = ({ limit = 5 }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [aiAvailable, setAiAvailable] = useState(true);
+  const [metadata, setMetadata] = useState(null);
   const navigate = useNavigate();
 
   const fetchRecommendations = async () => {
