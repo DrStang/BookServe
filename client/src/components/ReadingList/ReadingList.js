@@ -218,7 +218,7 @@ const ReadingList = ({ onLogout }) => {
                 label={book.status || 'Pending'}
                 size="small"
                 color="warning"
-                icon={<HourglassEmpty />}
+                icon={<PendingIcon />}
               />
             </Box>
           )}
