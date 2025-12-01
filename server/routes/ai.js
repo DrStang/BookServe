@@ -137,21 +137,21 @@ router.get('/recommendations', authMiddleware, async (req, res) => {
       })
     );
 
-    // Add metadata to each recommendation
-    const enrichedWithMetadata = enriched.map(rec => ({
-      ...rec,
+    // Create response with metadata at top level
+    const result = {
+      recommendations: enriched,
       metadata: {
         total_books_analyzed: allReadBooks.length,
         site_books: siteReadBooks.filter(Boolean).length,
         goodreads_books: goodreadsReadBooks.length,
         available_for_recommendation: unreadBooks.length
       }
-    }));
+    };
 
     // Cache for 1 hour
-    await cache.set(cacheKey, enrichedWithMetadata, 3600);
+    await cache.set(cacheKey, result, 3600);
 
-    res.json(enrichedWithMetadata);
+    res.json(result);
   } catch (error) {
     console.error('Error generating recommendations:', error);
     res.status(500).json({ error: error.message });
