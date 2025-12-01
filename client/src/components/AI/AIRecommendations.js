@@ -54,8 +54,31 @@ const AIRecommendations = ({ limit = 5 }) => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      // Handle the response - each recommendation now has metadata attached
-      const recs = response.data;
+      console.log('[AIRecommendations] Raw response:', response.data);
+      console.log('[AIRecommendations] Type:', typeof response.data);
+      console.log('[AIRecommendations] Is Array:', Array.isArray(response.data));
+
+      // Handle the response - should be an array
+      let recs = response.data;
+      
+      // Check if it's wrapped in an object
+      if (!Array.isArray(recs)) {
+        console.log('[AIRecommendations] Not an array, checking for nested structure...');
+        
+        // Try common nested structures
+        if (recs.recommendations && Array.isArray(recs.recommendations)) {
+          console.log('[AIRecommendations] Found recs.recommendations array');
+          recs = recs.recommendations;
+        } else if (recs.data && Array.isArray(recs.data)) {
+          console.log('[AIRecommendations] Found recs.data array');
+          recs = recs.data;
+        } else {
+          console.error('[AIRecommendations] Response is not an array and has no array properties:', recs);
+          throw new Error('Invalid response format from server');
+        }
+      }
+      
+      console.log('[AIRecommendations] Final recs array length:', recs.length);
       setRecommendations(recs);
       
       // Extract metadata from first recommendation (they all have the same metadata)
@@ -66,7 +89,8 @@ const AIRecommendations = ({ limit = 5 }) => {
       setAiAvailable(true);
     } catch (err) {
       console.error('Error fetching recommendations:', err);
-      setError(err.response?.data?.error || 'Failed to fetch recommendations');
+      console.error('Error details:', err.response?.data);
+      setError(err.response?.data?.error || err.message || 'Failed to fetch recommendations');
     } finally {
       setLoading(false);
     }
