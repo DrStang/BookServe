@@ -270,7 +270,7 @@ router.post('/ask/:id', authMiddleware, async (req, res) => {
 
 /**
  * POST /api/ai/chat
- * Stream chat with AI
+ * Chat with AI (non-streaming for compatibility)
  */
 router.post('/chat', authMiddleware, async (req, res) => {
   try {
@@ -280,19 +280,15 @@ router.post('/chat', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    // Set up SSE (Server-Sent Events)
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-
+    // Collect streaming response into single answer
     const stream = ollamaAI.streamChat(message, context);
+    let fullAnswer = '';
 
     for await (const chunk of stream) {
-      res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+      fullAnswer += chunk;
     }
 
-    res.write('data: [DONE]\n\n');
-    res.end();
+    res.json({ answer: fullAnswer });
   } catch (error) {
     console.error('Chat error:', error);
     res.status(500).json({ error: error.message });
