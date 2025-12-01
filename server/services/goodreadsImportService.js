@@ -53,27 +53,30 @@ class GoodreadsImportService {
         });
     });
   }
+
   /**
-  * Normalize text for fuzzy matching
-  */
+   * Normalize text for fuzzy matching
+   */
   static normalizeText(text) {
-    if(!text) return ''; 
+    if (!text) return '';
     return text
       .toLowerCase()
       .replace(/[^\w\s]/g, '') // Remove punctuation
       .replace(/\s+/g, ' ') // Normalize spaces
       .trim();
   }
+
   /**
-  * Calculate similarity score between two strings (0-100)
-  */
+   * Calculate similarity score between two strings (0-100)
+   */
   static calculateSimilarity(str1, str2) {
     const norm1 = this.normalizeText(str1);
     const norm2 = this.normalizeText(str2);
-
+    
     if (norm1 === norm2) return 100;
     if (!norm1 || !norm2) return 0;
-
+    
+    // Levenshtein distance
     const matrix = [];
     for (let i = 0; i <= norm2.length; i++) {
       matrix[i] = [i];
@@ -87,18 +90,20 @@ class GoodreadsImportService {
           matrix[i][j] = matrix[i - 1][j - 1];
         } else {
           matrix[i][j] = Math.min(
-            matrix[i - 1][j -1 ] + 1,
+            matrix[i - 1][j - 1] + 1,
             matrix[i][j - 1] + 1,
             matrix[i - 1][j] + 1
           );
         }
       }
     }
+    
     const distance = matrix[norm2.length][norm1.length];
     const maxLength = Math.max(norm1.length, norm2.length);
     return Math.round(((maxLength - distance) / maxLength) * 100);
   }
-    /**
+
+  /**
    * Enhanced book matching with scoring
    * @param {Object} importedBook - Book from Goodreads
    * @param {Array} libraryBooks - All books in library
@@ -149,9 +154,8 @@ class GoodreadsImportService {
     return bestMatch;
   }
 
-
   /**
-   * Match imported books against existing library
+   * Match imported books against existing library with enhanced scoring
    * @param {Array} importedBooks - Books from CSV
    * @param {number} userId - User ID performing the import
    * @returns {Promise<Object>} Match results with found/missing books
@@ -159,45 +163,26 @@ class GoodreadsImportService {
   static async matchBooks(importedBooks, userId) {
     const results = {
       matched: [],
-      matchedToRead: [], // Matched books that are on "to-read" shelf
+      matchedToRead: [],
       notFound: [],
-      notFoundToRead: [], // Not found books that are on "to-read" shelf
+      notFoundToRead: [],
       errors: []
     };
 
     console.log(`\n=== Matching ${importedBooks.length} books for user ${userId} ===`);
 
+    // Load all library books once for efficiency
     const allLibraryBooks = await Book.findAll(10000, 0);
     console.log(`Library has ${allLibraryBooks.length} books`);
 
     for (const importedBook of importedBooks) {
       try {
-        
-        let match = this.findBestMatch(importedBook, allLibraryBooks);
+        // Find best match
+        const match = this.findBestMatch(importedBook, allLibraryBooks);
 
         const isToRead = importedBook.exclusiveShelf === 'to-read';
 
-        if (importedBook.isbn13) {
-          console.log(`Searching by ISBN13: ${importedBook.isbn13} for "${importedBook.title}"`);
-          matchedBook = await Book.findByISBN(importedBook.isbn13);
-        }
-
-        if (!matchedBook && importedBook.isbn) {
-          console.log(`Searching by ISBN: ${importedBook.isbn} for "${importedBook.title}"`);
-          matchedBook = await Book.findByISBN(importedBook.isbn);
-        }
-
-        // If no ISBN match, try title + author
-        if (!matchedBook) {
-          console.log(`Searching by title/author: "${importedBook.title}" by ${importedBook.author}`);
-          matchedBook = await Book.findByTitleAndAuthor(
-            importedBook.title,
-            importedBook.author
-          );
-        }
-
-        const isToRead = importedBook.exclusiveShelf === 'to-read';
-if (match) {
+        if (match) {
           console.log(`✓ MATCHED: "${importedBook.title}" -> Book ID ${match.book.id} (score: ${match.score}, type: ${match.matchType})`);
 
           // Save to goodreads_imports tracking table
@@ -248,7 +233,6 @@ if (match) {
 
     return results;
   }
-    
 
   /**
    * Save imported book to tracking table
@@ -261,7 +245,7 @@ if (match) {
 
     return new Promise((resolve, reject) => {
       db.run(
-        `INSERT OR IGNORE INTO goodreads_imports (user_id, book_id, title, author, isbn, shelf, imported_at)
+        `INSERT OR REPLACE INTO goodreads_imports (user_id, book_id, title, author, isbn, shelf, imported_at)
          VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
         [
           userId,
@@ -307,7 +291,7 @@ if (match) {
         });
         requests.push(request);
 
-        // Automatically trigger NZBHydra search and SABnzbd download (don't await to avoid blocking)
+        // Automatically trigger NZBHydra search (imported from requestController)
         const { processBookRequest } = require('../controllers/requestController');
         processBookRequest(request.id).catch(err => {
           console.error(`Error processing book request for ${book.title}:`, err);
