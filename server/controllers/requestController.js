@@ -195,7 +195,7 @@ async function searchNZBHydra(title, author) {
       searchQuery += ` ${author}`;
     }
     // Add "epub" to search query to prefer EPUB results
-    searchQuery += ' epub';
+    //searchQuery += ' epub';
 
     console.log(`Searching NZBHydra for: "${searchQuery}"`);
 
