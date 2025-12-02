@@ -102,20 +102,20 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail, onUpd
   };
 
   const handleDelete = async () => {
-    if(!deleteConfirm) {
+    if (!deleteConfirm) {
       setDeleteConfirm(true);
       return;
     }
     try {
       await booksAPI.delete(bookId);
-      if(onUpdate) onUpdate();
+      if (onUpdate) onUpdate();
       onClose();
-    } catch(error) {
+    } catch (error) {
       console.error('Error deleting book:', error);
       alert('Failed to delete book');
     }
   };
-  
+
   if (!open) return null;
 
   return (
@@ -138,7 +138,7 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail, onUpd
                 title="Edit book"
               >
                 <EditIcon />
-              </IconButton>            
+              </IconButton>
               <IconButton
                 onClick={handleRefreshMetadata}
                 disabled={refreshing}
@@ -154,9 +154,9 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail, onUpd
                 <DeleteIcon />
               </IconButton>
             </>
-          )}  
+          )}
           <IconButton onClick={editing ? handleCancelEdit : onClose}>
-              <CloseIcon/>  
+            <CloseIcon />
           </IconButton>
         </Box>
       </DialogTitle>
@@ -192,64 +192,62 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail, onUpd
             {/* Book Information */}
             <Grid item xs={12} md={8}>
               {editing ? (
-
                 <>
-
                   <TextField
-
-                     fullWidth
-
-                     label="Title"
-
-                     value={editedBook.title || ''}
-
-                     onChange={(e) => setEditedBook({ ...editedBook, title: e.target.value })}
-
-                     margin="normal"
-
-                     variant="outlined"
-
+                    fullWidth
+                    label="Title"
+                    value={editedBook.title || ''}
+                    onChange={(e) => setEditedBook({ ...editedBook, title: e.target.value })}
+                    margin="normal"
+                    variant="outlined"
                   />
-
                   <TextField
-
-                      fullWidth
-
-                      label="Author"
-
-                      value={editedBook.author || ''}
-
-                      onChange={(e) => setEditedBook({ ...editedBook, author: e.target.value })}
-
-                      margin="normal"
-
-                      variant="outlined"
-
+                    fullWidth
+                    label="Author"
+                    value={editedBook.author || ''}
+                    onChange={(e) => setEditedBook({ ...editedBook, author: e.target.value })}
+                    margin="normal"
+                    variant="outlined"
                   />
-
+                  <TextField
+                    fullWidth
+                    label="ISBN"
+                    value={editedBook.isbn || ''}
+                    onChange={(e) => setEditedBook({ ...editedBook, isbn: e.target.value })}
+                    margin="normal"
+                    variant="outlined"
+                  />
+                  <TextField
+                    fullWidth
+                    label="Publisher"
+                    value={editedBook.publisher || ''}
+                    onChange={(e) => setEditedBook({ ...editedBook, publisher: e.target.value })}
+                    margin="normal"
+                    variant="outlined"
+                  />
+                  <TextField
+                    fullWidth
+                    label="Published Date"
+                    value={editedBook.published_date || ''}
+                    onChange={(e) => setEditedBook({ ...editedBook, published_date: e.target.value })}
+                    margin="normal"
+                    variant="outlined"
+                    placeholder="YYYY or YYYY-MM-DD"
+                  />
                 </>
-
               ) : (
-
                 <>
-
                   <Typography variant="h4" gutterBottom>
-
                     {book.title}
-
                   </Typography>
-
                   <Typography variant="h6" color="text.secondary" gutterBottom>
-
                     {book.author || 'Unknown Author'}
-
                   </Typography>
-
                 </>
-
               )}
+
               {/* Rating */}
-              {book.average_rating && (
+              {!editing && book.average_rating && (
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                   <Rating value={book.average_rating} precision={0.1} readOnly />
                   <Typography variant="body2" sx={{ ml: 1 }}>
@@ -260,7 +258,7 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail, onUpd
               )}
 
               {/* Categories/Genres */}
-              {book.categories && (
+              {!editing && book.categories && (
                 <Box sx={{ mb: 2 }}>
                   {book.categories.split(',').slice(0, 5).map((category, index) => (
                     <Chip
@@ -276,64 +274,66 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail, onUpd
               <Divider sx={{ my: 2 }} />
 
               {/* Metadata */}
-              <Grid container spacing={2}>
-                {book.publisher && (
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" color="text.secondary">
-                      Publisher
-                    </Typography>
-                    <Typography variant="body1">{book.publisher}</Typography>
-                  </Grid>
-                )}
+              {!editing && (
+                <Grid container spacing={2}>
+                  {book.publisher && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Publisher
+                      </Typography>
+                      <Typography variant="body1">{book.publisher}</Typography>
+                    </Grid>
+                  )}
 
-                {book.published_date && (
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" color="text.secondary">
-                      Published
-                    </Typography>
-                    <Typography variant="body1">{book.published_date}</Typography>
-                  </Grid>
-                )}
+                  {book.published_date && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Published
+                      </Typography>
+                      <Typography variant="body1">{book.published_date}</Typography>
+                    </Grid>
+                  )}
 
-                {book.page_count && (
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" color="text.secondary">
-                      Pages
-                    </Typography>
-                    <Typography variant="body1">{book.page_count}</Typography>
-                  </Grid>
-                )}
+                  {book.page_count && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Pages
+                      </Typography>
+                      <Typography variant="body1">{book.page_count}</Typography>
+                    </Grid>
+                  )}
 
-                {book.language && (
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" color="text.secondary">
-                      Language
-                    </Typography>
-                    <Typography variant="body1">{book.language.toUpperCase()}</Typography>
-                  </Grid>
-                )}
+                  {book.language && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Language
+                      </Typography>
+                      <Typography variant="body1">{book.language.toUpperCase()}</Typography>
+                    </Grid>
+                  )}
 
-                {book.isbn && (
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" color="text.secondary">
-                      ISBN
-                    </Typography>
-                    <Typography variant="body1">{book.isbn}</Typography>
-                  </Grid>
-                )}
+                  {book.isbn && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        ISBN
+                      </Typography>
+                      <Typography variant="body1">{book.isbn}</Typography>
+                    </Grid>
+                  )}
 
-                {book.format && (
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" color="text.secondary">
-                      Format
-                    </Typography>
-                    <Typography variant="body1">{book.format.toUpperCase()}</Typography>
-                  </Grid>
-                )}
-              </Grid>
+                  {book.format && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Format
+                      </Typography>
+                      <Typography variant="body1">{book.format.toUpperCase()}</Typography>
+                    </Grid>
+                  )}
+                </Grid>
+              )}
 
               {/* Description */}
-              {book.description && (
+              {!editing && book.description && (
                 <>
                   <Divider sx={{ my: 2 }} />
                   <Typography variant="h6" gutterBottom>
@@ -353,7 +353,7 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail, onUpd
               )}
 
               {/* External Links */}
-              {(book.preview_link || book.info_link) && (
+              {!editing && (book.preview_link || book.info_link) && (
                 <>
                   <Divider sx={{ my: 2 }} />
                   <Box sx={{ display: 'flex', gap: 1 }}>
@@ -393,7 +393,7 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail, onUpd
         {editing ? (
           <>
             <Button onClick={handleCancelEdit} startIcon={<CancelIcon />}>
-              Canel
+              Cancel
             </Button>
             <Button
               variant="contained"
@@ -401,25 +401,25 @@ const BookDetails = ({ bookId, open, onClose, onRead, onDownload, onEmail, onUpd
               startIcon={<SaveIcon />}
             >
               Save Changes
-            </Button>    
-          </>     
-         ) : (
-           <>
-             <Button onClick={() => onEmail && onEmail(book)} startIcon={<EmailIcon />}>
-               Send to Email
-             </Button>
-             <Button onClick={() => onDownload && onDownload(book)} startIcon={<DownloadIcon />}>
-               Download
-             </Button>
-             <Button
-               variant="contained"
-               onClick={() => onRead && onRead(book)}
-               startIcon={<ReadIcon />}
-             >
-               Read Now
-             </Button>
-            </>
-         )}        
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button onClick={() => onEmail && onEmail(book)} startIcon={<EmailIcon />}>
+              Send to Email
+            </Button>
+            <Button onClick={() => onDownload && onDownload(book)} startIcon={<DownloadIcon />}>
+              Download
+            </Button>
+            <Button
+              variant="contained"
+              onClick={() => onRead && onRead(book)}
+              startIcon={<ReadIcon />}
+            >
+              Read Now
+            </Button>
+          </>
+        )}
       </DialogActions>
     </Dialog>
   );
