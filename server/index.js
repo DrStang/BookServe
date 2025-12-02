@@ -12,6 +12,8 @@ const retryService = require('./services/retryService');
 const cache = require('./services/redisCache');
 const ollamaAI = require('./services/ollamaAI');
 const folderScanService = require('./services/folderScanService');
+const scanRoutes = require('./routes/scan');
+
 
 // Import GraphQL schema and resolvers
 const typeDefs = require('./graphql/schema');
@@ -47,6 +49,8 @@ app.use('/api/metadata', metadataRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/goodreads', goodreadsRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/scan', scanRoutes);
+
 
 // Health check
 app.get('/api/health', (req, res) => {
