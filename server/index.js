@@ -11,6 +11,7 @@ const downloadMonitor = require('./services/downloadMonitor');
 const retryService = require('./services/retryService');
 const cache = require('./services/redisCache');
 const ollamaAI = require('./services/ollamaAI');
+const folderScanService = require('./services/folderScanService');
 
 // Import GraphQL schema and resolvers
 const typeDefs = require('./graphql/schema');
@@ -90,6 +91,8 @@ const startServer = async () => {
     // Initialize Ollama AI service
     await ollamaAI.initialize();
 
+    folderScanService.start();
+
     // Create GraphQL server with context
     const apolloServer = new ApolloServer({
       typeDefs,
@@ -135,6 +138,9 @@ const startServer = async () => {
 ║  Services:                             ║
 ║  ${cache.isConnected ? '✓' : '✗'} Redis Cache                      ║
 ║  ${ollamaAI.isAvailable ? '✓' : '✗'} Ollama AI                       ║
+║  ${process.env.AUTO_IMPORT_ENABLED === 'true' ? '✓' : '✗'} Download Monitor                ║
+║  ${process.env.RETRY_ENABLED === 'true' ? '✓' : '✗'} Retry Service                   ║
+║  ${process.env.FOLDER_SCAN_ENABLED === 'true' ? '✓' : '✗'} Folder Scanner                  ║
 ╚════════════════════════════════════════╝
       `);
     });
@@ -149,6 +155,7 @@ process.on('SIGTERM', async () => {
   console.log('SIGTERM received, shutting down gracefully...');
   downloadMonitor.stop();
   retryService.stop();
+  folderScanService.stop();
   await cache.disconnect();
   process.exit(0);
 });
@@ -157,6 +164,7 @@ process.on('SIGINT', async () => {
   console.log('SIGINT received, shutting down gracefully...');
   downloadMonitor.stop();
   retryService.stop();
+  folderScanService.stop();
   await cache.disconnect();
   process.exit(0);
 });
