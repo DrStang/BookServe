@@ -31,6 +31,7 @@ import {
 } from '@mui/icons-material';
 import { booksAPI, emailAPI } from '../../services/api';
 import BookDetails from '../BookDetails/BookDetails';
+import BookDetailModal from '../Books/BookDetailModal';
 
 const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
   const navigate = useNavigate();
@@ -267,18 +268,20 @@ const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
         <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
 
-      <BookDetails
-        bookId={book.id}
+    <BookDetailModal
+        //bookId={book.id}
+        book={book.id}
         open={detailsOpen}
         onClose={() => setDetailsOpen(false)}
-        onRead={handleRead}
-        onDownload={handleDownload}
+        //onRead={handleRead}
+        //onDownload={handleDownload}
         onEmail={() => setEmailDialogOpen(true)}
-        onUpdate={() => {
-          setDetailsOpen(false);
-          if(onUpdate) onUpdate();
-        }}  
-      />
+        readingProgress={readingProgress}
+          //onUpdate={() => {
+         // setDetailsOpen(false);
+         // if(onUpdate) onUpdate();
+        //}}  
+      /> 
     </>
   );
 };
