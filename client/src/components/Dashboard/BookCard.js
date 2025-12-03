@@ -193,6 +193,22 @@ const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
           >
             <ReadIcon />
           </IconButton>
+          <IconButton
+            color="primary"
+            onClick={handleDownload}
+            title="Download"
+          >    
+            <DownloadIcon />
+          </IconButton>    
+          <IconButton
+              color="primary"
+              onClick={() => {
+                setEmailDialogOpen(true);
+              }}
+              title="Send to Email"
+          >
+              <EmailIcon />
+          </IconButton>      
           <IconButton onClick={handleMenuOpen} title="More options">
             <MoreIcon />
           </IconButton>
