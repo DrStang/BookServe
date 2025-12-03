@@ -34,11 +34,13 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { goodreadsAPI, requestsAPI, progressAPI, booksAPI } from '../../services/api';
+import BookDetailModal from '../Books/BookDetailModal';
 
 const ReadingList = ({ onLogout }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
+  const [detailsOpen, setDetailsOpen] = useState(false); 
   const [shelfBooks, setShelfBooks] = useState({
     'to-read': [],
     'currently-reading': [],
@@ -102,15 +104,6 @@ const ReadingList = ({ onLogout }) => {
     setActiveTab(newValue);
   };
 
-  const handleOpenBookDetail = (bookId) => {
-    // Dispatch custom event to open book detail modal in Dashboard
-    const event = new CustomEvent('openBookDetail', { 
-      detail: { id: bookId } 
-    });
-    window.dispatchEvent(event);
-    // Or navigate to the book detail page if you prefer
-    // navigate(`/book/${bookId}`);
-  };
 
   const renderBookCard = (book, isPending = false) => {
     const progress = readingProgress[book.id];
@@ -137,7 +130,7 @@ const ReadingList = ({ onLogout }) => {
             image={booksAPI.getCoverUrl(book.id)}
             alt={book.title}
             sx={{ objectFit: 'contain', bgcolor: '#2a2a2a', cursor: 'pointer' }}
-            onClick={() => !isPending && handleOpenBookDetail(book.id)}
+            onClick={() => !isPending && setDetailsOpen(true)}
           />
         )}
         {!book.cover_image && (
@@ -172,7 +165,7 @@ const ReadingList = ({ onLogout }) => {
               cursor: isPending ? 'default' : 'pointer',
               '&:hover': !isPending ? { color: '#e50914' } : {},
             }}
-            onClick={() => !isPending && handleOpenBookDetail(book.id)}
+            onClick={() => !isPending && setDetailsOpen(true)}
           >
             {book.title}
           </Typography>
@@ -230,7 +223,7 @@ const ReadingList = ({ onLogout }) => {
               <Button
                 size="small"
                 startIcon={<InfoIcon />}
-                onClick={() => handleOpenBookDetail(book.id)}
+                onClick={() => setDetailsOpen(true)}
               >
                 Details
               </Button>
@@ -431,6 +424,11 @@ const ReadingList = ({ onLogout }) => {
         </Paper>
       </Container>
     </Box>
+    <BookDetailModal
+      book={book}
+      open={detailsOpen}
+      onClose={() => setDetailsOpen(false)}
+    />
   );
 };
 
