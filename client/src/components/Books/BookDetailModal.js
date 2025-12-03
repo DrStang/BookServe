@@ -554,7 +554,7 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress }) => {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={emailDialogOpen} onClose={() => setEmailDialogOpen)false)}>
+      <Dialog open={emailDialogOpen} onClose={() => setEmailDialogOpen(false)}>
         <DialogTitle>Send Book to Email</DialogTitle>
         <DialogContent>
             <TextField
