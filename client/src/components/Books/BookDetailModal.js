@@ -22,6 +22,7 @@ import {
   Person as AuthorIcon,
   CalendarToday as CalendarIcon,
   Edit as EditIcon,
+  Email as EmailIcon,
   Delete as DeleteIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
@@ -30,7 +31,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { booksAPI, metadataAPI } from '../../services/api';
 
-const BookDetailModal = ({ open, onClose, book, readingProgress }) => {
+const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress }) => {
   const navigate = useNavigate();
   const [similarBooks, setSimilarBooks] = useState([]);
   const [loadingSimilar, setLoadingSimilar] = useState(false);
@@ -258,6 +259,14 @@ const BookDetailModal = ({ open, onClose, book, readingProgress }) => {
                 >
                   Download
                 </Button>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  startIcon={<EmailIcon />}
+                  onClick={() => onEmail  && onEmail(book)}  
+                >
+                  Email
+                </Button>    
               </Box>
             )}
           </Grid>
