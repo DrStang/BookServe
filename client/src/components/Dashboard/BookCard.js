@@ -220,7 +220,7 @@ const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
           <IconButton 
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleMenuOpen
+                  handleMenuOpen;
                 }} 
                 title="More options"
           >
