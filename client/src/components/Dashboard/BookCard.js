@@ -189,28 +189,41 @@ const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
         <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
           <IconButton
             color="primary"
-            onClick={handleRead}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRead();
+            }}
             title={readingProgress && readingProgress.progress > 0 ? 'Continue Reading' : 'Read'}
           >
             <ReadIcon />
           </IconButton>
           <IconButton
             color="primary"
-            onClick={handleDownload}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDownload();
+            }}
             title="Download"
           >    
             <DownloadIcon />
           </IconButton>    
           <IconButton
               color="primary"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setEmailDialogOpen(true);
               }}
               title="Send to Email"
           >
               <EmailIcon />
           </IconButton>      
-          <IconButton onClick={handleMenuOpen} title="More options">
+          <IconButton 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleMenuOpen
+                }} 
+                title="More options"
+          >
             <MoreIcon />
           </IconButton>
         </CardActions>
@@ -270,7 +283,7 @@ const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
 
     <BookDetailModal
         //bookId={book.id}
-        book={book.id}
+        book={book}
         open={detailsOpen}
         onClose={() => setDetailsOpen(false)}
         //onRead={handleRead}
