@@ -426,7 +426,7 @@ const ReadingList = ({ onLogout }) => {
         </Container>
       </Box>
       <BookDetailModal
-        book={book.id}
+        book={bookId}
         open={detailsOpen}
         onClose={() => setDetailsOpen(false)}
       />
