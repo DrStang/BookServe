@@ -267,168 +267,170 @@ const ReadingList = ({ onLogout }) => {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#0f0f0f' }}>
-      <AppBar position="static" sx={{ backgroundColor: '#1a1a1a' }}>
-        <Toolbar>
-          <IconButton edge="start" color="inherit" onClick={() => navigate('/')}>
-            <BackIcon />
-          </IconButton>
-          <Typography variant="h6" sx={{ flexGrow: 1, ml: 2 }}>
-            My Reading List
-          </Typography>
-          {onLogout && (
-            <Button color="inherit" onClick={onLogout}>
-              Logout
-            </Button>
-          )}
-        </Toolbar>
-      </AppBar>
-
-      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-        {/* Statistics Cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ backgroundColor: '#1a1a1a' }}>
-              <CardContent>
-                <Typography variant="h4" sx={{ mb: 1 }}>
-                  {stats.total}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Total Books
-                </Typography>
-              </CardContent>
-            </Card>
+    <>  
+      <Box sx={{ minHeight: '100vh', backgroundColor: '#0f0f0f' }}>
+        <AppBar position="static" sx={{ backgroundColor: '#1a1a1a' }}>
+          <Toolbar>
+            <IconButton edge="start" color="inherit" onClick={() => navigate('/')}>
+              <BackIcon />
+            </IconButton>
+            <Typography variant="h6" sx={{ flexGrow: 1, ml: 2 }}>
+              My Reading List
+            </Typography>
+            {onLogout && (
+              <Button color="inherit" onClick={onLogout}>
+                Logout
+              </Button>
+            )}
+          </Toolbar>
+        </AppBar>
+  
+        <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+          {/* Statistics Cards */}
+          <Grid container spacing={3} sx={{ mb: 4 }}>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ backgroundColor: '#1a1a1a' }}>
+                <CardContent>
+                  <Typography variant="h4" sx={{ mb: 1 }}>
+                    {stats.total}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Total Books
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ backgroundColor: '#1a1a1a' }}>
+                <CardContent>
+                  <Typography variant="h4" sx={{ mb: 1, color: '#4caf50' }}>
+                    {stats['to-read']}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    To Read
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ backgroundColor: '#1a1a1a' }}>
+                <CardContent>
+                  <Typography variant="h4" sx={{ mb: 1, color: '#2196f3' }}>
+                    {stats['currently-reading']}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Currently Reading
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ backgroundColor: '#1a1a1a' }}>
+                <CardContent>
+                  <Typography variant="h4" sx={{ mb: 1, color: '#9c27b0' }}>
+                    {stats['read']}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Finished
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ backgroundColor: '#1a1a1a' }}>
-              <CardContent>
-                <Typography variant="h4" sx={{ mb: 1, color: '#4caf50' }}>
-                  {stats['to-read']}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  To Read
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ backgroundColor: '#1a1a1a' }}>
-              <CardContent>
-                <Typography variant="h4" sx={{ mb: 1, color: '#2196f3' }}>
-                  {stats['currently-reading']}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Currently Reading
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ backgroundColor: '#1a1a1a' }}>
-              <CardContent>
-                <Typography variant="h4" sx={{ mb: 1, color: '#9c27b0' }}>
-                  {stats['read']}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Finished
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
-        <Paper sx={{ backgroundColor: '#1a1a1a' }}>
-          <Tabs
-            value={activeTab}
-            onChange={handleTabChange}
-            sx={{
-              borderBottom: 1,
-              borderColor: 'divider',
-              '& .MuiTab-root': {
-                color: 'text.secondary',
-              },
-              '& .Mui-selected': {
-                color: '#e50914 !important',
-              },
-              '& .MuiTabs-indicator': {
-                backgroundColor: '#e50914',
-              },
-            }}
-          >
-            {shelves.map((shelf, index) => (
+  
+          <Paper sx={{ backgroundColor: '#1a1a1a' }}>
+            <Tabs
+              value={activeTab}
+              onChange={handleTabChange}
+              sx={{
+                borderBottom: 1,
+                borderColor: 'divider',
+                '& .MuiTab-root': {
+                  color: 'text.secondary',
+                },
+                '& .Mui-selected': {
+                  color: '#e50914 !important',
+                },
+                '& .MuiTabs-indicator': {
+                  backgroundColor: '#e50914',
+                },
+              }}
+            >
+              {shelves.map((shelf, index) => (
+                <Tab
+                  key={shelf}
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {shelfIcons[shelf]}
+                      {shelfLabels[shelf]} ({stats[shelf]})
+                    </Box>
+                  }
+                />
+              ))}
               <Tab
-                key={shelf}
                 label={
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {shelfIcons[shelf]}
-                    {shelfLabels[shelf]} ({stats[shelf]})
+                    <PendingIcon />
+                    Pending Requests ({pendingRequests.length})
                   </Box>
                 }
               />
-            ))}
-            <Tab
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <PendingIcon />
-                  Pending Requests ({pendingRequests.length})
-                </Box>
-              }
-            />
-          </Tabs>
-
-          <Box sx={{ p: 3 }}>
-            {/* Regular shelf tabs */}
-            {activeTab < 3 && (
-              <>
-                {shelfBooks[shelves[activeTab]].length === 0 ? (
-                  <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                    No books on this shelf. Import your Goodreads library from the Dashboard!
-                  </Typography>
-                ) : (
-                  <Grid container spacing={3}>
-                    {shelfBooks[shelves[activeTab]].map((book) => (
-                      <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={book.id}>
-                        {renderBookCard(book)}
-                      </Grid>
-                    ))}
-                  </Grid>
-                )}
-              </>
-            )}
-
-            {/* Pending Requests Tab */}
-            {activeTab === 3 && (
-              <>
-                {pendingRequests.length === 0 ? (
-                  <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                    No pending book requests. All your to-read books are available!
-                  </Typography>
-                ) : (
-                  <Grid container spacing={3}>
-                    {pendingRequests.map((request) => (
-                      <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={request.id}>
-                        {renderBookCard({
-                          id: request.id,
-                          title: request.title,
-                          author: request.author,
-                          status: request.status,
-                          cover_image: null,
-                        }, true)}
-                      </Grid>
-                    ))}
-                  </Grid>
-                )}
-              </>
-            )}
-          </Box>
-        </Paper>
-      </Container>
-    </Box>
-    <BookDetailModal
-      book={book}
-      open={detailsOpen}
-      onClose={() => setDetailsOpen(false)}
-    />
+            </Tabs>
+  
+            <Box sx={{ p: 3 }}>
+              {/* Regular shelf tabs */}
+              {activeTab < 3 && (
+                <>
+                  {shelfBooks[shelves[activeTab]].length === 0 ? (
+                    <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                      No books on this shelf. Import your Goodreads library from the Dashboard!
+                    </Typography>
+                  ) : (
+                    <Grid container spacing={3}>
+                      {shelfBooks[shelves[activeTab]].map((book) => (
+                        <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={book.id}>
+                          {renderBookCard(book)}
+                        </Grid>
+                      ))}
+                    </Grid>
+                  )}
+                </>
+              )}
+  
+              {/* Pending Requests Tab */}
+              {activeTab === 3 && (
+                <>
+                  {pendingRequests.length === 0 ? (
+                    <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                      No pending book requests. All your to-read books are available!
+                    </Typography>
+                  ) : (
+                    <Grid container spacing={3}>
+                      {pendingRequests.map((request) => (
+                        <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={request.id}>
+                          {renderBookCard({
+                            id: request.id,
+                            title: request.title,
+                            author: request.author,
+                            status: request.status,
+                            cover_image: null,
+                          }, true)}
+                        </Grid>
+                      ))}
+                    </Grid>
+                  )}
+                </>
+              )}
+            </Box>
+          </Paper>
+        </Container>
+      </Box>
+      <BookDetailModal
+        book={book}
+        open={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+      />
+    </>          
   );
 };
 
