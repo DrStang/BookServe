@@ -41,6 +41,7 @@ const ReadingList = ({ onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
   const [detailsOpen, setDetailsOpen] = useState(false); 
+  const [selectedBook, setSelectedBook] = useState(null);
   const [shelfBooks, setShelfBooks] = useState({
     'to-read': [],
     'currently-reading': [],
@@ -104,6 +105,16 @@ const ReadingList = ({ onLogout }) => {
     setActiveTab(newValue);
   };
 
+  const handleOpenDetails = (book) => {
+    setSelectedBook(book);
+    setDetailsOpen(true);
+  };
+
+  const handleCloseDetails = () => {
+    setDetailsOpen(false);
+    setSelectedBook(null);
+  };  
+
 
   const renderBookCard = (book, isPending = false) => {
     const progress = readingProgress[book.id];
@@ -122,6 +133,7 @@ const ReadingList = ({ onLogout }) => {
             transform: 'scale(1.02)',
           },
         }}
+        onClick={() => !isPending && handleOpenDetails(book)}
       >
         {book.cover_image && (
           <CardMedia
@@ -130,7 +142,6 @@ const ReadingList = ({ onLogout }) => {
             image={booksAPI.getCoverUrl(book.id)}
             alt={book.title}
             sx={{ objectFit: 'contain', bgcolor: '#2a2a2a', cursor: 'pointer' }}
-            onClick={() => !isPending && setDetailsOpen(true)}
           />
         )}
         {!book.cover_image && (
@@ -165,7 +176,6 @@ const ReadingList = ({ onLogout }) => {
               cursor: isPending ? 'default' : 'pointer',
               '&:hover': !isPending ? { color: '#e50914' } : {},
             }}
-            onClick={() => !isPending && setDetailsOpen(true)}
           >
             {book.title}
           </Typography>
@@ -223,14 +233,20 @@ const ReadingList = ({ onLogout }) => {
               <Button
                 size="small"
                 startIcon={<InfoIcon />}
-                onClick={() => setDetailsOpen(true)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenDetails(book);
+                }}
               >
                 Details
               </Button>
               <Button
                 variant="contained"
                 size="small"
-                onClick={() => navigate(`/read/${book.id}`)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/read/${book.id}`);
+                }}
                 sx={{
                   ml: 'auto',
                   backgroundColor: '#e50914',
@@ -425,11 +441,14 @@ const ReadingList = ({ onLogout }) => {
           </Paper>
         </Container>
       </Box>
-      <BookDetailModal
-        book={bookId}
-        open={detailsOpen}
-        onClose={() => setDetailsOpen(false)}
-      />
+      {selectedBook && (
+        <BookDetailModal
+          book={selectedBook}
+          open={detailsOpen}
+          onClose={handleCloseDetails}
+          readingProgress={readingProgress}  
+        />
+       )}     
     </>          
   );
 };
