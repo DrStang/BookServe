@@ -313,7 +313,7 @@ router.post('/trigger-update', authMiddleware, async (req, res) => {
 
     res.json({
       message: 'AI cache update queued',
-      userId; req.user.id,
+      userId: req.user.id,
       queueStatus: aiCacheService.getStatus()
   });
   } catch (error) {
