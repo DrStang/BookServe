@@ -3,6 +3,7 @@ const BookRequest = require('../models/BookRequest');
 const Book = require('../models/Book');
 const fs = require('fs').promises;
 const path = require('path');
+const aiCacheService = require('./aiCacheService');
 
 class DownloadMonitor {
   constructor() {
@@ -187,6 +188,8 @@ class DownloadMonitor {
       const book = await Book.create(bookData);
 
       console.log(`Successfully imported book: ${request.title} (ID: ${book.id})`);
+
+      aiCacheService.onBookAdded(book.id)
 
       // Fetch metadata in background (don't wait for it)
       const metadataService = require('./metadataService');
