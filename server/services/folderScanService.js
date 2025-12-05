@@ -5,6 +5,7 @@ const epubMetadataService = require('./epubMetadataService');
 const seriesDetectionService = require('./seriesDetectionService');
 const metadataService = require('./metadataService');
 const crypto = require('crypto');
+const aiCacheService = require('../services/aiCacheService');
 
 class FolderScanService {
   constructor() {
@@ -169,6 +170,8 @@ class FolderScanService {
     // Create book entry
     const book = await Book.create(bookData);
     console.log(`✓ Imported: ${bookData.title} (ID: ${book.id})`);
+
+    aiCacheService.onBookAdded(book.id);
 
     // Fetch metadata in background (don't block the import)
     if (process.env.AUTO_FETCH_METADATA !== 'false') {
