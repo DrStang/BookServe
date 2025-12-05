@@ -4,6 +4,7 @@ const fs = require('fs').promises;
 const epubMetadataService = require('../services/epubMetadataService');
 const seriesDetectionService = require('../services/seriesDetectionService');
 const ebookConverter = require('../services/ebookConverter');
+const aiCacheService = require('../services/aiCacheService');
 
 exports.getAllBooks = async (req, res) => {
   try {
@@ -134,6 +135,8 @@ exports.uploadBook = async (req, res) => {
     };
 
     const book = await Book.create(bookData);
+
+    aiCacheService.onBookAdded(book.id);
 
     res.status(201).json({
       message: 'Book uploaded successfully',
