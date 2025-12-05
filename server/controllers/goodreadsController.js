@@ -1,5 +1,6 @@
 const GoodreadsImportService = require('../services/goodreadsImportService');
 const fs = require('fs').promises;
+const aiCacheService = require('../services/aiCacheService');
 
 exports.importCSV = async (req, res) => {
   try {
@@ -37,6 +38,9 @@ exports.importCSV = async (req, res) => {
 
     // Clean up uploaded file
     await fs.unlink(filePath);
+    
+    console.log(`[Goodreads Import] Triggering AI cache update for user ${userId}`);
+    aiCacheService.onGoodreadsImport(userId);
 
     res.json({
       success: true,
