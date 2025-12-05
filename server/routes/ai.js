@@ -144,7 +144,7 @@ router.get('/recommendations', authMiddleware, async (req, res) => {
         total_books_analyzed: allReadBooks.length,
         site_books: siteReadBooks.filter(Boolean).length,
         goodreads_books: goodreadsReadBooks.length,
-        available_for_recommendation: unreadBooks.length
+        available_for_recommendation: unreadBooks.length,
         generated_at: new Date().toISOString(),
         cached: false
       }
