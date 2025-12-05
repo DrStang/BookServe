@@ -12,6 +12,7 @@ const retryService = require('./services/retryService');
 const cache = require('./services/redisCache');
 const ollamaAI = require('./services/ollamaAI');
 const folderScanService = require('./services/folderScanService');
+const aiCacheService = require('./services/aiCacheService');
 const scanRoutes = require('./routes/scan');
 
 
@@ -97,6 +98,8 @@ const startServer = async () => {
 
     folderScanService.start();
 
+    aiCacheService.start();
+
     // Create GraphQL server with context
     const apolloServer = new ApolloServer({
       typeDefs,
@@ -145,6 +148,7 @@ const startServer = async () => {
 ║  ${process.env.AUTO_IMPORT_ENABLED === 'true' ? '✓' : '✗'} Download Monitor                ║
 ║  ${process.env.RETRY_ENABLED === 'true' ? '✓' : '✗'} Retry Service                   ║
 ║  ${process.env.FOLDER_SCAN_ENABLED === 'true' ? '✓' : '✗'} Folder Scanner                  ║
+║  ${process.env.AI_CACHE_ENABLED === 'true' ? '✓' : '✗'} AI Cache Service                ║
 ╚════════════════════════════════════════╝
       `);
     });
@@ -160,6 +164,7 @@ process.on('SIGTERM', async () => {
   downloadMonitor.stop();
   retryService.stop();
   folderScanService.stop();
+  aiCacheService.stop();
   await cache.disconnect();
   process.exit(0);
 });
@@ -169,6 +174,7 @@ process.on('SIGINT', async () => {
   downloadMonitor.stop();
   retryService.stop();
   folderScanService.stop();
+  aiCacheService.stop();
   await cache.disconnect();
   process.exit(0);
 });
