@@ -1,4 +1,5 @@
 const ReadingProgress = require('../models/ReadingProgress');
+const aiCacheService = require('../services/aiCacheService');
 
 // Get progress for a specific book
 exports.getBookProgress = async (req, res) => {
@@ -36,8 +37,17 @@ exports.updateBookProgress = async (req, res) => {
       });
     }
 
+    const previousProgress = await ReadingProgress.getProgress(userId, bookId);
+    const wasFinished = previousProgress && previousProgress.progress >= 90;
+    const isNowFinished = progress >= 90;
+
     await ReadingProgress.upsertProgress(userId, bookId, progress, current_location);
 
+    if (!wasFinished && isNowFinished) {
+      console.log(`[Progress] Book ${bookId} marked as finished for user ${userId}`);
+      aiCacheService.onProgressUpdate(userId, bookId, progress);
+    }
+    
     res.json({
       success: true,
       message: 'Progress updated successfully'
