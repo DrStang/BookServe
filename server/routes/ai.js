@@ -203,7 +203,7 @@ router.get('/insights', authMiddleware, async (req, res) => {
       metadata: {
         total_books_analyzed: allReadBooks.length,
         site_books: siteReadBooks.filter(Boolean).length,
-        goodreads_books: goodreadsReadBooks.length
+        goodreads_books: goodreadsReadBooks.length,
         generated_at: new Date().toISOString(),
         cached: false
       }
