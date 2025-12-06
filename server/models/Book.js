@@ -116,10 +116,16 @@ class Book {
         params.push(`%${filters.categories}%`);
       }
 
+      // Series filter
+      if (filters.series) {
+        whereClauses.push('series LIKE ?');
+        params.push(`%${filters.series}%`);
+      }
+
       const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
       // Validate sortBy to prevent SQL injection
-      const validSortFields = ['title', 'author', 'added_at', 'published_date', 'average_rating'];
+      const validSortFields = ['title', 'author', 'added_at', 'published_date', 'average_rating', 'series', 'series_number'];
       const sortField = validSortFields.includes(sortBy) ? sortBy : 'added_at';
       const sortDirection = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
@@ -139,9 +145,9 @@ class Book {
       const searchTerm = `%${query}%`;
       db.all(
         `SELECT * FROM books
-         WHERE title LIKE ? OR author LIKE ? OR isbn LIKE ?
+         WHERE title LIKE ? OR author LIKE ? OR isbn LIKE ? OR series LIKE ?
          ORDER BY added_at DESC`,
-        [searchTerm, searchTerm, searchTerm],
+        [searchTerm, searchTerm, searchTerm, searchTerm],
         (err, rows) => {
           if (err) reject(err);
           else resolve(rows);
@@ -250,12 +256,34 @@ class Book {
         params.push(`%${filters.categories}%`);
       }
 
+      if (filters.series) {
+        whereClauses.push('series LIKE ?');
+        params.push(`%${filters.series}%`);
+      }
+
       const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
       db.get(`SELECT COUNT(*) as count FROM books ${whereClause}`, params, (err, row) => {
         if (err) reject(err);
         else resolve(row.count);
       });
+    });
+  }
+
+  // Get all unique series names
+  static async getAllSeries() {
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT DISTINCT series, COUNT(*) as count 
+         FROM books 
+         WHERE series IS NOT NULL AND series != ''
+         GROUP BY series 
+         ORDER BY series ASC`,
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
     });
   }
 
@@ -310,23 +338,15 @@ class Book {
         params.push(bookId); // Exclude the source book
         params.push(limit);
 
-        // Use subquery to avoid parameter duplication
         const query = `
-
           SELECT *, ${scoreExpression} as similarity_score
-
           FROM books
           WHERE id != ?
           ORDER BY similarity_score DESC, average_rating DESC
-
           LIMIT ?
-
         `;
 
- 
-
         db.all(query, params, (err, rows) => {
-
           if (err) reject(err);
           else resolve(rows.filter(row => row.similarity_score > 0));
         });
@@ -355,6 +375,22 @@ class Book {
         (err, row) => {
           if (err) reject(err);
           else resolve(row);
+        }
+      );
+    });
+  }
+
+  // Find books in a series, ordered by series number
+  static async findBySeries(seriesName) {
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT * FROM books 
+         WHERE series = ? 
+         ORDER BY series_number ASC, title ASC`,
+        [seriesName],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
         }
       );
     });
