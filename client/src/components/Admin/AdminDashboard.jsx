@@ -38,7 +38,8 @@ import {
   Cancel as DisabledIcon,
   Storage as StorageIcon,
 } from '@mui/icons-material';
-import { adminAPI, nytAPI, requestsAPI } from '../../services/api';
+import { adminAPI, nytAPI } from '../../services/api';
+import { isAdmin } from '../../utils/auth';
 import NYTAdminPanel from './NYTAdminPanel';
 import BulkEditModal from './BulkEditModal';
 
@@ -54,8 +55,17 @@ const AdminDashboard = () => {
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [selectedBooks, setSelectedBooks] = useState([]);
 
+  // Redirect non-admins
   useEffect(() => {
-    loadDashboardData();
+    if (!isAdmin()) {
+      navigate('/');
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    if (isAdmin()) {
+      loadDashboardData();
+    }
   }, []);
 
   const loadDashboardData = async () => {
