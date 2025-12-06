@@ -29,11 +29,12 @@ import {
   Save as SaveIcon,
   Cancel as CancelIcon,
   Refresh as RefreshIcon,
+  CollectionsBookmark as SeriesIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { booksAPI, metadataAPI, emailAPI } from '../../services/api';
 
-const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress }) => {
+const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBookUpdated, isAdmin = false }) => {
   const navigate = useNavigate();
   const [similarBooks, setSimilarBooks] = useState([]);
   const [loadingSimilar, setLoadingSimilar] = useState(false);
@@ -45,7 +46,25 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress }) => {
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  
+  const [saving, setSaving] = useState(false);
+  const [seriesOptions, setSeriesOptions] = useState([]);
+  const [loadingSeries, setLoadingSeries] = useState(false);
+
+  const fetchSeriesList = useCallback(async () => {
+    if (seriesOptions.length > 0) return;
+
+    setLoadingSeries(true);
+    try {
+      const response = await booksAPI.getAllSeries();
+      if (response.data.series) {
+        setSeriesOptions(response.data.series.map(s => s.series));
+      }
+    } catch (error) {
+      console.error('Failed to fetch series list:', error);
+    } finally {
+      setLoadingSeries(false);
+    }
+  }, [seriesOptions.length]); 
 
   useEffect(() => {
     if (open && book) {
