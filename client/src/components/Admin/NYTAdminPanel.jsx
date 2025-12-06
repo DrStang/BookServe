@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -15,6 +16,7 @@ import {
   Collapse,
 } from '@mui/material';
 import {
+  ArrowBack as BackIcon,
   Refresh as RefreshIcon,
   PlayArrow as TriggerIcon,
   ExpandMore as ExpandMoreIcon,
@@ -25,6 +27,7 @@ import {
 import { nytAPI } from '../../services/api';
 
 const NYTAdminPanel = () => {
+  const navigate = useNavigate();
   const [status, setStatus] = useState(null);
   const [lists, setLists] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -95,6 +98,16 @@ const NYTAdminPanel = () => {
 
   return (
     <Card>
+      <AppBar position="static" sx={{ backgroundColor: '#1a1a1a' }}>
+        <Toolbar>
+          <IconButton edge="start" color="inherit" onClick={() => navigate('/admin')}>
+            <BackIcon />
+          </IconButton>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            NYT Admin Panel
+          </Typography>
+        </Toolbar>
+      </AppBar>
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6">
