@@ -31,6 +31,9 @@ import {
   ListItemText,
   ListItemIcon,
   Divider,
+  Appbar,
+  Toolbar,
+  Iconbutton,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -47,6 +50,7 @@ import {
   ExpandLess as ExpandLessIcon,
   TrendingDown as FailureIcon,
   Info as InfoIcon,
+  ArrowBack as BackIcon,
 } from '@mui/icons-material';
 import { requestsAPI } from '../../services/api';
 import { isAdmin as checkIsAdmin } from '../../utils/auth';
@@ -473,9 +477,16 @@ const RequestsPage = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        Book Requests
-      </Typography>
+      <AppBar position="static" sx={{ backgroundColor: '#1a1a1a' }}>
+        <Toolbar>
+          <IconButton edge="start" color="inherit" onClick={() => navigate('/my-requests')}>
+            <BackIcon />
+          </IconButton>
+          <Typography variant="h4" gutterBottom>
+            Book Requests
+          </Typography>
+        </Toolbar>
+      </AppBar>
 
       {/* Admin Stats Cards */}
       {isAdmin && stats && (
