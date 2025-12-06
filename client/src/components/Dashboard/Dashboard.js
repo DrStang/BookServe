@@ -53,6 +53,7 @@ import {
   AutoAwesome as AIIcon,
   Psychology as InsightsIcon,
   Chat as ChatIcon,
+  AdminPanelSettings as AdminIcon,
 } from '@mui/icons-material';
 import { booksAPI, metadataAPI, progressAPI } from '../../services/api';
 import BookCard from './BookCard';
@@ -799,6 +800,13 @@ const Dashboard = ({ onLogout }) => {
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
               BookServe
             </Typography>
+            {isAdmin && {
+              <IconButton 
+                color="inherit"
+                onClick={() => navigate('/admin')}
+                startIcon={<AdminIcon />}
+              </IconButton>
+            )}      
             <Button
               color="inherit"
               startIcon={<AddIcon />}
