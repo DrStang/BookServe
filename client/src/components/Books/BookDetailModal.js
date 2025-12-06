@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -16,6 +16,7 @@ import {
   CircularProgress,
   Snackbar,
   Alert,
+  Autocomplete,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -50,6 +51,7 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
   const [seriesOptions, setSeriesOptions] = useState([]);
   const [loadingSeries, setLoadingSeries] = useState(false);
 
+  // Fetch series list for autocomplete
   const fetchSeriesList = useCallback(async () => {
     if (seriesOptions.length > 0) return;
 
@@ -64,7 +66,7 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
     } finally {
       setLoadingSeries(false);
     }
-  }, [seriesOptions.length]); 
+  }, [seriesOptions.length]);
 
   useEffect(() => {
     if (open && book) {
@@ -75,6 +77,13 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
       loadSimilarBooks();
     }
   }, [open, book]);
+
+  // Fetch series options when entering edit mode
+  useEffect(() => {
+    if (editing) {
+      fetchSeriesList();
+    }
+  }, [editing, fetchSeriesList]);
 
   const loadSimilarBooks = async () => {
     if (!book) return;
@@ -102,6 +111,7 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
   };
 
   const handleSaveEdit = async () => {
+    setSaving(true);
     try {
       await booksAPI.update(currentBook.id, {
         title: editedBook.title,
@@ -109,18 +119,28 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
         isbn: editedBook.isbn,
         publisher: editedBook.publisher,
         published_date: editedBook.published_date,
+        series: editedBook.series || null,
+        series_number: editedBook.series_number || null,
+        description: editedBook.description,
+        categories: editedBook.categories,
+        language: editedBook.language,
       });
       
       // Reload book data
       const response = await booksAPI.getById(currentBook.id);
       setCurrentBook(response.data.book);
       setEditing(false);
+      setSnackbar({ open: true, message: 'Book updated successfully', severity: 'success' });
       
-      // Trigger parent refresh
-      window.location.reload();
+      // Notify parent to refresh if callback provided
+      if (onBookUpdated) {
+        onBookUpdated();
+      }
     } catch (error) {
       console.error('Error updating book:', error);
-      alert('Failed to update book');
+      setSnackbar({ open: true, message: 'Failed to update book', severity: 'error' });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -132,12 +152,15 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
     
     try {
       await booksAPI.delete(currentBook.id);
+      setSnackbar({ open: true, message: 'Book deleted successfully', severity: 'success' });
       onClose();
-      // Trigger parent refresh
-      window.location.reload();
+      // Notify parent to refresh if callback provided
+      if (onBookUpdated) {
+        onBookUpdated();
+      }
     } catch (error) {
       console.error('Error deleting book:', error);
-      alert('Failed to delete book');
+      setSnackbar({ open: true, message: 'Failed to delete book', severity: 'error' });
     }
   };
 
@@ -149,12 +172,15 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
       // Reload book data
       const response = await booksAPI.getById(currentBook.id);
       setCurrentBook(response.data.book);
+      setSnackbar({ open: true, message: 'Metadata refreshed successfully', severity: 'success' });
       
-      // Trigger parent refresh
-      window.location.reload();
+      // Notify parent to refresh if callback provided
+      if (onBookUpdated) {
+        onBookUpdated();
+      }
     } catch (error) {
       console.error('Error refreshing metadata:', error);
-      alert('Failed to refresh metadata');
+      setSnackbar({ open: true, message: 'Failed to refresh metadata', severity: 'error' });
     } finally {
       setRefreshing(false);
     }
@@ -174,6 +200,7 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
       link.remove();
     } catch (error) {
       console.error('Download failed:', error);
+      setSnackbar({ open: true, message: 'Download failed', severity: 'error' });
     }
   };
 
@@ -196,13 +223,13 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
   const handleEmailSubmit = async () => {
     try {
       await emailAPI.sendBook(currentBook.id, email);
-      setSnackbar({ open: true, message: 'Book sent to email', severity: 'success' })
+      setSnackbar({ open: true, message: 'Book sent to email', severity: 'success' });
       setEmailDialogOpen(false);
       setEmail('');
     } catch (error) {
       setSnackbar({ open: true, message: 'Failed to send email', severity: 'error' });
     }
-  }  
+  };
 
   if (!currentBook) return null;
 
@@ -259,7 +286,7 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
             </IconButton>
           </Box>
         </DialogTitle>
-  
+
         <DialogContent dividers>
           <Grid container spacing={3}>
             {/* Book Cover and Basic Info */}
@@ -277,7 +304,7 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
                   mb: 2,
                 }}
               />
-  
+
               {/* Action Buttons - Only show when not editing */}
               {!editing && (
                 <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column' }}>
@@ -305,24 +332,24 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
                     variant="outlined"
                     fullWidth
                     startIcon={<EmailIcon />}
-                    onClick={handleEmailClick}  
+                    onClick={handleEmailClick}
                   >
                     Email
-                  </Button>    
+                  </Button>
                 </Box>
               )}
             </Grid>
-  
+
             {/* Book Details */}
             <Grid item xs={12} md={8}>
               {editing ? (
-                <>
+                // ========== EDIT MODE ==========
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <TextField
                     fullWidth
                     label="Title"
                     value={editedBook.title || ''}
                     onChange={(e) => setEditedBook({ ...editedBook, title: e.target.value })}
-                    margin="normal"
                     variant="outlined"
                   />
                   <TextField
@@ -330,15 +357,62 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
                     label="Author"
                     value={editedBook.author || ''}
                     onChange={(e) => setEditedBook({ ...editedBook, author: e.target.value })}
-                    margin="normal"
                     variant="outlined"
                   />
+                  
+                  {/* Series with Autocomplete */}
+                  <Grid container spacing={2}>
+                    <Grid item xs={8}>
+                      <Autocomplete
+                        freeSolo
+                        options={seriesOptions}
+                        loading={loadingSeries}
+                        value={editedBook.series || ''}
+                        onInputChange={(event, newValue) => {
+                          setEditedBook({ ...editedBook, series: newValue });
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Series"
+                            placeholder="Enter or select series"
+                            InputProps={{
+                              ...params.InputProps,
+                              startAdornment: (
+                                <>
+                                  <SeriesIcon sx={{ mr: 1, color: 'action.active' }} />
+                                  {params.InputProps.startAdornment}
+                                </>
+                              ),
+                              endAdornment: (
+                                <>
+                                  {loadingSeries ? <CircularProgress size={20} /> : null}
+                                  {params.InputProps.endAdornment}
+                                </>
+                              ),
+                            }}
+                          />
+                        )}
+                      />
+                    </Grid>
+                    <Grid item xs={4}>
+                      <TextField
+                        fullWidth
+                        label="Series #"
+                        type="number"
+                        value={editedBook.series_number || ''}
+                        onChange={(e) => setEditedBook({ ...editedBook, series_number: e.target.value })}
+                        variant="outlined"
+                        InputProps={{ inputProps: { min: 0, step: 0.5 } }}
+                      />
+                    </Grid>
+                  </Grid>
+
                   <TextField
                     fullWidth
                     label="ISBN"
                     value={editedBook.isbn || ''}
                     onChange={(e) => setEditedBook({ ...editedBook, isbn: e.target.value })}
-                    margin="normal"
                     variant="outlined"
                   />
                   <TextField
@@ -346,7 +420,6 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
                     label="Publisher"
                     value={editedBook.publisher || ''}
                     onChange={(e) => setEditedBook({ ...editedBook, publisher: e.target.value })}
-                    margin="normal"
                     variant="outlined"
                   />
                   <TextField
@@ -354,17 +427,42 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
                     label="Published Date"
                     value={editedBook.published_date || ''}
                     onChange={(e) => setEditedBook({ ...editedBook, published_date: e.target.value })}
-                    margin="normal"
                     variant="outlined"
                     placeholder="YYYY or YYYY-MM-DD"
                   />
-                </>
+                  <TextField
+                    fullWidth
+                    label="Language"
+                    value={editedBook.language || ''}
+                    onChange={(e) => setEditedBook({ ...editedBook, language: e.target.value })}
+                    variant="outlined"
+                    placeholder="e.g., en, es, fr"
+                  />
+                  <TextField
+                    fullWidth
+                    label="Categories"
+                    value={editedBook.categories || ''}
+                    onChange={(e) => setEditedBook({ ...editedBook, categories: e.target.value })}
+                    variant="outlined"
+                    helperText="Comma-separated list of categories"
+                  />
+                  <TextField
+                    fullWidth
+                    label="Description"
+                    value={editedBook.description || ''}
+                    onChange={(e) => setEditedBook({ ...editedBook, description: e.target.value })}
+                    variant="outlined"
+                    multiline
+                    rows={4}
+                  />
+                </Box>
               ) : (
+                // ========== VIEW MODE ==========
                 <>
                   <Typography variant="h4" gutterBottom sx={{ fontWeight: 600 }}>
                     {currentBook.title}
                   </Typography>
-  
+
                   {currentBook.author && (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                       <AuthorIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
@@ -384,7 +482,7 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
                       </Typography>
                     </Box>
                   )}
-  
+
                   {/* Rating */}
                   {currentBook.average_rating && (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -395,7 +493,7 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
                       </Typography>
                     </Box>
                   )}
-  
+
                   {/* Reading Progress */}
                   {progress && progress.progress > 0 && (
                     <Chip
@@ -406,7 +504,7 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
                       }}
                     />
                   )}
-  
+
                   {/* Categories */}
                   {categories.length > 0 && (
                     <Box sx={{ mb: 2 }}>
@@ -420,9 +518,18 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
                       ))}
                     </Box>
                   )}
-  
+
                   {/* Metadata */}
                   <Box sx={{ mb: 2 }}>
+                    {currentBook.series && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <SeriesIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                        <Typography variant="body2" color="text.secondary">
+                          Series: {currentBook.series}
+                          {currentBook.series_number && ` #${currentBook.series_number}`}
+                        </Typography>
+                      </Box>
+                    )}
                     {currentBook.published_date && (
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                         <CalendarIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
@@ -456,13 +563,8 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
                         Format: {currentBook.format.toUpperCase()}
                       </Typography>
                     )}
-                    {currentBook.series && (
-                      <Typography variant="body2" color="text.secondary">
-                        Series: {currentBook.series} {currentBook.series_number && `#${currentBook.series_number}`}
-                      </Typography>
-                    )}
                   </Box>
-  
+
                   {/* Description */}
                   {currentBook.description && (
                     <>
@@ -479,7 +581,7 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
               )}
             </Grid>
           </Grid>
-  
+
           {/* Similar Books Section - Only show when not editing */}
           {!editing && similarBooks.length > 0 && (
             <>
@@ -537,7 +639,7 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
               </Grid>
             </>
           )}
-  
+
           {loadingSimilar && (
             <Box sx={{ textAlign: 'center', py: 3 }}>
               <Typography variant="body2" color="text.secondary">
@@ -546,7 +648,7 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
             </Box>
           )}
         </DialogContent>
-  
+
         <DialogActions sx={{ px: 3, pb: 2 }}>
           {editing ? (
             <>
@@ -556,7 +658,8 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
               <Button
                 variant="contained"
                 onClick={handleSaveEdit}
-                startIcon={<SaveIcon />}
+                disabled={saving}
+                startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
                 sx={{
                   backgroundColor: '#e50914',
                   '&:hover': { backgroundColor: '#b20710' },
@@ -573,36 +676,38 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
         </DialogActions>
       </Dialog>
 
+      {/* Email Dialog */}
       <Dialog open={emailDialogOpen} onClose={() => setEmailDialogOpen(false)}>
         <DialogTitle>Send Book to Email</DialogTitle>
         <DialogContent>
-            <TextField
-              autoFocus
-              margin="dense"
-              label="Email Address"
-              type="email"
-              fullWidth
-              variant="outlined"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </DialogContent>
-          <DialogActions>
-                <Button onClick={() => setEmailDialogOpen(false)}>Cancel</Button>
-                <Button onClick={handleEmailSubmit} variant="contained">
-                  Send
-                </Button>
-          </DialogActions>
-        </Dialog>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Email Address"
+            type="email"
+            fullWidth
+            variant="outlined"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEmailDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleEmailSubmit} variant="contained">
+            Send
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={3000}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-        >
-          <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
-        </Snackbar>
-      </>
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
+      </Snackbar>
+    </>
   );
 };
 
