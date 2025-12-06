@@ -16,6 +16,7 @@ import ReadingInsights from './components/AI/ReadingInsights';
 import AIChat from './components/AI/AIChat';
 import AIRecommendationsPage from './components/AI/AIRecommendationsPage';
 import PrivateRoute from './components/Common/PrivateRoute';
+import NYTPanel from './components/Admin/NYTAdminPanel';
 
 const darkTheme = createTheme({
   palette: {
@@ -108,6 +109,13 @@ function App() {
               </PrivateRoute>
             }
           />
+          <Route
+            path"/NYTPanel"
+            element={
+              <PrivateRoute isAuthenticated={isAuthenticated}>
+                <NYTPanel />
+            }
+          />    
           <Route
             path="/author/:authorName"
             element={
