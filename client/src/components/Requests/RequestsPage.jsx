@@ -478,16 +478,13 @@ const RequestsPage = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <AppBar position="static" sx={{ backgroundColor: '#1a1a1a' }}>
-        <Toolbar>
-          <IconButton edge="start" color="inherit" onClick={() => navigate('/my-requests')}>
-            <BackIcon />
-          </IconButton>
-          <Typography variant="h4" gutterBottom>
-            Book Requests
-          </Typography>
-        </Toolbar>
-      </AppBar>
+        <IconButton edge="start" color="inherit" onClick={() => navigate('/my-requests')}>
+          <BackIcon />
+        </IconButton>
+        <Typography variant="h4" gutterBottom>
+          Book Requests
+        </Typography>
+
 
       {/* Admin Stats Cards */}
       {isAdmin && stats && (
