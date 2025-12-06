@@ -77,11 +77,11 @@ exports.createRequest = async (req, res) => {
   }
 };
 
-// Get all requests (admin)
+// Get all requests (admin only) - includes user info
 exports.getAllRequests = async (req, res) => {
   try {
-    const { limit = 50, offset = 0 } = req.query;
-    const requests = await BookRequest.findAll(parseInt(limit), parseInt(offset));
+    const { limit = 100, offset = 0, status } = req.query;
+    const requests = await BookRequest.findAll(parseInt(limit), parseInt(offset), status);
 
     res.json({ requests });
   } catch (error) {
@@ -90,7 +90,7 @@ exports.getAllRequests = async (req, res) => {
   }
 };
 
-// Get user's requests
+// Get user's own requests only
 exports.getUserRequests = async (req, res) => {
   try {
     const requests = await BookRequest.findByUserId(req.user.id);
@@ -101,7 +101,7 @@ exports.getUserRequests = async (req, res) => {
   }
 };
 
-// Get request by ID
+// Get request by ID (user can only see own, admin can see all)
 exports.getRequestById = async (req, res) => {
   try {
     const request = await BookRequest.findById(req.params.id);
@@ -121,6 +121,7 @@ exports.getRequestById = async (req, res) => {
     res.status(500).json({ error: 'Error fetching request' });
   }
 };
+
 // Delete/cancel a request
 exports.deleteRequest = async (req, res) => {
   try {
@@ -221,8 +222,6 @@ async function searchNZBHydra(title, author) {
     if (author) {
       searchQuery += ` ${author}`;
     }
-    // Add "epub" to search query to prefer EPUB results
-    //searchQuery += ' epub';
 
     console.log(`Searching NZBHydra for: "${searchQuery}"`);
 
@@ -299,7 +298,6 @@ async function searchNZBHydra(title, author) {
       // Split search terms into words
       const titleWords = searchTitle.split(' ');
       const authorWords = searchAuthor.split(' ');
-      const itemWords = normalizedItemTitle.split(' ');
 
       // Check for exact title match (highest score)
       if (normalizedItemTitle.includes(searchTitle)) {
@@ -383,11 +381,11 @@ async function searchNZBHydra(title, author) {
     console.error('NZBHydra search error:', error.message);
     if (error.response) {
       console.error('Response status:', error.response.status);
-      console.error('Response data:', response.data.substring(0, 500));
     }
     return null;
   }
 }
+
 async function sendToSABnzbd(nzbData) {
   try {
     const sabnzbdUrl = process.env.SABNZBD_URL;
@@ -469,4 +467,16 @@ async function sendToSABnzbd(nzbData) {
     return null;
   }
 }
+
+// Get request statistics (admin only)
+exports.getRequestStats = async (req, res) => {
+  try {
+    const stats = await BookRequest.getStats();
+    res.json(stats);
+  } catch (error) {
+    console.error('Error fetching request stats:', error);
+    res.status(500).json({ error: 'Error fetching request statistics' });
+  }
+};
+
 module.exports.processBookRequest = processBookRequest;
