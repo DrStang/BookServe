@@ -43,6 +43,10 @@ router.get('/', authMiddleware, bookController.getAllBooks);
 // Search books
 router.get('/search', authMiddleware, bookController.searchBooks);
 
+router.get('/bulk-update', authMiddleware, adminMiddleware, bookController.bulkUpdateBooks);
+
+router.get('/metadata/series', authMiddleware, bookController.getAllSeries);
+
 // Get book by ID
 router.get('/:id', authMiddleware, bookController.getBookById);
 
