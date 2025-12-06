@@ -17,6 +17,7 @@ import AIChat from './components/AI/AIChat';
 import AIRecommendationsPage from './components/AI/AIRecommendationsPage';
 import PrivateRoute from './components/Common/PrivateRoute';
 import NYTPanel from './components/Admin/NYTAdminPanel';
+import RequestsPage from './components/Requests/RequestsPage';
 
 const darkTheme = createTheme({
   palette: {
@@ -106,6 +107,14 @@ function App() {
             element={
               <PrivateRoute isAuthenticated={isAuthenticated}>
                 <MyRequests />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/requests"
+            element={
+              <PrivateRoute isAuthenticated={isAuthenticated}>
+                <RequestsPage />
               </PrivateRoute>
             }
           />
