@@ -310,6 +310,13 @@ const AdminDashboard = () => {
                 >
                   Trigger Check Now
                 </Button>
+                <Button 
+                  variant="contained" 
+                  onClick={() => navigate('/NYTPanel')}
+                  sx={{ backgroundColor: '#e50914', '&:hover': { backgroundColor: '#b20710' } }}
+                >
+                  NYT Panel
+                </Button>
               </CardActions>
             </Card>
           </Grid>
