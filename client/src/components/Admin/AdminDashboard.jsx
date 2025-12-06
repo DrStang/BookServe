@@ -40,7 +40,6 @@ import {
 } from '@mui/icons-material';
 import { adminAPI, nytAPI } from '../../services/api';
 import { isAdmin } from '../../utils/auth';
-import NYTAdminPanel from './NYTAdminPanel';
 import BulkEditModal from './BulkEditModal';
 
 const AdminDashboard = () => {
