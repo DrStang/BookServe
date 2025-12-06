@@ -31,6 +31,7 @@ import {
   Person as PersonIcon,
 } from '@mui/icons-material';
 import { requestsAPI } from '../../services/api';
+import { isAdmin as checkIsAdmin } from '../../utils/auth';
 
 const MyRequests = ({ isAdmin = false}) => {
   const navigate = useNavigate();
@@ -40,6 +41,8 @@ const MyRequests = ({ isAdmin = false}) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [requestToDelete, setRequestToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+
+  const isAdmin = checkIsAdmin();
 
   const loadRequests = useCallback(async () => {
     try {
