@@ -128,10 +128,7 @@ const BulkEditModal = ({ open, onClose, onComplete }) => {
     setSearching(true);
     setHasSearched(true);
     try {
-      const response = await booksAPI.getAll({ 
-        search: searchQuery.trim(),
-        limit: 50 
-      });
+      const response = await booksAPI.search(searchQuery);
       setSearchResults(response.data.books || []);
     } catch (error) {
       console.error('Search failed:', error);
