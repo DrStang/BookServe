@@ -24,7 +24,8 @@ exports.getAllBooks = async (req, res) => {
       ratingTo,
       language,
       format,
-      categories
+      categories,
+      series
     } = req.query;
 
     // Build filters object
@@ -41,6 +42,7 @@ exports.getAllBooks = async (req, res) => {
     if (language) filters.language = language;
     if (format) filters.format = format;
     if (categories) filters.categories = categories;
+    if (series) filters.series = series;
 
     const books = await Book.findAll(
       parseInt(limit),
@@ -224,130 +226,67 @@ exports.streamBook = async (req, res) => {
   }
 };
 
- 
-
 // Serve EPUB content files (for EPUBjs reader)
-
 exports.streamBookContent = async (req, res) => {
-
   try {
-
     const { id } = req.params;
-
     const contentPath = req.params[0]; // Capture the rest of the path
-
- 
 
     const book = await Book.findById(id);
 
- 
-
     if (!book) {
-
       return res.status(404).json({ error: 'Book not found' });
-
     }
-
- 
 
     const filePath = path.resolve(book.file_path);
 
- 
-
     // Check if file exists
-
     try {
-
       await fs.access(filePath);
-
     } catch (err) {
-
       return res.status(404).json({ error: 'Book file not found' });
-
     }
 
- 
-
     // For EPUB files, we need to extract and serve individual files
-
     if (contentPath) {
-
       const AdmZip = require('adm-zip');
-
       const zip = new AdmZip(filePath);
-
       const zipEntry = zip.getEntry(contentPath);
 
- 
-
       if (!zipEntry) {
-
         return res.status(404).json({ error: 'Content not found in EPUB' });
-
       }
-
- 
 
       const content = zip.readFile(zipEntry);
 
- 
-
       // Set appropriate content type based on file extension
-
       const ext = path.extname(contentPath).toLowerCase();
-
       const contentTypes = {
-
         '.xml': 'application/xml',
-
         '.xhtml': 'application/xhtml+xml',
-
         '.html': 'text/html',
-
         '.css': 'text/css',
-
         '.js': 'application/javascript',
-
         '.jpg': 'image/jpeg',
-
         '.jpeg': 'image/jpeg',
-
         '.png': 'image/png',
-
         '.gif': 'image/gif',
-
         '.svg': 'image/svg+xml',
-
         '.otf': 'font/otf',
-
         '.ttf': 'font/ttf',
-
         '.woff': 'font/woff',
-
         '.woff2': 'font/woff2'
-
       };
 
- 
-
       res.setHeader('Content-Type', contentTypes[ext] || 'application/octet-stream');
-
       res.send(content);
-
     } else {
-
       // No content path - serve the whole EPUB
-
       res.setHeader('Content-Type', 'application/epub+zip');
-
       res.sendFile(filePath);
-
     }
-
   } catch (error) {
-
     console.error('Error streaming book content:', error);
-
     res.status(500).json({ error: 'Error streaming book content' });
   }
 };
@@ -385,105 +324,130 @@ exports.getCoverImage = async (req, res) => {
       return res.status(404).json({ error: 'Cover image not found' });
     }
 
-// Check if cover_image is a URL or local path
-
+    // Check if cover_image is a URL or local path
     if (book.cover_image.startsWith('http://') || book.cover_image.startsWith('https://')) {
-
       // Proxy the external image
-
       const axios = require('axios');
-
       const response = await axios.get(book.cover_image, { responseType: 'arraybuffer' });
-
       res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
-
       res.send(response.data);
-
     } else {
-
       // Serve local file
-
       const coverPath = path.resolve(book.cover_image);
-
       res.sendFile(coverPath);
-
     }
-
   } catch (error) {
-
     console.error('Error fetching cover:', error);
-
     res.status(500).json({ error: 'Error fetching cover image' });
-
   }
-
 };
 
- 
-
-// Update book
-
+// Update single book
 exports.updateBook = async (req, res) => {
-
   try {
-
     const book = await Book.findById(req.params.id);
 
- 
-
     if (!book) {
-
       return res.status(404).json({ error: 'Book not found' });
-
     }
 
- 
-
     // Update allowed fields
-
     const allowedFields = [
-
       'title', 'author', 'isbn', 'isbn_13', 'publisher', 'published_date',
-
-      'description', 'cover_image', 'language', 'page_count', 'categories'
-
+      'description', 'cover_image', 'language', 'page_count', 'categories',
+      'series', 'series_number'
     ];
 
- 
-
     const updates = {};
-
     Object.keys(req.body).forEach(key => {
-
       if (allowedFields.includes(key)) {
-
         updates[key] = req.body[key];
-
       }
-
     });
-
- 
 
     await Book.update(req.params.id, updates);
-
     const updatedBook = await Book.findById(req.params.id);
 
- 
-
     res.json({
-
       message: 'Book updated successfully',
-
       book: updatedBook
+    });
+  } catch (error) {
+    console.error('Error updating book:', error);
+    res.status(500).json({ error: 'Error updating book' });
+  }
+};
 
+// Bulk update books (admin only)
+exports.bulkUpdateBooks = async (req, res) => {
+  try {
+    const { bookIds, updates } = req.body;
+
+    if (!bookIds || !Array.isArray(bookIds) || bookIds.length === 0) {
+      return res.status(400).json({ error: 'bookIds array required' });
+    }
+
+    if (!updates || typeof updates !== 'object') {
+      return res.status(400).json({ error: 'updates object required' });
+    }
+
+    // Only allow certain fields to be bulk updated
+    const allowedFields = [
+      'series', 'series_number', 'categories', 'language', 'publisher'
+    ];
+
+    const validUpdates = {};
+    Object.keys(updates).forEach(key => {
+      if (allowedFields.includes(key) && updates[key] !== undefined) {
+        validUpdates[key] = updates[key];
+      }
     });
 
+    if (Object.keys(validUpdates).length === 0) {
+      return res.status(400).json({ 
+        error: 'No valid fields to update',
+        allowedFields 
+      });
+    }
+
+    const results = {
+      success: [],
+      failed: []
+    };
+
+    for (const bookId of bookIds) {
+      try {
+        const book = await Book.findById(bookId);
+        if (!book) {
+          results.failed.push({ bookId, error: 'Book not found' });
+          continue;
+        }
+
+        await Book.update(bookId, validUpdates);
+        results.success.push(bookId);
+      } catch (error) {
+        results.failed.push({ bookId, error: error.message });
+      }
+    }
+
+    res.json({
+      message: `Bulk update completed: ${results.success.length} success, ${results.failed.length} failed`,
+      results
+    });
   } catch (error) {
+    console.error('Error bulk updating books:', error);
+    res.status(500).json({ error: 'Error bulk updating books' });
+  }
+};
 
-    console.error('Error updating book:', error);
-
-    res.status(500).json({ error: 'Error updating book' });
+// Get all unique series names (for autocomplete)
+exports.getAllSeries = async (req, res) => {
+  try {
+    const series = await Book.getAllSeries();
+    res.json({ series });
+  } catch (error) {
+    console.error('Error fetching series:', error);
+    res.status(500).json({ error: 'Error fetching series list' });
   }
 };
 
