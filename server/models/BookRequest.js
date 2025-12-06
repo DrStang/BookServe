@@ -7,16 +7,15 @@ class BookRequest {
       title,
       author,
       isbn,
-      openlibrary_id,
-      notes
+      openlibrary_id
     } = requestData;
 
     return new Promise((resolve, reject) => {
       db.run(
         `INSERT INTO book_requests (
-          user_id, title, author, isbn, openlibrary_id, status, notes
-        ) VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
-        [user_id, title, author, isbn, openlibrary_id, notes || null],
+          user_id, title, author, isbn, openlibrary_id, status
+        ) VALUES (?, ?, ?, ?, ?, 'pending')`,
+        [user_id, title, author, isbn, openlibrary_id || null],
         function(err) {
           if (err) {
             reject(err);
