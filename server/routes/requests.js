@@ -6,6 +6,8 @@ const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 // Search OpenLibrary
 router.get('/search', authMiddleware, requestController.searchOpenLibrary);
 
+router.get('/stats', authMiddleware, adminMiddleware, requestController.getRequestStats);
+
 // Create book request
 router.post('/', authMiddleware, requestController.createRequest);
 
@@ -17,5 +19,7 @@ router.get('/all', authMiddleware, adminMiddleware, requestController.getAllRequ
 
 // Get request by ID
 router.get('/:id', authMiddleware, requestController.getRequestById);
+
+router.delete('/:id', authMiddleware, requestController.deleteRequest);
 
 module.exports = router;
