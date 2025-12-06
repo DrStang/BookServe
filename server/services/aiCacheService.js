@@ -387,6 +387,7 @@ class AICacheService {
    */
   getStatus() {
     return {
+      enabled: process.env.AI_CACHE_ENABLED === 'true',
       isProcessing: this.isProcessing,
       queueSize: this.updateQueue.size,
       autoUpdateIntervalDays: this.autoUpdateIntervalDays,
