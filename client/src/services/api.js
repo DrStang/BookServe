@@ -57,9 +57,13 @@ export const booksAPI = {
     api.post('/books', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
-  update: (id,data) => api.put(`/books/${id}`, data),
+  update: (id, data) => api.put(`/books/${id}`, data),
   delete: (id) => api.delete(`/books/${id}`),
   getSimilar: (id, limit = 10) => api.get(`/books/${id}/similar`, { params: { limit } }),
+  // New: Bulk update multiple books
+  bulkUpdate: (bookIds, updates) => api.post('/books/bulk-update', { bookIds, updates }),
+  // New: Get all unique series names
+  getAllSeries: () => api.get('/books/metadata/series'),
 };
 
 // Requests
@@ -68,8 +72,13 @@ export const requestsAPI = {
     api.get('/requests/search', { params: { q: query, author, title } }),
   create: (bookData) => api.post('/requests', bookData),
   getMyRequests: () => api.get('/requests/my-requests'),
-  getAll: () => api.get('/requests/all'),
+  // Admin only: get ALL requests from all users
+  getAllRequests: (status = null) => {
+    const params = status ? { status } : {};
+    return api.get('/requests/all', { params });
+  },
   getById: (id) => api.get(`/requests/${id}`),
+  delete: (id) => api.delete(`/requests/${id}`),
 };
 
 // Email
@@ -82,7 +91,7 @@ export const metadataAPI = {
   refreshBookMetadata: (id, force = false) =>
     api.post(`/metadata/books/${id}/refresh`, {}, { params: { force } }),
   refreshAllMetadata: (force = false) =>
-    api.post('/metadata/update-all', {}, {params: { force } }),
+    api.post('/metadata/update-all', {}, { params: { force } }),
   searchGoogleBooks: (query) =>
     api.get('/metadata/google-books/search', { params: { q: query } }),
   searchOpenLibrary: (query) =>
@@ -116,6 +125,30 @@ export const goodreadsAPI = {
     const params = shelf ? { shelf } : {};
     return api.get('/goodreads/imported-books', { params });
   },
+};
+
+// NYT Bestsellers (admin only)
+export const nytAPI = {
+  getStatus: () => api.get('/nyt/status'),
+  triggerCheck: () => api.post('/nyt/trigger'),
+  getLists: () => api.get('/nyt/lists'),
+};
+
+// Admin endpoints
+export const adminAPI = {
+  // Request statistics
+  getRequestStats: () => api.get('/requests/stats'),
+  // AI cache management
+  getAICacheStatus: () => api.get('/ai/cache-status'),
+  triggerAIUpdate: () => api.post('/ai/trigger-update'),
+  invalidateAICache: (userId = null, pattern = null) => 
+    api.post('/ai/invalidate-cache', { userId, pattern }),
+  // Folder scan
+  getScanStatus: () => api.get('/scan/status'),
+  triggerScan: () => api.post('/scan/trigger'),
+  // NYT
+  getNYTStatus: () => api.get('/nyt/status'),
+  triggerNYTCheck: () => api.post('/nyt/trigger'),
 };
 
 export default api;
