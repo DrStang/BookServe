@@ -33,7 +33,7 @@ import {
 import { requestsAPI } from '../../services/api';
 import { isAdmin as checkIsAdmin } from '../../utils/auth';
 
-const MyRequests = ({ isAdmin = false}) => {
+const MyRequests = () => {
   const navigate = useNavigate();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
