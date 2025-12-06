@@ -34,7 +34,6 @@ import {
   Divider,
   AppBar,
   Toolbar,
-  IconButton,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
