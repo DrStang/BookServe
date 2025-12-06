@@ -61,6 +61,7 @@ import AdvancedSearch from '../Search/AdvancedSearch';
 import BookDetailModal from '../Books/BookDetailModal';
 import VirtualizedBookGrid from './VirtualizedBookGrid';
 import GoodreadsImport from '../Import/GoodreadsImport';
+import { AdminNavButton } from '../Admin/AdminNavButton';
 
 const DRAWER_WIDTH = 280;
 const BOOKS_PER_PAGE = 24;
@@ -800,13 +801,7 @@ const Dashboard = ({ onLogout }) => {
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
               BookServe
             </Typography>
-            {isAdmin && {
-              <IconButton 
-                color="inherit"
-                onClick={() => navigate('/admin')}
-                startIcon={<AdminIcon />}
-              </IconButton>
-            )}      
+            <AdminNavButton />  
             <Button
               color="inherit"
               startIcon={<AddIcon />}
