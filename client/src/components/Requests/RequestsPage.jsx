@@ -48,7 +48,7 @@ import {
   TrendingDown as FailureIcon,
   Info as InfoIcon,
 } from '@mui/icons-material';
-import { requestsAPI } from '../services/api';
+import { requestsAPI } from '../../services/api';
 import { isAdmin as checkIsAdmin } from '../../utils/auth';
 
 // Status styling
