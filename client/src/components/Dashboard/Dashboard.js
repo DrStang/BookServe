@@ -125,14 +125,14 @@ const Dashboard = ({ onLogout }) => {
   // Load books when filters, sort, or page changes
   useEffect(() => {
     loadBooks();
-  }, [selectedAuthor, selectedGenre, selectedYear, searchQuery, sortBy, currentPage, quickFilter, advancedSearchCriteria]);
+  }, [selectedAuthor, selectedGenre, selectedSeries, selectedYear, searchQuery, sortBy, currentPage, quickFilter, advancedSearchCriteria]);
 
   // Reset to page 1 when filters change (but not on initial load)
   useEffect(() => {
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
-  }, [selectedAuthor, selectedGenre, selectedYear, searchQuery, sortBy, quickFilter]);
+  }, [selectedAuthor, selectedGenre, selectedSeries, selectedYear, searchQuery, sortBy, quickFilter]);
 
   const loadBooks = async () => {
     try {
@@ -148,6 +148,7 @@ const Dashboard = ({ onLogout }) => {
         // Otherwise use sidebar filters
         if (selectedAuthor) filters.author = selectedAuthor;
         if (selectedGenre) filters.categories = selectedGenre;
+        if (selectedSeries) filters.series = selectedSeries;
         if (selectedYear) filters.year = selectedYear;
       }
 
