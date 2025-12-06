@@ -13,7 +13,9 @@ const cache = require('./services/redisCache');
 const ollamaAI = require('./services/ollamaAI');
 const folderScanService = require('./services/folderScanService');
 const aiCacheService = require('./services/aiCacheService');
+const nytBestsellersService = require('./services/nytBestsellersService');
 const scanRoutes = require('./routes/scan');
+const nytRoutes = require('./routes/nyt');
 
 
 // Import GraphQL schema and resolvers
@@ -51,6 +53,7 @@ app.use('/api/progress', progressRoutes);
 app.use('/api/goodreads', goodreadsRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/scan', scanRoutes);
+app.use('/api/nyt', nytRoutes);
 
 
 // Health check
@@ -99,6 +102,8 @@ const startServer = async () => {
     folderScanService.start();
 
     aiCacheService.start();
+
+    nytBestsellersService.start();
 
     // Create GraphQL server with context
     const apolloServer = new ApolloServer({
@@ -149,6 +154,7 @@ const startServer = async () => {
 ║  ${process.env.RETRY_ENABLED === 'true' ? '✓' : '✗'} Retry Service                   ║
 ║  ${process.env.FOLDER_SCAN_ENABLED === 'true' ? '✓' : '✗'} Folder Scanner                  ║
 ║  ${process.env.AI_CACHE_ENABLED === 'true' ? '✓' : '✗'} AI Cache Service                ║
+║  ${process.env.NYT_ENABLED === 'true' ? '✓' : '✗'} NYT Bestsellers                 ║
 ╚════════════════════════════════════════╝
       `);
     });
@@ -165,6 +171,7 @@ process.on('SIGTERM', async () => {
   retryService.stop();
   folderScanService.stop();
   aiCacheService.stop();
+  nytBestsellersService.stop();
   await cache.disconnect();
   process.exit(0);
 });
@@ -175,6 +182,7 @@ process.on('SIGINT', async () => {
   retryService.stop();
   folderScanService.stop();
   aiCacheService.stop();
+  nytBestsellersService.stop();
   await cache.disconnect();
   process.exit(0);
 });
