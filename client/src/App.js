@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AdminDashboard } from './components/Admin';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 
@@ -113,6 +114,14 @@ function App() {
               <PrivateRoute isAuthenticated={isAuthenticated}>
                 <AuthorPage />
               </PrivateRoute>
+            }
+          />
+          <Route 
+            path="/admin"
+            element={
+              <ProtectedRoute adminOnly>
+                <AdminDashboard />
+              </ProtectedRoute>
             }
           />
           <Route
