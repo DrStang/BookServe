@@ -2,14 +2,16 @@ const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const User = require('../models/User');
 
+// FIXED: Include role in the JWT token while maintaining backward compatibility
 const generateToken = (user) => {
+  // Keep userId as the primary identifier for backward compatibility with auth middleware
+  // But also include role and other user info
   return jwt.sign(
     { 
-      userId: user.id,
-      id: user.id,
+      userId: user.id,       // Keep this for existing middleware compatibility
+      role: user.role || 'user',
       username: user.username,
-      email: user.email,
-      role: user.role || 'user'
+      email: user.email
     }, 
     process.env.JWT_SECRET, 
     { expiresIn: '7d' }
@@ -38,7 +40,7 @@ exports.register = async (req, res) => {
 
     // Create user
     const user = await User.create(username, email, password);
-    const token = generateToken(user.id);
+    const token = generateToken(user);
 
     res.status(201).json({
       message: 'User registered successfully',
@@ -71,7 +73,8 @@ exports.login = async (req, res) => {
     }
 
     await User.updateLastLogin(user.id);
-    const token = generateToken(user.id);
+    
+    const token = generateToken(user);
 
     res.json({
       message: 'Login successful',
