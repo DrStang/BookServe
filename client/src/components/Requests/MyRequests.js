@@ -92,7 +92,7 @@ const MyRequests = ({ isAdmin = false}) => {
     }
   };
   const canDelete = (request) => {
-    if (isAdmin) return true:
+    if (isAdmin) return true;
     return ['pending', 'failed'].includes(request.status);
   };  
 
