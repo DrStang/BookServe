@@ -79,6 +79,10 @@ export const requestsAPI = {
   },
   getById: (id) => api.get(`/requests/${id}`),
   delete: (id) => api.delete(`/requests/${id}`),
+  getStats: () => api.get('/requests/stats'),
+  retryWithCustomSearch: (id, customTerms = {}) =>
+    api.post(`requests/${id}/retry`, customTerms),
+  getSearchFailures: () => api.get('/requests/search-failures'),
 };
 
 // Email
