@@ -231,7 +231,7 @@ async function searchNZBHydra(title, author) {
         apikey: apiKey,
         t: 'search',
         q: searchQuery,
-        cat: 7020, // eBooks
+        cat: '7000, 7020', // eBooks
         extended: 1
       },
       timeout: 30000
