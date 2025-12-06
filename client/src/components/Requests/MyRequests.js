@@ -129,6 +129,13 @@ const MyRequests = () => {
           <IconButton edge="start" color="inherit" onClick={() => navigate('/')}>
             <BackIcon />
           </IconButton>
+          <Button 
+            variant="contained" 
+            onClick={() => navigate('/requests')}
+            sx={{ backgroundColor: '#e50914', '&:hover': { backgroundColor: '#b20710' } }}
+                >
+            Requests Panel
+          </Button>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             {isAdmin && activeTab === 1 ? 'All Book Requests' : 'My Book Requests'}
           </Typography>
