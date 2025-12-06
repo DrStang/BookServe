@@ -119,7 +119,7 @@ const MyRequests = ({ isAdmin = false}) => {
     acc[r.status] = (acc[r.status] || 0) + 1;
     acc.total = (acc.total || 0) + 1;
     return acc;
-  }; {});  
+  }, {});  
 
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: '#0f0f0f' }}>
