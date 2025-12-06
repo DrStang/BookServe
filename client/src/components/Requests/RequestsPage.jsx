@@ -67,7 +67,6 @@ const statusIcons = {
   completed: <CheckCircleIcon fontSize="small" />,
   failed: <ErrorIcon fontSize="small" />,
 };
-const isAdmin = checkIsAdmin();
 
 // ============================================================================
 // RETRY DIALOG COMPONENT
@@ -372,7 +371,8 @@ const SearchFailuresPanel = () => {
 // ============================================================================
 // MAIN REQUESTS PAGE COMPONENT
 // ============================================================================
-const RequestsPage = ({ isAdmin = false }) => {
+const RequestsPage = () => {
+  const isAdmin = checkIsAdmin();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
