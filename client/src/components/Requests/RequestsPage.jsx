@@ -49,6 +49,7 @@ import {
   Info as InfoIcon,
 } from '@mui/icons-material';
 import { requestsAPI } from '../services/api';
+import { isAdmin as checkIsAdmin } from '../../utils/auth';
 
 // Status styling
 const statusColors = {
@@ -66,6 +67,7 @@ const statusIcons = {
   completed: <CheckCircleIcon fontSize="small" />,
   failed: <ErrorIcon fontSize="small" />,
 };
+const isAdmin = checkIsAdmin();
 
 // ============================================================================
 // RETRY DIALOG COMPONENT
