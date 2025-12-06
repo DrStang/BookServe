@@ -7,15 +7,16 @@ class BookRequest {
       title,
       author,
       isbn,
-      openlibrary_id
+      openlibrary_id,
+      notes
     } = requestData;
 
     return new Promise((resolve, reject) => {
       db.run(
         `INSERT INTO book_requests (
-          user_id, title, author, isbn, openlibrary_id, status
-        ) VALUES (?, ?, ?, ?, ?, 'pending')`,
-        [user_id, title, author, isbn, openlibrary_id],
+          user_id, title, author, isbn, openlibrary_id, status, notes
+        ) VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
+        [user_id, title, author, isbn, openlibrary_id, notes || null],
         function(err) {
           if (err) {
             reject(err);
@@ -49,16 +50,26 @@ class BookRequest {
     });
   }
 
-  static async findAll(limit = 100, offset = 0) {
+  // Get all requests with user info (admin view)
+  static async findAll(limit = 100, offset = 0, status = null) {
     return new Promise((resolve, reject) => {
-      db.all(
-        `SELECT br.*, u.username
-         FROM book_requests br
-         JOIN users u ON br.user_id = u.id
-         ORDER BY br.requested_at DESC
-         LIMIT ? OFFSET ?`,
-        [limit, offset],
-        (err, rows) => {
+      let query = `
+        SELECT br.*, u.username, u.email
+        FROM book_requests br
+        JOIN users u ON br.user_id = u.id
+      `;
+      
+      const params = [];
+      
+      if (status) {
+        query += ' WHERE br.status = ?';
+        params.push(status);
+      }
+      
+      query += ' ORDER BY br.requested_at DESC LIMIT ? OFFSET ?';
+      params.push(limit, offset);
+      
+      db.all(query, params, (err, rows) => {
           if (err) reject(err);
           else resolve(rows);
         }
@@ -90,6 +101,15 @@ class BookRequest {
           else resolve({ updated: this.changes > 0 });
         }
       );
+    });
+  }
+
+  static async delete(id) {
+    return new Promise((resolve, reject) => {
+      db.run('DELETE FROM book_requests WHERE id = ?', [id], function(err) {
+        if (err) reject(err);
+        else resolve({ deleted: this.changes > 0 });
+      });
     });
   }
 
@@ -168,6 +188,26 @@ class BookRequest {
         function(err) {
           if (err) reject(err);
           else resolve({ updated: this.changes > 0 });
+        }
+      );
+    });
+  }
+
+  // Get request statistics (for admin dashboard)
+  static async getStats() {
+    return new Promise((resolve, reject) => {
+      db.get(
+        `SELECT 
+           COUNT(*) as total,
+           SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+           SUM(CASE WHEN status = 'searching' THEN 1 ELSE 0 END) as searching,
+           SUM(CASE WHEN status = 'downloading' THEN 1 ELSE 0 END) as downloading,
+           SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+           SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
+         FROM book_requests`,
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
         }
       );
     });
