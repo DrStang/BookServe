@@ -439,6 +439,7 @@ const AdminDashboard = () => {
               </CardContent>
             </Card>
           </Grid>
+          <SearchFailuresPanel defaultExpanded={false} />
 
           {/* Navigation Links */}
           <Grid item xs={12}>
