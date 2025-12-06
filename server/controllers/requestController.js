@@ -193,7 +193,7 @@ async function getSearchFailureStats() {
 /**
  * Execute a single search against NZBHydra
  */
-async function executeNZBHydraSearch(nzbhydraUrl, apiKey, searchQuery, categories = '7000,7020,7030,7040,7050,7060') {
+async function executeNZBHydraSearch(nzbhydraUrl, apiKey, searchQuery, categories = '7020,7040,7050') {
   const response = await axios.get(`${nzbhydraUrl}/api`, {
     params: {
       apikey: apiKey,
