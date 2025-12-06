@@ -61,7 +61,7 @@ import AdvancedSearch from '../Search/AdvancedSearch';
 import BookDetailModal from '../Books/BookDetailModal';
 import VirtualizedBookGrid from './VirtualizedBookGrid';
 import GoodreadsImport from '../Import/GoodreadsImport';
-import { AdminNavButton } from '../Admin/AdminNavButton';
+import AdminNavButton from '../Admin/AdminNavButton';
 
 const DRAWER_WIDTH = 280;
 const BOOKS_PER_PAGE = 24;
