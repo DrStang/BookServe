@@ -236,7 +236,7 @@ const AdminDashboard = () => {
               <CardActions>
                 <Button 
                   variant="contained" 
-                  onClick={() => navigate('/requests')}
+                  onClick={() => navigate('/my-requests')}
                   sx={{ backgroundColor: '#e50914', '&:hover': { backgroundColor: '#b20710' } }}
                 >
                   View All Requests
