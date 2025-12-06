@@ -110,7 +110,7 @@ function App() {
             }
           />
           <Route
-            path"/NYTPanel"
+            path="/NYTPanel"
             element={
               <PrivateRoute isAuthenticated={isAuthenticated}>
                 <NYTPanel />
