@@ -3,6 +3,667 @@ const axios = require('axios');
 const xml2js = require('xml2js');
 const FormData = require('form-data');
 
+// ============================================================================
+// SEARCH HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Simplify title by removing common additions that might interfere with search
+ */
+function simplifyTitle(title) {
+  if (!title) return '';
+  return title
+    // Remove series info in parentheses: "Book Title (Series Name #1)"
+    .replace(/\s*\([^)]*#?\d+[^)]*\)\s*$/i, '')
+    // Remove series info after dash: "Book Title - Series Name Book 1"
+    .replace(/\s*-\s*[^-]+,?\s*(Book|Vol|Volume|Part)\s*\d+\s*$/i, '')
+    // Remove "A Novel", "A Thriller", etc.
+    .replace(/\s*:\s*A\s+(Novel|Thriller|Mystery|Romance|Memoir|Story|Tale)\s*$/i, '')
+    // Remove edition info
+    .replace(/\s*\(.*edition.*\)\s*$/i, '')
+    // Remove "Book 1", "Volume 1", etc. at end
+    .replace(/\s*,?\s*(Book|Volume|Vol\.?|Part)\s*\d+\s*$/i, '')
+    // Remove trailing articles in parentheses "(The)" or ", The"
+    .replace(/\s*\((The|A|An)\)\s*$/i, '')
+    .replace(/,\s*(The|A|An)\s*$/i, '')
+    // Remove year in parentheses
+    .replace(/\s*\(\d{4}\)\s*$/i, '')
+    .trim();
+}
+
+/**
+ * Get author's last name for broader searches
+ */
+function getLastName(author) {
+  if (!author) return '';
+  // Handle "Last, First" format
+  if (author.includes(',')) {
+    return author.split(',')[0].trim();
+  }
+  // Handle "First Last" format
+  const parts = author.trim().split(/\s+/);
+  return parts[parts.length - 1];
+}
+
+/**
+ * Get author's first name
+ */
+function getFirstName(author) {
+  if (!author) return '';
+  if (author.includes(',')) {
+    const parts = author.split(',');
+    return parts[1]?.trim().split(/\s+/)[0] || '';
+  }
+  return author.trim().split(/\s+/)[0] || '';
+}
+
+/**
+ * Normalize text for comparison - removes special chars, normalizes unicode
+ */
+function normalizeText(text) {
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    // Normalize unicode quotes and dashes
+    .replace(/[''`]/g, "'")
+    .replace(/[""]/g, '"')
+    .replace(/[—–−]/g, '-')
+    // Remove possessives
+    .replace(/'s\b/g, '')
+    // Remove special characters but keep spaces
+    .replace(/[^a-z0-9\s]/g, '')
+    // Normalize whitespace
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Calculate word match ratio between search title and result
+ */
+function calculateWordMatchRatio(searchTitle, resultTitle) {
+  const searchWords = normalizeText(searchTitle).split(' ').filter(w => w.length >= 3);
+  const resultNormalized = normalizeText(resultTitle);
+  
+  if (searchWords.length === 0) return 0;
+  
+  const matchedWords = searchWords.filter(word => resultNormalized.includes(word));
+  return matchedWords.length / searchWords.length;
+}
+
+/**
+ * Check if result appears to be an audiobook
+ */
+function isAudiobook(title) {
+  return /audiobook|audio\s*book|mp3|m4b|audible|narrated\s+by|unabridged\s+audio/i.test(title);
+}
+
+/**
+ * Check if result appears to be a bundle/collection
+ */
+function isBundle(title) {
+  return /complete\s+(series|collection|works)|box\s*set|anthology|omnibus|books?\s+\d+\s*-\s*\d+|\d+\s+books?\s+in\s+one/i.test(title);
+}
+
+/**
+ * Detect ebook format from title
+ */
+function detectFormat(title) {
+  const lower = title.toLowerCase();
+  if (lower.includes('epub')) return 'epub';
+  if (lower.includes('mobi')) return 'mobi';
+  if (lower.includes('azw3')) return 'azw3';
+  if (lower.includes('azw')) return 'azw';
+  if (lower.includes('pdf')) return 'pdf';
+  return 'unknown';
+}
+
+// ============================================================================
+// FAILED SEARCH LOGGING
+// ============================================================================
+
+/**
+ * Log failed searches for analysis (helps identify patterns)
+ */
+async function logFailedSearch(requestId, title, author, isbn, strategies, reason) {
+  const { db } = require('../database/init');
+  
+  // Create table if it doesn't exist
+  await new Promise((resolve, reject) => {
+    db.run(`
+      CREATE TABLE IF NOT EXISTS search_failures (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        request_id INTEGER,
+        title TEXT,
+        author TEXT,
+        isbn TEXT,
+        strategies_tried TEXT,
+        failure_reason TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `, (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+  
+  return new Promise((resolve, reject) => {
+    db.run(
+      `INSERT INTO search_failures (request_id, title, author, isbn, strategies_tried, failure_reason)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [requestId, title, author, isbn, JSON.stringify(strategies), reason],
+      (err) => {
+        if (err) {
+          console.error('Failed to log search failure:', err);
+          reject(err);
+        } else {
+          resolve();
+        }
+      }
+    );
+  });
+}
+
+/**
+ * Get search failure statistics (for admin dashboard)
+ */
+async function getSearchFailureStats() {
+  const { db } = require('../database/init');
+  
+  return new Promise((resolve, reject) => {
+    db.all(`
+      SELECT 
+        failure_reason,
+        COUNT(*) as count,
+        GROUP_CONCAT(title, ' | ') as sample_titles
+      FROM search_failures
+      WHERE created_at > datetime('now', '-30 days')
+      GROUP BY failure_reason
+      ORDER BY count DESC
+    `, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows || []);
+    });
+  });
+}
+
+// ============================================================================
+// MAIN SEARCH FUNCTIONS
+// ============================================================================
+
+/**
+ * Execute a single search against NZBHydra
+ */
+async function executeNZBHydraSearch(nzbhydraUrl, apiKey, searchQuery, categories = '7000,7020,7030,7040,7050,7060') {
+  const response = await axios.get(`${nzbhydraUrl}/api`, {
+    params: {
+      apikey: apiKey,
+      t: 'search',
+      q: searchQuery,
+      cat: categories,
+      extended: 1,
+      limit: 100
+    },
+    timeout: 30000
+  });
+
+  const parser = new xml2js.Parser();
+  const result = await parser.parseStringPromise(response.data);
+
+  if (!result.rss?.channel?.[0]?.item) {
+    return [];
+  }
+
+  return result.rss.channel[0].item;
+}
+
+/**
+ * Score search results based on relevance to the original query
+ */
+function scoreSearchResults(items, originalTitle, originalAuthor, originalIsbn) {
+  const normalizedTitle = normalizeText(originalTitle);
+  const simplifiedTitle = normalizeText(simplifyTitle(originalTitle));
+  const normalizedAuthor = normalizeText(originalAuthor);
+  const authorLastName = normalizeText(getLastName(originalAuthor));
+  const authorFirstName = normalizeText(getFirstName(originalAuthor));
+
+  return items.map(item => {
+    const itemTitle = item.title?.[0] || '';
+    const normalizedItemTitle = normalizeText(itemTitle);
+    const link = item.link?.[0] || item.guid?.[0]?._ || item.guid?.[0];
+    
+    // Extract size from newznab attributes
+    let size = null;
+    if (item['newznab:attr']) {
+      const sizeAttr = item['newznab:attr'].find(attr => attr.$?.name === 'size');
+      if (sizeAttr) {
+        size = parseInt(sizeAttr.$.value);
+      }
+    }
+
+    let relevanceScore = 0;
+    let matchDetails = [];
+
+    // ========== TITLE MATCHING ==========
+    
+    // Exact title match (highest priority)
+    if (normalizedItemTitle.includes(normalizedTitle)) {
+      relevanceScore += 100;
+      matchDetails.push('exact_title');
+    }
+    // Simplified title match (without series info, etc.)
+    else if (simplifiedTitle && normalizedItemTitle.includes(simplifiedTitle)) {
+      relevanceScore += 80;
+      matchDetails.push('simplified_title');
+    }
+    // Word-based matching
+    else {
+      const wordRatio = calculateWordMatchRatio(originalTitle, itemTitle);
+      if (wordRatio >= 0.8) {
+        relevanceScore += 60;
+        matchDetails.push('high_word_match');
+      } else if (wordRatio >= 0.6) {
+        relevanceScore += 40;
+        matchDetails.push('medium_word_match');
+      } else if (wordRatio >= 0.4) {
+        relevanceScore += 20;
+        matchDetails.push('low_word_match');
+      }
+    }
+
+    // ========== AUTHOR MATCHING ==========
+    
+    if (normalizedAuthor) {
+      // Full author name match
+      if (normalizedItemTitle.includes(normalizedAuthor)) {
+        relevanceScore += 40;
+        matchDetails.push('full_author');
+      }
+      // Last name + first initial/name
+      else if (authorLastName && normalizedItemTitle.includes(authorLastName)) {
+        if (authorFirstName && normalizedItemTitle.includes(authorFirstName)) {
+          relevanceScore += 35;
+          matchDetails.push('author_first_last');
+        } else {
+          relevanceScore += 25;
+          matchDetails.push('author_lastname');
+        }
+      }
+    }
+
+    // ========== ISBN MATCHING (DEFINITIVE) ==========
+    
+    if (originalIsbn) {
+      const cleanIsbn = originalIsbn.replace(/[^0-9X]/gi, '');
+      if (normalizedItemTitle.includes(cleanIsbn) || itemTitle.includes(originalIsbn)) {
+        relevanceScore += 150; // ISBN match is very strong signal
+        matchDetails.push('isbn_match');
+      }
+    }
+
+    // ========== FORMAT BONUSES ==========
+    
+    const format = detectFormat(itemTitle);
+    if (format === 'epub') {
+      relevanceScore += 15;
+      matchDetails.push('epub');
+    } else if (format === 'mobi' || format === 'azw' || format === 'azw3') {
+      relevanceScore += 10;
+      matchDetails.push(format);
+    } else if (format === 'pdf') {
+      relevanceScore += 5;
+      matchDetails.push('pdf');
+    }
+
+    // ========== PENALTIES ==========
+    
+    // Audiobooks (we want ebooks)
+    if (isAudiobook(itemTitle)) {
+      relevanceScore -= 100;
+      matchDetails.push('audiobook_penalty');
+    }
+
+    // Bundles/collections (usually not what user wants)
+    if (isBundle(itemTitle)) {
+      relevanceScore -= 30;
+      matchDetails.push('bundle_penalty');
+    }
+
+    // Very long titles (often spam or bundles)
+    if (itemTitle.length > 200) {
+      relevanceScore -= 25;
+      matchDetails.push('long_title_penalty');
+    }
+
+    // Foreign language indicators (unless original title has them)
+    if (/\b(german|deutsch|french|français|spanish|español|italian|italiano|portuguese|português)\b/i.test(itemTitle) &&
+        !/\b(german|deutsch|french|français|spanish|español|italian|italiano|portuguese|português)\b/i.test(originalTitle)) {
+      relevanceScore -= 20;
+      matchDetails.push('foreign_language_penalty');
+    }
+
+    // ========== SIZE-BASED HEURISTICS ==========
+    
+    if (size) {
+      // Typical ebook is 0.5MB - 10MB
+      // Very small files might be corrupt, very large might be collections
+      if (size < 100000) { // Less than 100KB
+        relevanceScore -= 20;
+        matchDetails.push('too_small');
+      } else if (size > 50000000) { // More than 50MB
+        relevanceScore -= 15;
+        matchDetails.push('very_large');
+      } else if (size >= 500000 && size <= 10000000) { // 500KB - 10MB sweet spot
+        relevanceScore += 5;
+        matchDetails.push('good_size');
+      }
+    }
+
+    return {
+      title: itemTitle,
+      link: link,
+      guid: item.guid?.[0]?._ || item.guid?.[0] || link,
+      size: size,
+      relevanceScore: Math.max(0, relevanceScore),
+      matchDetails: matchDetails,
+      format: format,
+      isEpub: format === 'epub',
+      isEbook: ['epub', 'mobi', 'azw', 'azw3', 'pdf'].includes(format),
+      isAudiobook: isAudiobook(itemTitle),
+      isBundle: isBundle(itemTitle)
+    };
+  }).filter(item => item.link && !item.isAudiobook); // Filter out items without links and audiobooks
+}
+
+/**
+ * Main search function with multiple strategies
+ */
+async function searchNZBHydra(title, author, isbn = null, requestId = null) {
+  try {
+    const nzbhydraUrl = process.env.NZBHYDRA_URL;
+    const apiKey = process.env.NZBHYDRA_API_KEY;
+
+    if (!nzbhydraUrl || !apiKey) {
+      console.error('NZBHydra configuration missing');
+      return null;
+    }
+
+    const strategiesAttempted = [];
+    const minScoreThreshold = 40; // Minimum score to consider a result valid
+
+    // ========== STRATEGY 0: ISBN SEARCH (Most reliable) ==========
+    if (isbn) {
+      const cleanIsbn = isbn.replace(/[^0-9X]/gi, '');
+      if (cleanIsbn.length >= 10) {
+        console.log(`[Search] Strategy 0 - ISBN: "${cleanIsbn}"`);
+        strategiesAttempted.push({ strategy: 'isbn', query: cleanIsbn });
+        
+        try {
+          const items = await executeNZBHydraSearch(nzbhydraUrl, apiKey, cleanIsbn);
+          if (items.length > 0) {
+            const scored = scoreSearchResults(items, title, author, isbn);
+            const goodResults = scored.filter(r => r.relevanceScore >= minScoreThreshold);
+            if (goodResults.length > 0) {
+              console.log(`[Search] ✓ Found ${goodResults.length} results via ISBN`);
+              return goodResults.sort((a, b) => b.relevanceScore - a.relevanceScore);
+            }
+          }
+        } catch (err) {
+          console.error('[Search] ISBN search failed:', err.message);
+        }
+      }
+    }
+
+    // ========== STRATEGY 1: Title + Full Author ==========
+    const strategy1Query = `${title} ${author || ''}`.trim();
+    console.log(`[Search] Strategy 1 - Title+Author: "${strategy1Query}"`);
+    strategiesAttempted.push({ strategy: 'title_author', query: strategy1Query });
+    
+    try {
+      const items1 = await executeNZBHydraSearch(nzbhydraUrl, apiKey, strategy1Query);
+      if (items1.length > 0) {
+        const scored1 = scoreSearchResults(items1, title, author, isbn);
+        const goodResults1 = scored1.filter(r => r.relevanceScore >= minScoreThreshold);
+        if (goodResults1.length > 0) {
+          console.log(`[Search] ✓ Found ${goodResults1.length} results via title+author`);
+          return goodResults1.sort((a, b) => b.relevanceScore - a.relevanceScore);
+        }
+      }
+    } catch (err) {
+      console.error('[Search] Strategy 1 failed:', err.message);
+    }
+
+    // ========== STRATEGY 2: Title Only ==========
+    console.log(`[Search] Strategy 2 - Title only: "${title}"`);
+    strategiesAttempted.push({ strategy: 'title_only', query: title });
+    
+    try {
+      const items2 = await executeNZBHydraSearch(nzbhydraUrl, apiKey, title);
+      if (items2.length > 0) {
+        const scored2 = scoreSearchResults(items2, title, author, isbn);
+        const goodResults2 = scored2.filter(r => r.relevanceScore >= minScoreThreshold);
+        if (goodResults2.length > 0) {
+          console.log(`[Search] ✓ Found ${goodResults2.length} results via title only`);
+          return goodResults2.sort((a, b) => b.relevanceScore - a.relevanceScore);
+        }
+      }
+    } catch (err) {
+      console.error('[Search] Strategy 2 failed:', err.message);
+    }
+
+    // ========== STRATEGY 3: Simplified Title ==========
+    const simplified = simplifyTitle(title);
+    if (simplified && simplified !== title && simplified.length >= 3) {
+      console.log(`[Search] Strategy 3 - Simplified title: "${simplified}"`);
+      strategiesAttempted.push({ strategy: 'simplified_title', query: simplified });
+      
+      try {
+        const items3 = await executeNZBHydraSearch(nzbhydraUrl, apiKey, simplified);
+        if (items3.length > 0) {
+          const scored3 = scoreSearchResults(items3, title, author, isbn);
+          const goodResults3 = scored3.filter(r => r.relevanceScore >= minScoreThreshold);
+          if (goodResults3.length > 0) {
+            console.log(`[Search] ✓ Found ${goodResults3.length} results via simplified title`);
+            return goodResults3.sort((a, b) => b.relevanceScore - a.relevanceScore);
+          }
+        }
+      } catch (err) {
+        console.error('[Search] Strategy 3 failed:', err.message);
+      }
+    }
+
+    // ========== STRATEGY 4: Title + Author Last Name ==========
+    const lastName = getLastName(author);
+    if (lastName) {
+      const strategy4Query = `${title} ${lastName}`;
+      console.log(`[Search] Strategy 4 - Title + lastname: "${strategy4Query}"`);
+      strategiesAttempted.push({ strategy: 'title_lastname', query: strategy4Query });
+      
+      try {
+        const items4 = await executeNZBHydraSearch(nzbhydraUrl, apiKey, strategy4Query);
+        if (items4.length > 0) {
+          const scored4 = scoreSearchResults(items4, title, author, isbn);
+          const goodResults4 = scored4.filter(r => r.relevanceScore >= minScoreThreshold);
+          if (goodResults4.length > 0) {
+            console.log(`[Search] ✓ Found ${goodResults4.length} results via title+lastname`);
+            return goodResults4.sort((a, b) => b.relevanceScore - a.relevanceScore);
+          }
+        }
+      } catch (err) {
+        console.error('[Search] Strategy 4 failed:', err.message);
+      }
+    }
+
+    // ========== STRATEGY 5: Simplified Title + Author Last Name ==========
+    if (simplified && simplified !== title && lastName) {
+      const strategy5Query = `${simplified} ${lastName}`;
+      console.log(`[Search] Strategy 5 - Simplified + lastname: "${strategy5Query}"`);
+      strategiesAttempted.push({ strategy: 'simplified_lastname', query: strategy5Query });
+      
+      try {
+        const items5 = await executeNZBHydraSearch(nzbhydraUrl, apiKey, strategy5Query);
+        if (items5.length > 0) {
+          const scored5 = scoreSearchResults(items5, title, author, isbn);
+          const goodResults5 = scored5.filter(r => r.relevanceScore >= minScoreThreshold);
+          if (goodResults5.length > 0) {
+            console.log(`[Search] ✓ Found ${goodResults5.length} results via simplified+lastname`);
+            return goodResults5.sort((a, b) => b.relevanceScore - a.relevanceScore);
+          }
+        }
+      } catch (err) {
+        console.error('[Search] Strategy 5 failed:', err.message);
+      }
+    }
+
+    // ========== STRATEGY 6: Title + "epub" keyword ==========
+    const strategy6Query = `${title} epub`;
+    console.log(`[Search] Strategy 6 - Title + epub: "${strategy6Query}"`);
+    strategiesAttempted.push({ strategy: 'title_epub', query: strategy6Query });
+    
+    try {
+      const items6 = await executeNZBHydraSearch(nzbhydraUrl, apiKey, strategy6Query);
+      if (items6.length > 0) {
+        const scored6 = scoreSearchResults(items6, title, author, isbn);
+        const goodResults6 = scored6.filter(r => r.relevanceScore >= minScoreThreshold);
+        if (goodResults6.length > 0) {
+          console.log(`[Search] ✓ Found ${goodResults6.length} results via title+epub`);
+          return goodResults6.sort((a, b) => b.relevanceScore - a.relevanceScore);
+        }
+      }
+    } catch (err) {
+      console.error('[Search] Strategy 6 failed:', err.message);
+    }
+
+    // ========== STRATEGY 7: Broader category search ==========
+    // Try searching in ALL categories (not just ebooks) as a last resort
+    console.log(`[Search] Strategy 7 - All categories: "${title}"`);
+    strategiesAttempted.push({ strategy: 'all_categories', query: title });
+    
+    try {
+      const items7 = await executeNZBHydraSearch(nzbhydraUrl, apiKey, title, ''); // Empty = all categories
+      if (items7.length > 0) {
+        const scored7 = scoreSearchResults(items7, title, author, isbn);
+        // Higher threshold for non-ebook categories
+        const goodResults7 = scored7.filter(r => r.relevanceScore >= 60 && r.isEbook);
+        if (goodResults7.length > 0) {
+          console.log(`[Search] ✓ Found ${goodResults7.length} results via all categories`);
+          return goodResults7.sort((a, b) => b.relevanceScore - a.relevanceScore);
+        }
+      }
+    } catch (err) {
+      console.error('[Search] Strategy 7 failed:', err.message);
+    }
+
+    // ========== NO RESULTS FOUND ==========
+    console.log(`[Search] ✗ No results found after ${strategiesAttempted.length} strategies`);
+    
+    // Log the failure for analysis
+    try {
+      await logFailedSearch(requestId, title, author, isbn, strategiesAttempted, 'no_results');
+    } catch (logErr) {
+      console.error('[Search] Failed to log search failure:', logErr.message);
+    }
+
+    return [];
+
+  } catch (error) {
+    console.error('NZBHydra search error:', error.message);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+    }
+    return null;
+  }
+}
+
+// ============================================================================
+// SABNZBD FUNCTIONS
+// ============================================================================
+
+async function sendToSABnzbd(nzbData) {
+  try {
+    const sabnzbdUrl = process.env.SABNZBD_URL;
+    const apiKey = process.env.SABNZBD_API_KEY;
+    const nzbhydraApiKey = process.env.NZBHYDRA_API_KEY;
+    const nzbhydraUrl = process.env.NZBHYDRA_URL;
+
+    if (!sabnzbdUrl || !apiKey) {
+      console.error('SABnzbd configuration missing');
+      return null;
+    }
+
+    let nzbLink = nzbData.link;
+    
+    if (typeof nzbLink !== 'string') {
+      console.error('Invalid NZB link type:', typeof nzbLink);
+      return null;
+    }
+
+    // If link doesn't have the apikey, add it
+    if (nzbLink.includes(nzbhydraUrl) && !nzbLink.includes('apikey=')) {
+      nzbLink += (nzbLink.includes('?') ? '&' : '?') + `apikey=${nzbhydraApiKey}`;
+    }
+    
+    console.log('Downloading NZB from:', nzbLink);
+
+    const nzbResponse = await axios.get(nzbLink, {
+      responseType: 'arraybuffer',
+      timeout: 30000
+    });
+
+    console.log(`Downloaded NZB (${nzbResponse.data.length} bytes)`);
+
+    const fileName = nzbData.title ? `${nzbData.title.replace(/[^a-z0-9]/gi, '_')}.nzb` : 'book.nzb';
+
+    console.log(`Sending to SABnzbd as: ${fileName}`);
+
+    // Create form data with the NZB file
+    const formData = new FormData();
+    formData.append('name', Buffer.from(nzbResponse.data), {
+      filename: fileName,
+      contentType: 'application/x-nzb'
+    });
+    formData.append('apikey', apiKey);
+    formData.append('mode', 'addfile');
+    formData.append('cat', 'books');
+    formData.append('output', 'json');
+
+    // Send as multipart/form-data
+    const response = await axios.post(`${sabnzbdUrl}/api`, formData, {
+      headers: formData.getHeaders(),
+      timeout: 30000
+    });
+
+    console.log('SABnzbd response:', JSON.stringify(response.data));
+
+    if (response.data.status && response.data.nzo_ids && response.data.nzo_ids.length > 0) {
+      console.log('Successfully added to SABnzbd:', response.data.nzo_ids[0]);
+      return response.data.nzo_ids[0];
+    }
+
+    if (response.data.error) {
+      console.error('SABnzbd returned error:', response.data.error);
+    }
+
+    // Sometimes SABnzbd returns success in a different format
+    if (response.data.nzo_ids && response.data.nzo_ids[0]) {
+      console.log('Successfully added to SABnzbd (alternate format):', response.data.nzo_ids[0]);
+      return response.data.nzo_ids[0];
+    }
+
+    return null;
+  } catch (error) {
+    console.error('SABnzbd error:', error.message);
+    if (error.response) {
+      console.error('SABnzbd response status:', error.response.status);
+      console.error('SABnzbd response data:', JSON.stringify(error.response.data));
+    }
+    return null;
+  }
+}
+
+// ============================================================================
+// API ENDPOINTS
+// ============================================================================
+
 // Search OpenLibrary
 exports.searchOpenLibrary = async (req, res) => {
   try {
@@ -29,6 +690,7 @@ exports.searchOpenLibrary = async (req, res) => {
       author: doc.author_name ? doc.author_name.join(', ') : 'Unknown',
       first_publish_year: doc.first_publish_year,
       isbn: doc.isbn ? doc.isbn[0] : null,
+      isbn_13: doc.isbn ? doc.isbn.find(i => i.length === 13) : null,
       publisher: doc.publisher ? doc.publisher[0] : null,
       cover_id: doc.cover_i,
       cover_url: doc.cover_i
@@ -150,7 +812,116 @@ exports.deleteRequest = async (req, res) => {
   }
 };
 
-// Background processing function
+// Manual retry with custom search terms (admin or request owner)
+exports.retryWithCustomSearch = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { customTitle, customAuthor, customIsbn } = req.body;
+
+    const request = await BookRequest.findById(id);
+
+    if (!request) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    // Check permissions
+    if (request.user_id !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Use custom search terms or fall back to original
+    const searchTitle = customTitle || request.title;
+    const searchAuthor = customAuthor || request.author;
+    const searchIsbn = customIsbn || request.isbn;
+
+    console.log(`[Manual Retry] Searching with: title="${searchTitle}", author="${searchAuthor}", isbn="${searchIsbn}"`);
+
+    // Update status to searching
+    await BookRequest.updateStatus(id, 'searching');
+
+    // Perform the search
+    const nzbResults = await searchNZBHydra(searchTitle, searchAuthor, searchIsbn, id);
+
+    if (!nzbResults || nzbResults.length === 0) {
+      await BookRequest.updateStatus(id, 'failed', {
+        error_message: `Manual retry: No results found for "${searchTitle}"`
+      });
+      return res.json({
+        success: false,
+        message: 'No results found with custom search terms',
+        searchTerms: { title: searchTitle, author: searchAuthor, isbn: searchIsbn }
+      });
+    }
+
+    // Get the best result
+    const bestResult = nzbResults[0];
+    console.log(`[Manual Retry] Best result: "${bestResult.title}" (score: ${bestResult.relevanceScore})`);
+
+    // Send to SABnzbd
+    const sabnzbdId = await sendToSABnzbd(bestResult);
+
+    if (!sabnzbdId) {
+      await BookRequest.updateStatus(id, 'failed', {
+        error_message: 'Failed to add to SABnzbd'
+      });
+      return res.json({
+        success: false,
+        message: 'Found book but failed to add to SABnzbd',
+        searchResult: { title: bestResult.title, score: bestResult.relevanceScore }
+      });
+    }
+
+    // Update request with SABnzbd ID
+    await BookRequest.updateStatus(id, 'downloading', {
+      sabnzbd_id: sabnzbdId
+    });
+
+    res.json({
+      success: true,
+      message: 'Book found and queued for download',
+      searchResult: {
+        title: bestResult.title,
+        score: bestResult.relevanceScore,
+        format: bestResult.format
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in manual retry:', error);
+    res.status(500).json({ error: 'Error processing manual retry' });
+  }
+};
+
+// Get search failure statistics (admin only)
+exports.getSearchFailureStats = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const stats = await getSearchFailureStats();
+    res.json({ stats });
+  } catch (error) {
+    console.error('Error fetching search failure stats:', error);
+    res.status(500).json({ error: 'Error fetching statistics' });
+  }
+};
+
+// Get request statistics (admin only)
+exports.getRequestStats = async (req, res) => {
+  try {
+    const stats = await BookRequest.getStats();
+    res.json(stats);
+  } catch (error) {
+    console.error('Error fetching request stats:', error);
+    res.status(500).json({ error: 'Error fetching request statistics' });
+  }
+};
+
+// ============================================================================
+// BACKGROUND PROCESSING
+// ============================================================================
+
 async function processBookRequest(requestId) {
   try {
     const request = await BookRequest.findById(requestId);
@@ -159,12 +930,12 @@ async function processBookRequest(requestId) {
     // Update status to searching
     await BookRequest.updateStatus(requestId, 'searching');
 
-    // Search NZBHydra
-    const nzbResults = await searchNZBHydra(request.title, request.author);
+    // Search NZBHydra with all strategies
+    const nzbResults = await searchNZBHydra(request.title, request.author, request.isbn, requestId);
 
     if (!nzbResults || nzbResults.length === 0) {
       await BookRequest.updateStatus(requestId, 'failed', {
-        error_message: 'No books found for download.  Will retry.'
+        error_message: 'No books found for download. Will retry.'
       });
       // Schedule retry
       const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
@@ -173,8 +944,9 @@ async function processBookRequest(requestId) {
       return;
     }
 
-    // Get the best result (first one)
+    // Get the best result (first one, already sorted by score)
     const bestResult = nzbResults[0];
+    console.log(`[Process] Best result for "${request.title}": "${bestResult.title}" (score: ${bestResult.relevanceScore})`);
 
     // Send to SABnzbd
     const sabnzbdId = await sendToSABnzbd(bestResult);
@@ -207,276 +979,6 @@ async function processBookRequest(requestId) {
   }
 }
 
-// Search NZBHydra - Parse XML response and prefer EPUB with relevance scoring
-async function searchNZBHydra(title, author) {
-  try {
-    const nzbhydraUrl = process.env.NZBHYDRA_URL;
-    const apiKey = process.env.NZBHYDRA_API_KEY;
-
-    if (!nzbhydraUrl || !apiKey) {
-      console.error('NZBHydra configuration missing');
-      return null;
-    }
-
-    let searchQuery = title;
-    if (author) {
-      searchQuery += ` ${author}`;
-    }
-
-    console.log(`Searching NZBHydra for: "${searchQuery}"`);
-
-    // Use Newznab API (returns XML)
-    const response = await axios.get(`${nzbhydraUrl}/api`, {
-      params: {
-        apikey: apiKey,
-        t: 'search',
-        q: searchQuery,
-        cat: '7000, 7020', // eBooks
-        extended: 1
-      },
-      timeout: 30000
-    });
-
-    console.log('NZBHydra returned XML, parsing...');
-
-    // Parse XML to JavaScript object
-    const parser = new xml2js.Parser();
-    const result = await parser.parseStringPromise(response.data);
-
-    // Navigate the XML structure
-    if (!result.rss || !result.rss.channel || !result.rss.channel[0].item) {
-      console.log('No items found in XML response');
-      return [];
-    }
-
-    const items = result.rss.channel[0].item;
-    console.log(`NZBHydra returned ${items.length} results`);
-
-    // Normalize title and author for matching
-    const normalizeText = (text) => {
-      return text.toLowerCase()
-        .replace(/[^a-z0-9\s]/g, '') // Remove special characters
-        .replace(/\s+/g, ' ') // Normalize spaces
-        .trim();
-    };
-
-    const searchTitle = normalizeText(title);
-    const searchAuthor = author ? normalizeText(author) : '';
-
-    // Map XML items to our format with relevance scoring
-    const mappedResults = items.map(item => {
-      // Extract the link - it's in the <link> or <guid> tag
-      const link = (item.link && item.link[0]) || (item.guid && item.guid[0]._) || (item.guid && item.guid[0]);
-      const itemTitle = item.title && item.title[0];
-      
-      // Extract newznab attributes if present
-      let size = null;
-      let guid = null;
-      
-      if (item['newznab:attr']) {
-        item['newznab:attr'].forEach(attr => {
-          if (attr.$ && attr.$.name === 'size') {
-            size = parseInt(attr.$.value);
-          }
-          if (attr.$ && attr.$.name === 'guid') {
-            guid = attr.$.value;
-          }
-        });
-      }
-
-      // Check if title contains epub/mobi/azw
-      const titleLower = itemTitle ? itemTitle.toLowerCase() : '';
-      const isEpub = titleLower.includes('epub');
-      const isMobi = titleLower.includes('mobi');
-      const isAzw = titleLower.includes('azw');
-      const isEbook = isEpub || isMobi || isAzw;
-
-      // Calculate relevance score
-      const normalizedItemTitle = normalizeText(itemTitle || '');
-      let relevanceScore = 0;
-
-      // Split search terms into words
-      const titleWords = searchTitle.split(' ');
-      const authorWords = searchAuthor.split(' ');
-
-      // Check for exact title match (highest score)
-      if (normalizedItemTitle.includes(searchTitle)) {
-        relevanceScore += 100;
-      }
-
-      // Check for all title words present
-      const allTitleWordsPresent = titleWords.every(word => 
-        word.length > 2 && normalizedItemTitle.includes(word)
-      );
-      if (allTitleWordsPresent) {
-        relevanceScore += 50;
-      }
-
-      // Check for author match
-      if (searchAuthor) {
-        if (normalizedItemTitle.includes(searchAuthor)) {
-          relevanceScore += 50;
-        }
-        const allAuthorWordsPresent = authorWords.every(word =>
-          word.length > 2 && normalizedItemTitle.includes(word)
-        );
-        if (allAuthorWordsPresent) {
-          relevanceScore += 25;
-        }
-      }
-
-      // Bonus for title appearing early in the result
-      const titlePosition = normalizedItemTitle.indexOf(searchTitle);
-      if (titlePosition !== -1 && titlePosition < 10) {
-        relevanceScore += 20;
-      }
-
-      // Format bonus (prefer EPUB)
-      if (isEpub) {
-        relevanceScore += 10;
-      } else if (isEbook) {
-        relevanceScore += 5;
-      }
-
-      // Penalize very long titles (likely collections/bundles)
-      if (itemTitle && itemTitle.length > 150) {
-        relevanceScore -= 20;
-      }
-
-      return {
-        title: itemTitle,
-        link: link,
-        guid: guid || link,
-        size: size,
-        isEpub: isEpub,
-        isEbook: isEbook,
-        format: isEpub ? 'epub' : (isMobi ? 'mobi' : (isAzw ? 'azw' : 'unknown')),
-        relevanceScore: relevanceScore
-      };
-    }).filter(item => item.link); // Only return items with valid links
-
-    // Sort by relevance score (highest first)
-    const sortedResults = mappedResults.sort((a, b) => b.relevanceScore - a.relevanceScore);
-
-    // Filter and log
-    const epubResults = sortedResults.filter(r => r.isEpub);
-    const otherEbookResults = sortedResults.filter(r => r.isEbook && !r.isEpub);
-
-    console.log(`Found ${epubResults.length} EPUB, ${otherEbookResults.length} other ebooks`);
-    
-    if (sortedResults.length > 0) {
-      console.log(`Best match (score ${sortedResults[0].relevanceScore}): ${sortedResults[0].title} (${sortedResults[0].format})`);
-      // Show top 3 for debugging
-      if (sortedResults.length > 1) {
-        console.log(`  2nd: (score ${sortedResults[1].relevanceScore}) ${sortedResults[1].title}`);
-      }
-      if (sortedResults.length > 2) {
-        console.log(`  3rd: (score ${sortedResults[2].relevanceScore}) ${sortedResults[2].title}`);
-      }
-    }
-
-    return sortedResults;
-
-  } catch (error) {
-    console.error('NZBHydra search error:', error.message);
-    if (error.response) {
-      console.error('Response status:', error.response.status);
-    }
-    return null;
-  }
-}
-
-async function sendToSABnzbd(nzbData) {
-  try {
-    const sabnzbdUrl = process.env.SABNZBD_URL;
-    const apiKey = process.env.SABNZBD_API_KEY;
-    const nzbhydraApiKey = process.env.NZBHYDRA_API_KEY;
-    const nzbhydraUrl = process.env.NZBHYDRA_URL;
-
-    if (!sabnzbdUrl || !apiKey) {
-      console.error('SABnzbd configuration missing');
-      return null;
-    }
-
-    let nzbLink = nzbData.link;
-    
-    if (typeof nzbLink !== 'string') {
-      console.error('Invalid NZB link type:', typeof nzbLink);
-      return null;
-    }
-
-    // If link doesn't have the apikey, add it
-    if (nzbLink.includes(nzbhydraUrl) && !nzbLink.includes('apikey=')) {
-      nzbLink += (nzbLink.includes('?') ? '&' : '?') + `apikey=${nzbhydraApiKey}`;
-    }
-    
-    console.log('Downloading NZB from:', nzbLink);
-
-    const nzbResponse = await axios.get(nzbLink, {
-      responseType: 'arraybuffer',
-      timeout: 30000
-    });
-
-    console.log(`Downloaded NZB (${nzbResponse.data.length} bytes)`);
-
-    const fileName = nzbData.title ? `${nzbData.title.replace(/[^a-z0-9]/gi, '_')}.nzb` : 'book.nzb';
-
-    console.log(`Sending to SABnzbd as: ${fileName}`);
-
-    // Create form data with the NZB file
-    const formData = new FormData();
-    formData.append('name', Buffer.from(nzbResponse.data), {
-      filename: fileName,
-      contentType: 'application/x-nzb'
-    });
-    formData.append('apikey', apiKey);
-    formData.append('mode', 'addfile');
-    formData.append('cat', 'books');
-    formData.append('output', 'json');
-
-    // Send as multipart/form-data
-    const response = await axios.post(`${sabnzbdUrl}/api`, formData, {
-      headers: formData.getHeaders(),
-      timeout: 30000
-    });
-
-    console.log('SABnzbd response:', JSON.stringify(response.data));
-
-    if (response.data.status && response.data.nzo_ids && response.data.nzo_ids.length > 0) {
-      console.log('Successfully added to SABnzbd:', response.data.nzo_ids[0]);
-      return response.data.nzo_ids[0];
-    }
-
-    if (response.data.error) {
-      console.error('SABnzbd returned error:', response.data.error);
-    }
-
-    // Sometimes SABnzbd returns success in a different format
-    if (response.data.nzo_ids && response.data.nzo_ids[0]) {
-      console.log('Successfully added to SABnzbd (alternate format):', response.data.nzo_ids[0]);
-      return response.data.nzo_ids[0];
-    }
-
-    return null;
-  } catch (error) {
-    console.error('SABnzbd error:', error.message);
-    if (error.response) {
-      console.error('SABnzbd response status:', error.response.status);
-      console.error('SABnzbd response data:', JSON.stringify(error.response.data));
-    }
-    return null;
-  }
-}
-
-// Get request statistics (admin only)
-exports.getRequestStats = async (req, res) => {
-  try {
-    const stats = await BookRequest.getStats();
-    res.json(stats);
-  } catch (error) {
-    console.error('Error fetching request stats:', error);
-    res.status(500).json({ error: 'Error fetching request statistics' });
-  }
-};
-
+// Export for use in other modules
 module.exports.processBookRequest = processBookRequest;
+module.exports.searchNZBHydra = searchNZBHydra;
