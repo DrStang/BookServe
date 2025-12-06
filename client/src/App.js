@@ -119,7 +119,9 @@ function App() {
           <Route 
             path="/admin"
             element={
-              <AdminDashboard />
+              <PrivateRoute isAuthenticated={isAuthenticated}>
+                <AdminDashboard />
+              </PrivateRoute>
             }
           />
           <Route
