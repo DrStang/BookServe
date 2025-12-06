@@ -29,7 +29,7 @@ import {
   CollectionsBookmark as SeriesIcon,
   Edit as EditIcon,
 } from '@mui/icons-material';
-import { booksAPI } from '../services/api';
+import { booksAPI } from '../../services/api';
 
 const BulkEditModal = ({ open, onClose, selectedBooks = [], onComplete }) => {
   const [updates, setUpdates] = useState({
