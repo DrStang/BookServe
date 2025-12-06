@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -22,16 +22,45 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Checkbox,
+  InputAdornment,
+  IconButton,
+  Stepper,
+  Step,
+  StepLabel,
+  Paper,
+  Tooltip,
 } from '@mui/material';
 import {
   Save as SaveIcon,
   Cancel as CancelIcon,
   CollectionsBookmark as SeriesIcon,
   Edit as EditIcon,
+  Search as SearchIcon,
+  Clear as ClearIcon,
+  ArrowForward as NextIcon,
+  ArrowBack as BackIcon,
+  CheckBox as CheckBoxIcon,
+  CheckBoxOutlineBlank as CheckBoxBlankIcon,
+  SelectAll as SelectAllIcon,
+  Deselect as DeselectIcon,
 } from '@mui/icons-material';
 import { booksAPI } from '../../services/api';
 
-const BulkEditModal = ({ open, onClose, selectedBooks = [], onComplete }) => {
+const STEPS = ['Select Books', 'Edit Fields'];
+
+const BulkEditModal = ({ open, onClose, onComplete }) => {
+  // Step management
+  const [activeStep, setActiveStep] = useState(0);
+
+  // Search and selection state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedBooks, setSelectedBooks] = useState([]);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  // Edit fields state
   const [updates, setUpdates] = useState({
     series: '',
     series_number_start: '',
@@ -46,16 +75,14 @@ const BulkEditModal = ({ open, onClose, selectedBooks = [], onComplete }) => {
   const [result, setResult] = useState(null);
   const [autoNumberSeries, setAutoNumberSeries] = useState(false);
 
-  // Fetch series list for autocomplete
-  useEffect(() => {
-    if (open && seriesOptions.length === 0) {
-      fetchSeriesList();
-    }
-  }, [open]);
-
   // Reset state when modal opens
   useEffect(() => {
     if (open) {
+      setActiveStep(0);
+      setSearchQuery('');
+      setSearchResults([]);
+      setSelectedBooks([]);
+      setHasSearched(false);
       setUpdates({
         series: '',
         series_number_start: '',
@@ -68,6 +95,13 @@ const BulkEditModal = ({ open, onClose, selectedBooks = [], onComplete }) => {
       setAutoNumberSeries(false);
     }
   }, [open]);
+
+  // Fetch series list for autocomplete when reaching step 2
+  useEffect(() => {
+    if (open && activeStep === 1 && seriesOptions.length === 0) {
+      fetchSeriesList();
+    }
+  }, [open, activeStep]);
 
   const fetchSeriesList = async () => {
     setLoadingSeries(true);
@@ -83,8 +117,65 @@ const BulkEditModal = ({ open, onClose, selectedBooks = [], onComplete }) => {
     }
   };
 
+  // Debounced search
+  const handleSearch = useCallback(async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setHasSearched(false);
+      return;
+    }
+
+    setSearching(true);
+    setHasSearched(true);
+    try {
+      const response = await booksAPI.getAll({ 
+        search: searchQuery.trim(),
+        limit: 50 
+      });
+      setSearchResults(response.data.books || []);
+    } catch (error) {
+      console.error('Search failed:', error);
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  }, [searchQuery]);
+
+  // Search on Enter key
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  const handleToggleBook = (book) => {
+    setSelectedBooks(prev => {
+      const isSelected = prev.some(b => b.id === book.id);
+      if (isSelected) {
+        return prev.filter(b => b.id !== book.id);
+      } else {
+        return [...prev, book];
+      }
+    });
+  };
+
+  const handleSelectAll = () => {
+    const newSelections = searchResults.filter(
+      book => !selectedBooks.some(b => b.id === book.id)
+    );
+    setSelectedBooks(prev => [...prev, ...newSelections]);
+  };
+
+  const handleDeselectAll = () => {
+    const resultIds = new Set(searchResults.map(b => b.id));
+    setSelectedBooks(prev => prev.filter(b => !resultIds.has(b.id)));
+  };
+
+  const handleRemoveSelected = (bookId) => {
+    setSelectedBooks(prev => prev.filter(b => b.id !== bookId));
+  };
+
   const handleSave = async () => {
-    // Build updates object with only non-empty values
     const bulkUpdates = {};
     
     if (updates.series && updates.series.trim()) {
@@ -112,7 +203,6 @@ const BulkEditModal = ({ open, onClose, selectedBooks = [], onComplete }) => {
       const bookIds = selectedBooks.map(book => book.id);
 
       if (autoNumberSeries && updates.series) {
-        // Update each book with incremented series number
         const startNum = parseInt(updates.series_number_start) || 1;
         let successCount = 0;
         let failCount = 0;
@@ -134,12 +224,10 @@ const BulkEditModal = ({ open, onClose, selectedBooks = [], onComplete }) => {
           failed: Array(failCount).fill({ error: 'Failed' }),
         });
       } else {
-        // Regular bulk update
         const response = await booksAPI.bulkUpdate(bookIds, bulkUpdates);
         setResult(response.data.results);
       }
 
-      // Notify parent to refresh
       if (onComplete) {
         onComplete();
       }
@@ -151,22 +239,172 @@ const BulkEditModal = ({ open, onClose, selectedBooks = [], onComplete }) => {
   };
 
   const getBookCoverUrl = (book) => {
-    return book.cover_image || booksAPI.getCoverUrl(book.id);
+    const token = localStorage.getItem('token');
+    return `/api/books/${book.id}/cover?token=${token}`;
   };
 
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <EditIcon />
-        Bulk Edit {selectedBooks.length} Book{selectedBooks.length !== 1 ? 's' : ''}
-      </DialogTitle>
+  const isBookSelected = (bookId) => selectedBooks.some(b => b.id === bookId);
 
-      <DialogContent dividers>
-        {/* Selected Books List */}
+  const renderStepContent = () => {
+    if (activeStep === 0) {
+      // Step 1: Search and Select Books
+      return (
+        <Box>
+          {/* Search Bar */}
+          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+            <TextField
+              fullWidth
+              placeholder="Search by title, author, or series..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={handleKeyPress}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+                endAdornment: searchQuery && (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => {
+                      setSearchQuery('');
+                      setSearchResults([]);
+                      setHasSearched(false);
+                    }}>
+                      <ClearIcon />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Button 
+              variant="contained" 
+              onClick={handleSearch}
+              disabled={searching || !searchQuery.trim()}
+            >
+              {searching ? <CircularProgress size={24} /> : 'Search'}
+            </Button>
+          </Box>
+
+          {/* Search Results */}
+          {hasSearched && (
+            <Paper variant="outlined" sx={{ mb: 2 }}>
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                p: 1,
+                bgcolor: 'grey.100',
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+              }}>
+                <Typography variant="subtitle2">
+                  {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} found
+                </Typography>
+                {searchResults.length > 0 && (
+                  <Box>
+                    <Tooltip title="Select all results">
+                      <IconButton size="small" onClick={handleSelectAll}>
+                        <SelectAllIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Deselect all results">
+                      <IconButton size="small" onClick={handleDeselectAll}>
+                        <DeselectIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                )}
+              </Box>
+              
+              <List sx={{ maxHeight: 250, overflow: 'auto' }} dense>
+                {searchResults.length === 0 ? (
+                  <ListItem>
+                    <ListItemText 
+                      primary="No books found" 
+                      secondary="Try a different search term"
+                    />
+                  </ListItem>
+                ) : (
+                  searchResults.map((book) => (
+                    <ListItem 
+                      key={book.id} 
+                      button 
+                      onClick={() => handleToggleBook(book)}
+                      selected={isBookSelected(book.id)}
+                    >
+                      <Checkbox
+                        edge="start"
+                        checked={isBookSelected(book.id)}
+                        icon={<CheckBoxBlankIcon />}
+                        checkedIcon={<CheckBoxIcon />}
+                      />
+                      <ListItemAvatar>
+                        <Avatar 
+                          src={getBookCoverUrl(book)} 
+                          variant="rounded"
+                          sx={{ width: 32, height: 48 }}
+                        >
+                          {book.title?.[0]}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={book.title}
+                        secondary={
+                          <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                            {book.author}
+                            {book.series && (
+                              <Chip 
+                                size="small" 
+                                label={`${book.series}${book.series_number ? ` #${book.series_number}` : ''}`}
+                                sx={{ ml: 0.5, height: 18, fontSize: '0.7rem' }}
+                              />
+                            )}
+                          </Box>
+                        }
+                      />
+                    </ListItem>
+                  ))
+                )}
+              </List>
+            </Paper>
+          )}
+
+          {/* Selected Books Summary */}
+          <Paper variant="outlined" sx={{ p: 2, bgcolor: selectedBooks.length > 0 ? 'primary.50' : 'grey.50' }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Selected Books ({selectedBooks.length})
+            </Typography>
+            {selectedBooks.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                Search and select books to edit
+              </Typography>
+            ) : (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxHeight: 120, overflow: 'auto' }}>
+                {selectedBooks.map((book) => (
+                  <Chip
+                    key={book.id}
+                    label={`${book.title} - ${book.author}`}
+                    onDelete={() => handleRemoveSelected(book.id)}
+                    size="small"
+                    sx={{ maxWidth: 250 }}
+                  />
+                ))}
+              </Box>
+            )}
+          </Paper>
+        </Box>
+      );
+    }
+
+    // Step 2: Edit Fields
+    return (
+      <Box>
+        {/* Selected Books Preview */}
         <Typography variant="subtitle2" gutterBottom>
-          Selected Books:
+          Editing {selectedBooks.length} Book{selectedBooks.length !== 1 ? 's' : ''}:
         </Typography>
-        <Box sx={{ maxHeight: 150, overflow: 'auto', mb: 3, bgcolor: 'grey.50', borderRadius: 1 }}>
+        <Box sx={{ maxHeight: 120, overflow: 'auto', mb: 3, bgcolor: 'grey.50', borderRadius: 1 }}>
           <List dense>
             {selectedBooks.map((book, index) => (
               <ListItem key={book.id}>
@@ -188,14 +426,14 @@ const BulkEditModal = ({ open, onClose, selectedBooks = [], onComplete }) => {
                         <Chip 
                           size="small" 
                           label={`${book.series}${book.series_number ? ` #${book.series_number}` : ''}`}
-                          sx={{ ml: 1 }}
+                          sx={{ ml: 1, height: 18, fontSize: '0.7rem' }}
                         />
                       )}
                     </>
                   }
                 />
                 {autoNumberSeries && (
-                  <Typography variant="caption" color="primary">
+                  <Typography variant="caption" color="primary" sx={{ fontWeight: 'bold' }}>
                     #{(parseInt(updates.series_number_start) || 1) + index}
                   </Typography>
                 )}
@@ -213,7 +451,7 @@ const BulkEditModal = ({ open, onClose, selectedBooks = [], onComplete }) => {
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
           {/* Series with Autocomplete */}
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flexWrap: 'wrap' }}>
             <Autocomplete
               freeSolo
               options={seriesOptions}
@@ -222,7 +460,7 @@ const BulkEditModal = ({ open, onClose, selectedBooks = [], onComplete }) => {
               onInputChange={(event, newValue) => {
                 setUpdates({ ...updates, series: newValue });
               }}
-              sx={{ flex: 2 }}
+              sx={{ flex: 2, minWidth: 200 }}
               renderInput={(params) => (
                 <TextField
                   {...params}
@@ -244,7 +482,7 @@ const BulkEditModal = ({ open, onClose, selectedBooks = [], onComplete }) => {
             
             {updates.series && (
               <>
-                <FormControl sx={{ minWidth: 180 }}>
+                <FormControl sx={{ minWidth: 140 }}>
                   <InputLabel>Auto-number?</InputLabel>
                   <Select
                     value={autoNumberSeries ? 'yes' : 'no'}
@@ -278,7 +516,6 @@ const BulkEditModal = ({ open, onClose, selectedBooks = [], onComplete }) => {
             </Alert>
           )}
 
-          {/* Categories */}
           <TextField
             fullWidth
             label="Categories"
@@ -287,7 +524,6 @@ const BulkEditModal = ({ open, onClose, selectedBooks = [], onComplete }) => {
             helperText="Comma-separated list of categories"
           />
 
-          {/* Language */}
           <TextField
             fullWidth
             label="Language"
@@ -296,7 +532,6 @@ const BulkEditModal = ({ open, onClose, selectedBooks = [], onComplete }) => {
             placeholder="e.g., en, es, fr"
           />
 
-          {/* Publisher */}
           <TextField
             fullWidth
             label="Publisher"
@@ -305,14 +540,12 @@ const BulkEditModal = ({ open, onClose, selectedBooks = [], onComplete }) => {
           />
         </Box>
 
-        {/* Error */}
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
             {error}
           </Alert>
         )}
 
-        {/* Result */}
         {result && (
           <Alert 
             severity={result.failed?.length > 0 ? 'warning' : 'success'} 
@@ -324,22 +557,68 @@ const BulkEditModal = ({ open, onClose, selectedBooks = [], onComplete }) => {
             )}
           </Alert>
         )}
+      </Box>
+    );
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <EditIcon />
+        Bulk Edit Books
+      </DialogTitle>
+
+      <DialogContent dividers>
+        {/* Stepper */}
+        <Stepper activeStep={activeStep} sx={{ mb: 3 }}>
+          {STEPS.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+
+        {renderStepContent()}
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, py: 2 }}>
-        <Button onClick={onClose} startIcon={<CancelIcon />}>
-          {result ? 'Close' : 'Cancel'}
-        </Button>
-        {!result && (
-          <Button
-            variant="contained"
-            onClick={handleSave}
-            startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
-            disabled={saving}
-          >
-            Update {selectedBooks.length} Book{selectedBooks.length !== 1 ? 's' : ''}
+      <DialogActions sx={{ px: 3, py: 2, justifyContent: 'space-between' }}>
+        <Box>
+          {activeStep > 0 && !result && (
+            <Button 
+              onClick={() => setActiveStep(0)} 
+              startIcon={<BackIcon />}
+            >
+              Back
+            </Button>
+          )}
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button onClick={onClose} startIcon={<CancelIcon />}>
+            {result ? 'Close' : 'Cancel'}
           </Button>
-        )}
+          
+          {activeStep === 0 && (
+            <Button
+              variant="contained"
+              onClick={() => setActiveStep(1)}
+              endIcon={<NextIcon />}
+              disabled={selectedBooks.length === 0}
+            >
+              Next ({selectedBooks.length} selected)
+            </Button>
+          )}
+          
+          {activeStep === 1 && !result && (
+            <Button
+              variant="contained"
+              onClick={handleSave}
+              startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
+              disabled={saving}
+            >
+              Update {selectedBooks.length} Book{selectedBooks.length !== 1 ? 's' : ''}
+            </Button>
+          )}
+        </Box>
       </DialogActions>
     </Dialog>
   );
