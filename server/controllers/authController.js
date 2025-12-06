@@ -2,8 +2,18 @@ const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const User = require('../models/User');
 
-const generateToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
+const generateToken = (user) => {
+  return jwt.sign(
+    { 
+      userId: user.id,
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role || 'user'
+    }, 
+    process.env.JWT_SECRET, 
+    { expiresIn: '7d' }
+  );
 };
 
 exports.register = async (req, res) => {
