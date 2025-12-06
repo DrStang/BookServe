@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -31,9 +32,9 @@ import {
   ListItemText,
   ListItemIcon,
   Divider,
-  Appbar,
+  AppBar,
   Toolbar,
-  Iconbutton,
+  IconButton,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -377,6 +378,7 @@ const SearchFailuresPanel = () => {
 // ============================================================================
 const RequestsPage = () => {
   const isAdmin = checkIsAdmin();
+  const navigate = useNavigate();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
