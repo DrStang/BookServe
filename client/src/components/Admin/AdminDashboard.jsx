@@ -259,7 +259,7 @@ const AdminDashboard = () => {
               <CardActions>
                 <Button 
                   variant="contained"
-                  onClick={() => navigate('/library?bulkEdit=true')}
+                  onClick={() => setBulkEditOpen(true)}
                   sx={{ backgroundColor: '#e50914', '&:hover': { backgroundColor: '#b20710' } }}
                 >
                   Open Bulk Editor
