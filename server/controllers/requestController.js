@@ -121,6 +121,33 @@ exports.getRequestById = async (req, res) => {
     res.status(500).json({ error: 'Error fetching request' });
   }
 };
+// Delete/cancel a request
+exports.deleteRequest = async (req, res) => {
+  try {
+    const request = await BookRequest.findById(req.params.id);
+
+    if (!request) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    // Admin can delete any request
+    // Regular users can only delete their own pending requests
+    if (req.user.role !== 'admin') {
+      if (request.user_id !== req.user.id) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      if (!['pending', 'failed'].includes(request.status)) {
+        return res.status(400).json({ error: 'Can only cancel pending or failed requests' });
+      }
+    }
+
+    await BookRequest.delete(req.params.id);
+    res.json({ message: 'Request deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting request:', error);
+    res.status(500).json({ error: 'Error deleting request' });
+  }
+};
 
 // Background processing function
 async function processBookRequest(requestId) {
