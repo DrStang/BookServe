@@ -487,7 +487,8 @@ const RequestsPage = () => {
             Book Requests
           </Typography>
         </Toolbar>
-      </AppBar>  
+      </AppBar>
+      <Toolbar />
       
 
       {/* Admin Stats Cards */}
