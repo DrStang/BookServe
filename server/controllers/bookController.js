@@ -198,6 +198,7 @@ exports.streamBook = async (req, res) => {
       try {
         console.log(`Converting ${format} to EPUB for streaming...`);
         filePath = await ebookConverter.convertToEpub(filePath, book.id);
+        filePath = path.resolve(filePath);
         res.setHeader('Content-Type', 'application/epub+zip');
       } catch (conversionError) {
         console.error('Conversion error:', conversionError);
