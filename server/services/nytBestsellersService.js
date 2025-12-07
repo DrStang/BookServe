@@ -176,11 +176,15 @@ class NYTBestsellersService {
     const { db } = require('../database/init');
 
     return new Promise((resolve, reject) => {
+      const statusCheck = `(
+        status IN ('pending', 'searching', 'downloading', 'completed')
+        OR (status = 'failed' AND created_at > datetime('now', '-7 days'))
+      )`;  
       // Check by ISBN first if available
       if (isbn) {
         db.get(
           `SELECT * FROM book_requests 
-           WHERE isbn = ? AND status IN ('pending', 'searching', 'downloading')`,
+           WHERE isbn = ? AND ${statusCheck}`,
           [isbn],
           (err, row) => {
             if (err) {
@@ -197,7 +201,7 @@ class NYTBestsellersService {
               `SELECT * FROM book_requests 
                WHERE LOWER(title) = LOWER(?) 
                AND LOWER(author) LIKE LOWER(?)
-               AND status IN ('pending', 'searching', 'downloading')`,
+               AND ${statusCheck}`,
               [title, `%${author}%`],
               (err, row) => {
                 if (err) reject(err);
@@ -212,7 +216,7 @@ class NYTBestsellersService {
           `SELECT * FROM book_requests 
            WHERE LOWER(title) = LOWER(?) 
            AND LOWER(author) LIKE LOWER(?)
-           AND status IN ('pending', 'searching', 'downloading')`,
+           AND ${statusCheck}`,
           [title, `%${author}%`],
           (err, row) => {
             if (err) reject(err);
