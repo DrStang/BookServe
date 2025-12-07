@@ -12,11 +12,16 @@ const BookReader = () => {
   const [location, setLocation] = useState(0);
   const [rendition, setRendition] = useState(null);
   const [progress, setProgress] = useState(0);
+  const [locationsReady, setLocationsReady] = useState(false);
   const saveTimeoutRef = useRef(null);
+  const bookRef = useRef(null);
 
   useEffect(() => {
     loadBook();
     loadProgress();
+    // Reset locations when book changes
+    setLocationsReady(false);
+    bookRef.current = null;
   }, [id]);
 
   // Keyboard shortcuts
@@ -96,12 +101,15 @@ const BookReader = () => {
 
   const saveProgress = async (currentLocation) => {
     try {
-      // Calculate progress percentage from rendition
+      // Calculate progress percentage using EPUB.js locations
       let progressPercent = 0;
-      if (rendition && currentLocation) {
-        const currentPage = rendition.location?.start?.displayed?.page || 0;
-        const totalPages = rendition.location?.start?.displayed?.total || 1;
-        progressPercent = Math.round((currentPage / totalPages) * 100);
+
+      if (bookRef.current && currentLocation && locationsReady) {
+        // Use the book's locations to calculate actual percentage through the whole book
+        const percentage = bookRef.current.locations.percentageFromCfi(currentLocation);
+        if (percentage !== null && !isNaN(percentage)) {
+          progressPercent = Math.round(percentage * 100);
+        }
       }
 
       await progressAPI.updateBookProgress(id, progressPercent, currentLocation);
@@ -214,6 +222,18 @@ const BookReader = () => {
                   background: '#0f0f0f !important',
                   color: '#e0e0e0 !important',
                 },
+              });
+
+              // Store book reference and generate locations for accurate progress tracking
+              bookRef.current = rend.book;
+              rend.book.ready.then(() => {
+                // Generate locations with ~1000 characters per location for good granularity
+                return rend.book.locations.generate(1024);
+              }).then(() => {
+                setLocationsReady(true);
+                console.log('[BookReader] Locations generated for progress tracking');
+              }).catch(err => {
+                console.warn('[BookReader] Failed to generate locations:', err);
               });
             }}
           />
