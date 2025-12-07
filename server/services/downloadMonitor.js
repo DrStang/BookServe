@@ -9,6 +9,39 @@ class DownloadMonitor {
   constructor() {
     this.interval = null;
     this.checkInterval = parseInt(process.env.AUTO_IMPORT_INTERVAL) || 300000; // 5 minutes
+    this.supportedFormats = ['.epub', '.pdf', '.mobi', '.azw', '.azw3'];
+  }
+
+  /**
+   * Recursively search for book files in a directory
+   * @param {string} dir - Directory to search
+   * @returns {Promise<string[]>} - Array of full file paths to book files
+   */
+  async findBookFilesRecursive(dir) {
+    const bookFiles = [];
+
+    try {
+      const items = await fs.readdir(dir, { withFileTypes: true });
+
+      for (const item of items) {
+        const fullPath = path.join(dir, item.name);
+
+        if (item.isDirectory()) {
+          // Recursively search subdirectories
+          const subFiles = await this.findBookFilesRecursive(fullPath);
+          bookFiles.push(...subFiles);
+        } else if (item.isFile()) {
+          const ext = path.extname(item.name).toLowerCase();
+          if (this.supportedFormats.includes(ext)) {
+            bookFiles.push(fullPath);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`Could not scan directory ${dir}:`, error.message);
+    }
+
+    return bookFiles;
   }
 
   start() {
@@ -128,16 +161,21 @@ class DownloadMonitor {
         return;
       }
 
-      // Find epub files in the directory
-      const files = await fs.readdir(downloadPath);
-      console.log('Files in download directory:', files);
-      
-      const epubFile = files.find(f => f.toLowerCase().endsWith('.epub'));
+      // Find book files recursively in the directory (including subfolders)
+      const bookFiles = await this.findBookFilesRecursive(downloadPath);
+      console.log('Book files found (including subfolders):', bookFiles);
 
-      if (!epubFile) {
-        console.error('No EPUB file found in download');
+      // Prefer EPUB, but fall back to other formats
+      let sourcePath = bookFiles.find(f => f.toLowerCase().endsWith('.epub'));
+      if (!sourcePath) {
+        // Try other formats in order of preference
+        sourcePath = bookFiles[0]; // Take first available book file
+      }
+
+      if (!sourcePath) {
+        console.error('No book file found in download (including subfolders)');
         await BookRequest.updateStatus(request.id, 'failed', {
-          error_message: 'No EPUB file found in download'
+          error_message: 'No book file found in download (including subfolders)'
         });
         // Schedule retry
         const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
@@ -145,26 +183,12 @@ class DownloadMonitor {
         return;
       }
 
-      const sourcePath = path.join(downloadPath, epubFile);
-      console.log('Found EPUB file:', sourcePath);
+      console.log('Found book file:', sourcePath);
 
-      // Check if source file exists
-      try {
-        await fs.access(sourcePath);
-      } catch (err) {
-        console.error('EPUB file not accessible:', sourcePath);
-        await BookRequest.updateStatus(request.id, 'failed', {
-          error_message: `EPUB file not accessible: ${sourcePath}`
-        });
-        // Schedule retry
-        const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
-        await BookRequest.scheduleRetry(request.id, retryIntervalDays);
-        return;
-      }
-
+      const bookFilename = path.basename(sourcePath);
       const destPath = path.join(
         process.env.BOOKS_STORAGE_PATH || './data/books',
-        `${Date.now()}-${epubFile}`
+        `${Date.now()}-${bookFilename}`
       );
 
       // Copy file to books directory
@@ -174,6 +198,9 @@ class DownloadMonitor {
 
       const stats = await fs.stat(destPath);
 
+      // Detect format from file extension
+      const bookFormat = path.extname(bookFilename).substring(1).toLowerCase();
+
       // Create book entry
       const bookData = {
         title: request.title,
@@ -181,7 +208,7 @@ class DownloadMonitor {
         isbn: request.isbn,
         file_path: destPath,
         file_size: stats.size,
-        format: 'epub',
+        format: bookFormat,
         added_by: request.user_id || 1
       };
 

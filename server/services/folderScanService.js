@@ -16,6 +16,38 @@ class FolderScanService {
     this.supportedFormats = ['.epub', '.pdf', '.mobi', '.azw', '.azw3'];
   }
 
+  /**
+   * Recursively scan a directory for book files
+   * @param {string} dir - Directory to scan
+   * @returns {Promise<string[]>} - Array of full file paths
+   */
+  async scanDirectoryRecursive(dir) {
+    const bookFiles = [];
+
+    try {
+      const items = await fs.readdir(dir, { withFileTypes: true });
+
+      for (const item of items) {
+        const fullPath = path.join(dir, item.name);
+
+        if (item.isDirectory()) {
+          // Recursively scan subdirectories
+          const subFiles = await this.scanDirectoryRecursive(fullPath);
+          bookFiles.push(...subFiles);
+        } else if (item.isFile()) {
+          const ext = path.extname(item.name).toLowerCase();
+          if (this.supportedFormats.includes(ext)) {
+            bookFiles.push(fullPath);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`Could not scan directory ${dir}:`, error.message);
+    }
+
+    return bookFiles;
+  }
+
   start() {
     if (!process.env.FOLDER_SCAN_ENABLED || process.env.FOLDER_SCAN_ENABLED !== 'true') {
       console.log('Folder scanning disabled');
@@ -61,14 +93,8 @@ class FolderScanService {
         return;
       }
 
-      // Get all files in the directory
-      const files = await fs.readdir(this.booksPath);
-      
-      // Filter for supported book formats
-      const bookFiles = files.filter(file => {
-        const ext = path.extname(file).toLowerCase();
-        return this.supportedFormats.includes(ext);
-      });
+      // Get all book files recursively (including subfolders)
+      const bookFiles = await this.scanDirectoryRecursive(this.booksPath);
 
       if (bookFiles.length === 0) {
         console.log('No book files found in folder');
@@ -76,17 +102,14 @@ class FolderScanService {
         return;
       }
 
-      console.log(`Found ${bookFiles.length} book file(s) in folder`);
+      console.log(`Found ${bookFiles.length} book file(s) in folder (including subfolders)`);
 
       // Get all existing books from database
       const existingBooks = await Book.findAll(10000, 0);
       const existingPaths = new Set(existingBooks.map(book => book.file_path));
 
-      // Find new files
-      const newFiles = bookFiles.filter(file => {
-        const fullPath = path.join(this.booksPath, file);
-        return !existingPaths.has(fullPath);
-      });
+      // Find new files (bookFiles already contains full paths)
+      const newFiles = bookFiles.filter(filePath => !existingPaths.has(filePath));
 
       if (newFiles.length === 0) {
         console.log('No new books to import');
@@ -100,12 +123,12 @@ class FolderScanService {
       let imported = 0;
       let failed = 0;
 
-      for (const file of newFiles) {
+      for (const filePath of newFiles) {
         try {
-          await this.importBook(file);
+          await this.importBookFromPath(filePath);
           imported++;
         } catch (error) {
-          console.error(`Failed to import ${file}:`, error.message);
+          console.error(`Failed to import ${filePath}:`, error.message);
           failed++;
         }
       }
@@ -120,14 +143,14 @@ class FolderScanService {
   }
 
   /**
-   * Import a single book file
-   * @param {string} filename - Name of the file to import
+   * Import a single book file from full path
+   * @param {string} filePath - Full path to the file to import
    */
-  async importBook(filename) {
-    const filePath = path.join(this.booksPath, filename);
+  async importBookFromPath(filePath) {
+    const filename = path.basename(filePath);
     const format = path.extname(filename).substring(1).toLowerCase();
 
-    console.log(`Importing: ${filename}`);
+    console.log(`Importing: ${filePath}`);
 
     // Get file stats
     const stats = await fs.stat(filePath);
