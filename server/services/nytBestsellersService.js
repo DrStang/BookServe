@@ -178,7 +178,7 @@ class NYTBestsellersService {
     return new Promise((resolve, reject) => {
       const statusCheck = `(
         status IN ('pending', 'searching', 'downloading', 'completed')
-        OR (status = 'failed' AND created_at > datetime('now', '-7 days'))
+        OR (status = 'failed' AND requested_at > datetime('now', '-7 days'))
       )`;  
       // Check by ISBN first if available
       if (isbn) {
