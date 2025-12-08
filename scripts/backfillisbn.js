@@ -117,7 +117,7 @@ function getBooksWithoutISBN(limitCount) {
       SELECT id, title, author 
       FROM books 
       WHERE (isbn IS NULL OR isbn = '') 
-        AND (isbn13 IS NULL OR isbn13 = '')
+        AND (isbn_13 IS NULL OR isbn_13 = '')
       ORDER BY added_at DESC
     `;
     
