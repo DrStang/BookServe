@@ -232,7 +232,7 @@ class NYTBestsellersService {
    */
   async getAvailableLists() {
     try {
-      const response = await axios.get(`${this.baseUrl}/lists/names.json`, {
+      const response = await axios.get(`${this.baseUrl}/lists/overview.json`, {
         params: {
           'api-key': this.apiKey
         },
