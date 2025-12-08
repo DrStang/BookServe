@@ -119,15 +119,17 @@ const NYTBestsellersPage = () => {
         allBooks: []
       };
       
-      response.data.books?.forEach(book => {
-        booksMap.allBooks.push(book);
-        // Index by ISBN13 and ISBN10
-        if (book.isbn13) {
-          booksMap.byIsbn[book.isnb13.replace(/-/g, '')] = book;
-        }  
-        if (book.isbn) booksMap
-          booksMap.byIsbn[book.isbn.replace(/-/g, '')] = book;
-        }
+        response.data.books?.forEach(book => {
+        // Store all books for fuzzy matching
+          booksMap.allBooks.push(book);
+        
+        // Index by ISBN13 and ISBN10 (strip hyphens)
+          if (book.isbn13) {
+            booksMap.byIsbn[book.isbn13.replace(/-/g, '')] = book;
+          }
+          if (book.isbn) {
+            booksMap.byIsbn[book.isbn.replace(/-/g, '')] = book;
+          }
         // Also index by normalized title + author
         const normalizedTitle = normalizeText(book.title);
         if (normalizedTitle) {
