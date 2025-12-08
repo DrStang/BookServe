@@ -133,9 +133,17 @@ export const goodreadsAPI = {
 
 // NYT Bestsellers (admin only)
 export const nytAPI = {
+  getOverview: (date = null) => {
+    const params = date ? { date } : {};
+    return api.get('/nyt/overview', { params });
+  },
+  getList: (listName, date = 'current') =>
+    api.get(`/nyt/lists/${date}/${listName}`),
+  getListNames: () => api.get('/nyt/list-names'),
+  searchReviews: (params) => api.get('/nyt/reviews', { params }),
   getStatus: () => api.get('/nyt/status'),
   triggerCheck: () => api.post('/nyt/trigger'),
-  getLists: () => api.get('/nyt/lists'),
+  getLists: () => api.get('/nyt/admin/lists'),
 };
 
 // Admin endpoints
