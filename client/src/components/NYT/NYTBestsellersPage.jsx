@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
+  IconButton,
   Container,
   Typography,
   Grid,
@@ -409,7 +410,9 @@ const NYTBestsellersPage = () => {
         <Box sx={{ mb: 4 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <BackIcon sx={{ fontSize: 20, color: '#e50914' }} />
+              <IconButton edge="start" color="inherit" onClick={() => navigate('/')}>
+                <BackIcon />
+              </IconButton>  
               <TrophyIcon sx={{ fontSize: 40, color: '#e50914' }} />
               <Box>
                 <Typography variant="h4" sx={{ fontWeight: 700, color: '#fff' }}>
