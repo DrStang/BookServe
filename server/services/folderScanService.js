@@ -14,6 +14,13 @@ class FolderScanService {
     this.booksPath = process.env.BOOKS_STORAGE_PATH || './data/books';
     this.isScanning = false;
     this.supportedFormats = ['.epub', '.pdf', '.mobi', '.azw', '.azw3'];
+
+    this.lastScan = null;
+    this.lastScanResults = {
+      booksFound: 0,
+      imported: 0,
+      failed: 0
+    };  
   }
 
   /**
@@ -90,6 +97,8 @@ class FolderScanService {
         console.log('Books directory does not exist, creating it...');
         await fs.mkdir(this.booksPath, { recursive: true });
         this.isScanning = false;
+        this.lastScan = new Date().toISOString();
+        this.lastScanResults = { booksFound: 0, imported: 0, failed: 0 };
         return;
       }
 
@@ -99,6 +108,7 @@ class FolderScanService {
       if (bookFiles.length === 0) {
         console.log('No book files found in folder');
         this.isScanning = false;
+        this.lastScan = new Date().toISOString();
         return;
       }
 
@@ -114,6 +124,7 @@ class FolderScanService {
       if (newFiles.length === 0) {
         console.log('No new books to import');
         this.isScanning = false;
+        this.lastScan = new Date().toISOString();
         return;
       }
 
@@ -133,10 +144,15 @@ class FolderScanService {
         }
       }
 
+      this.lastScanResults.imported = imported;
+      this.lastScanResults.failed = failed;
+      this.lastScan = new Date().toISOString();
+
       console.log(`Folder scan complete: ${imported} imported, ${failed} failed`);
 
     } catch (error) {
       console.error('Error during folder scan:', error);
+      this.lastScan = new Date().toISOString();
     } finally {
       this.isScanning = false;
     }
@@ -243,7 +259,11 @@ class FolderScanService {
       isScanning: this.isScanning,
       scanInterval: this.scanInterval,
       booksPath: this.booksPath,
-      supportedFormats: this.supportedFormats
+      supportedFormats: this.supportedFormats,
+      lastScan: this.lastScan,
+      booksFound: this.lastScanResults.booksFound,
+      lastImported: this.lastScanResults.imported,
+      lastFailed: this.lastScanResults.failed
     };
   }
 }
