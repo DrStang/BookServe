@@ -26,6 +26,7 @@ import {
   EmojiEvents as TrophyIcon,
   ArrowForward as ArrowIcon,
   LibraryAdd as RequestIcon,
+  ArrowBack as BackIcon,
 } from '@mui/icons-material';
 import { nytAPI, booksAPI, requestsAPI } from '../../services/api';
 import BookDetailModal from '../Books/BookDetailModal';
@@ -408,6 +409,7 @@ const NYTBestsellersPage = () => {
         <Box sx={{ mb: 4 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <BackIcon sx={{ fontSize: 20, color: '#e50914' }} />
               <TrophyIcon sx={{ fontSize: 40, color: '#e50914' }} />
               <Box>
                 <Typography variant="h4" sx={{ fontWeight: 700, color: '#fff' }}>
