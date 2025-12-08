@@ -54,6 +54,7 @@ import {
   Psychology as InsightsIcon,
   Chat as ChatIcon,
   AdminPanelSettings as AdminIcon,
+  EmojiEvents,
 } from '@mui/icons-material';
 import { booksAPI, metadataAPI, progressAPI } from '../../services/api';
 import BookCard from './BookCard';
@@ -825,6 +826,14 @@ const Dashboard = ({ onLogout }) => {
             >
               My Requests
             </Button>
+            <Button
+                color="inherit"
+                startIcon={<EmojiEvents />}
+                onClick={() => navigate('/bestsellers')}
+                sx={{ mr: 2}}
+            >
+              NYT Bestsellers
+            </Button>    
             <Button
               color="inherit"
               startIcon={<AIIcon />}
