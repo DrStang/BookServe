@@ -488,10 +488,13 @@ class NYTBestsellersService {
 
     return {
       enabled: process.env.NYT_ENABLED === 'true',
-      apiKeyConfigured: !!this.apiKey,
+      // Read directly from env to avoid constructor timing issues
+      apiKeyConfigured: !!process.env.NYT_API_KEY,
       redisConnected: cache.isConnected,
       categories: this.categories,
       adminUserId: this.adminUserId,
+      // Frontend expects this field
+      checkIntervalDays: 7,
       lastCheckDate: lastCheckDate || null,
       lastCheckTimestamp: lastCheckTimestamp 
         ? new Date(parseInt(lastCheckTimestamp)).toISOString() 
@@ -502,3 +505,4 @@ class NYTBestsellersService {
 }
 
 module.exports = new NYTBestsellersService();
+
