@@ -82,20 +82,60 @@ const NYTBestsellersPage = () => {
       setRefreshing(false);
     }
   }, []);
+    // Normalize text for matching (remove punctuation, articles, extra spaces)
+  const normalizeText = (text) => {
+    if (!text) return '';
+    return text
+      .toLowerCase()
+      .replace(/^(the|a|an)\s+/i, '') // Remove leading articles
+      .replace(/[^\w\s]/g, '') // Remove punctuation
+      .replace(/\s+/g, ' ') // Normalize spaces
+      .trim();
+  };
+
+  const normalizeAuthor = (author) => {
+    if (!author) return '':
+    const normalized = normalizeText(author);
+    if (author.includes(',')) {
+      const parts = author.split(',').map(p => p.trim());
+      if (parts.length === 2) {
+        return [
+          normalizeText(`${parts[1]} ${parts[0]}`),
+          normalizeText(`${parts[0]} ${parts[1]}`),
+          normalized
+        ];
+      }
+    }
+    return [normalized];
+  };  
 
   // Fetch library books to check what we already have
   const fetchLibraryBooks = useCallback(async () => {
     try {
       const response = await booksAPI.getAll();
-      const booksMap = {};
+      const booksMap = {
+        byIsbn: {},
+        byTitle: {},
+        allBooks: []
+      };
       
       response.data.books?.forEach(book => {
+        booksMap.allBooks.push(book);
         // Index by ISBN13 and ISBN10
-        if (book.isbn13) booksMap[book.isbn13] = book;
-        if (book.isbn) booksMap[book.isbn] = book;
+        if (book.isbn13) {
+          booksMap.byIsbn[book.isnb13.replace(/-/g, '')] = book;
+        }  
+        if (book.isbn) booksMap
+          booksMap.byIsbn[book.isbn.replace(/-/g, '')] = book;
+        }
         // Also index by normalized title + author
-        const key = `${book.title?.toLowerCase()}-${book.author?.toLowerCase()}`;
-        booksMap[key] = book;
+        const normalizedTitle = normalizeText(book.title);
+        if (normalizedTitle) {
+          if (!booksMap.byTitle[normalizedTitle]) {
+            booksMap.byTitle[normalizedTitle] = [];
+          }
+          booksMap.byTitle[normalizedTitle].push(book);
+        }  
       });
       
       setLibraryBooks(booksMap);
@@ -111,16 +151,86 @@ const NYTBestsellersPage = () => {
 
   // Check if a book is in the library
   const getLibraryBook = (nytBook) => {
+    if (!libraryBooks.byIsbn) return null;
     // Check by ISBN
-    if (nytBook.primary_isbn13 && libraryBooks[nytBook.primary_isbn13]) {
-      return libraryBooks[nytBook.primary_isbn13];
+    const isbn13 = nytBook.primary_isbn13?.replace(/-/g, '');
+    const isbn10 = nytBook.primary_isbn10?.replace(/-/g, '');
+    
+    if (isbn13 && libraryBooks.byIsbn[isbn13]) {
+      console.log(`[NYT Match] ISBN13 match for "${nytBook.title}"`);
+      return libraryBooks.byIsbn[isbn13];
     }
-    if (nytBook.primary_isbn10 && libraryBooks[nytBook.primary_isbn10]) {
-      return libraryBooks[nytBook.primary_isbn10];
+    if (isbn10 && libraryBooks.byIsbn[isbn10]) {
+      console.log(`[NYT Match] ISBN10 match for "${nytBook.title}"`);
+      return libraryBooks.byIsbn[isbn10];
     }
-    // Check by title + author
-    const key = `${nytBook.title?.toLowerCase()}-${nytBook.author?.toLowerCase()}`;
-    return libraryBooks[key] || null;
+    // Check by normalized title
+    const normalizedTitle = normalizeText(nytBook.title);
+    const titleMatches = libraryBooks.byTitle[normalizedTitle];
+    
+    if (titleMatches && titleMatches.length > 0) {
+      // If only one book with this title, return it
+      if (titleMatches.length === 1) {
+        console.log(`[NYT Match] Exact title match for "${nytBook.title}"`);
+        return titleMatches[0];
+      }
+      
+      // Multiple books with same title - check author
+      const nytAuthors = normalizeAuthor(nytBook.author);
+      for (const book of titleMatches) {
+        const bookAuthors = normalizeAuthor(book.author);
+        // Check if any author format matches
+        for (const nytAuthor of nytAuthors) {
+          for (const bookAuthor of bookAuthors) {
+            if (nytAuthor === bookAuthor) {
+              console.log(`[NYT Match] Title + author match for "${nytBook.title}"`);
+              return book;
+            }
+            // Also check if one contains the other (for partial matches)
+            if (nytAuthor.includes(bookAuthor) || bookAuthor.includes(nytAuthor)) {
+              console.log(`[NYT Match] Title + partial author match for "${nytBook.title}"`);
+              return book;
+            }
+          }
+        }
+      }
+    }
+    
+    // Fuzzy title match as last resort (for slight variations)
+    const nytTitleWords = normalizedTitle.split(' ').filter(w => w.length > 2);
+    if (nytTitleWords.length >= 2) {
+      for (const book of libraryBooks.allBooks) {
+        const bookTitle = normalizeText(book.title);
+        const bookTitleWords = bookTitle.split(' ').filter(w => w.length > 2);
+        
+        // Check if most significant words match
+        const matchingWords = nytTitleWords.filter(w => bookTitleWords.includes(w));
+        const matchRatio = matchingWords.length / Math.max(nytTitleWords.length, bookTitleWords.length);
+        
+        if (matchRatio >= 0.8) {
+          // Also verify author matches somewhat
+          const nytAuthors = normalizeAuthor(nytBook.author);
+          const bookAuthors = normalizeAuthor(book.author);
+          
+          for (const nytAuthor of nytAuthors) {
+            for (const bookAuthor of bookAuthors) {
+              // Check if last names match (usually most reliable)
+              const nytLastName = nytAuthor.split(' ').pop();
+              const bookLastName = bookAuthor.split(' ').pop();
+              if (nytLastName && bookLastName && nytLastName === bookLastName) {
+                console.log(`[NYT Match] Fuzzy match for "${nytBook.title}" -> "${book.title}"`);
+                return book;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Log when no match is found for debugging
+    console.log(`[NYT No Match] "${nytBook.title}" by ${nytBook.author} (ISBN13: ${nytBook.primary_isbn13}, ISBN10: ${nytBook.primary_isbn10})`);
+    
+    return null;
   };
 
   // Handle book click
