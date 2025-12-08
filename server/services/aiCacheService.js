@@ -383,13 +383,39 @@ class AICacheService {
   }
 
   /**
+   * Count users with cached data
+   */
+  async getCachedUsersCount() {
+    try {
+      const users = await this.getAllUsers();
+      let cachedCount = 0;
+      
+      for (const user of users) {
+        const lastUpdate = await this.getLastUpdateTime(user.id);
+        if (lastUpdate) {
+          cachedCount++;
+        }
+      }
+      
+      return cachedCount;
+    } catch (error) {
+      console.error('[AI Cache] Error counting cached users:', error);
+      return 0;
+    }
+  }
+
+  /**
    * Get queue status (for monitoring/admin)
    */
-  getStatus() {
+  async getStatus() {
+    const cachedUsers = await this.getCachedUsersCount();
+    
     return {
       enabled: process.env.AI_CACHE_ENABLED === 'true',
       isProcessing: this.isProcessing,
       queueSize: this.updateQueue.size,
+      // Field expected by frontend
+      cachedUsers: cachedUsers,
       autoUpdateIntervalDays: this.autoUpdateIntervalDays,
       cacheTTL: this.cacheTTL
     };
