@@ -232,20 +232,31 @@ class NYTBestsellersService {
    */
   async getAvailableLists() {
     try {
-      const response = await axios.get(`${this.baseUrl}/lists/overview.json`, {
+      const url = `${this.baseUrl}/lists/overview.json`;
+      console.log('[NYT] Fetching lists from overview:', url);
+
+      const response = await axios.get(url, {
         params: {
           'api-key': this.apiKey
         },
         timeout: 30000
       });
 
-      return response.data.results.map(list => ({
+      if (!response.data?.results?.lists) {
+        console.log('[NYT] No lists in overview response');
+        return [];
+      }  
+
+      return response.data.results.lists.map(list => ({
         name: list.list_name_encoded,
         displayName: list.display_name,
         updated: list.updated
       }));
     } catch (error) {
       console.error('[NYT] Error fetching list names:', error.message);
+      if (error.response) {
+        console.error('[NYT] Response data:', JSON.stringify(error.response.data));
+      }  
       return [];
     }
   }
