@@ -158,7 +158,7 @@ exports.downloadBook = async (req, res) => {
       return res.status(404).json({ error: 'Book not found' });
     }
 
-    const filePath = path.resolve(book.file_path);
+    let filePath = path.resolve(book.file_path);
 
     // Check if file exists
     try {
@@ -167,7 +167,25 @@ exports.downloadBook = async (req, res) => {
       return res.status(404).json({ error: 'Book file not found' });
     }
 
-    res.download(filePath, `${book.title}.${book.format}`);
+    // Check if conversion to EPUB is requested
+    const requestedFormat = req.query.format?.toLowerCase();
+
+    if (requestedFormat === 'epub' && ebookConverter.needsConversion(filePath)) {
+      try {
+        console.log(`Converting ${book.format} to EPUB for download...`);
+        filePath = await ebookConverter.convertToEpub(filePath, book.id);
+        filePath = path.resolve(filePath);
+        res.download(filePath, `${book.title}.epub`);
+      } catch (conversionError) {
+        console.error('Conversion error:', conversionError);
+        return res.status(500).json({
+          error: 'Failed to convert book to EPUB',
+          message: conversionError.message
+        });
+      }
+    } else {
+      res.download(filePath, `${book.title}.${book.format}`);
+    }
   } catch (error) {
     console.error('Error downloading book:', error);
     res.status(500).json({ error: 'Error downloading book' });

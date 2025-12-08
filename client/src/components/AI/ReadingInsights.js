@@ -140,89 +140,87 @@ const ReadingInsights = () => {
     );
 
     function renderContent() {
-        if (!aiAvailable && !loading) {
-            return (
-                <Box p={3}>
-                    <Box display="flex" alignItems="center" gap={1} mb={3}>
-                        <InsightsIcon color="primary" fontSize="large"/>
-                        <Typography variant="h4">Your Reading Insights</Typography>
-                    </Box>
-
-                    <Grid container spacing={3}>
-                        {/* Preferred Genres */}
-                        <Grid item xs={12} md={4}>
-                            <Card sx={{height: '100%', bgcolor: '#1e1e1e'}}>
-                                <CardContent>
-                                    <Box display="flex" alignItems="center" gap={1} mb={2}>
-                                        <TrendingIcon color="primary"/>
-                                        <Typography variant="h6">Preferred Genres</Typography>
-                                    </Box>
-                                    <Box display="flex" flexWrap="wrap" gap={1}>
-                                        {insights.preferredGenres && insights.preferredGenres.length > 0 ? (
-                                            insights.preferredGenres.map((genre, index) => (
-                                                <Chip
-                                                    key={index}
-                                                    label={genre}
-                                                    color="primary"
-                                                    variant={index === 0 ? 'filled' : 'outlined'}
-                                                />
-                                            ))
-                                        ) : (
-                                            <Typography variant="body2" color="text.secondary">
-                                                No genre preferences identified yet
-                                            </Typography>
-                                        )}
-                                    </Box>
-                                </CardContent>
-                            </Card>
-                        </Grid>
-
-                        {/* Reading Patterns */}
-                        <Grid item xs={12} md={8}>
-                            <Card sx={{height: '100%', bgcolor: '#1e1e1e'}}>
-                                <CardContent>
-                                    <Typography variant="h6" gutterBottom>
-                                        Reading Patterns
-                                    </Typography>
-                                    <Typography variant="body1" color="text.secondary">
-                                        {insights.readingPatterns || 'Keep reading to discover your patterns!'}
-                                    </Typography>
-                                </CardContent>
-                            </Card>
-                        </Grid>
-
-                        {/* Suggested Genres */}
-                        <Grid item xs={12}>
-                            <Card sx={{bgcolor: '#1e1e1e'}}>
-                                <CardContent>
-                                    <Box display="flex" alignItems="center" gap={1} mb={2}>
-                                        <ExploreIcon color="primary"/>
-                                        <Typography variant="h6">Suggested Genres to Explore</Typography>
-                                    </Box>
-                                    <Box display="flex" flexWrap="wrap" gap={1}>
-                                        {insights.suggestedGenres && insights.suggestedGenres.length > 0 ? (
-                                            insights.suggestedGenres.map((genre, index) => (
-                                                <Chip
-                                                    key={index}
-                                                    label={genre}
-                                                    color="secondary"
-                                                    variant="outlined"
-                                                    icon={<ExploreIcon/>}
-                                                />
-                                            ))
-                                        ) : (
-                                            <Typography variant="body2" color="text.secondary">
-                                                No suggestions available yet
-                                            </Typography>
-                                        )}
-                                    </Box>
-                                </CardContent>
-                            </Card>
-                        </Grid>
-                    </Grid>
+        return (
+            <Box p={3}>
+                <Box display="flex" alignItems="center" gap={1} mb={3}>
+                    <InsightsIcon color="primary" fontSize="large"/>
+                    <Typography variant="h4">Your Reading Insights</Typography>
                 </Box>
-            );
-        }
-    };
+
+                <Grid container spacing={3}>
+                    {/* Preferred Genres */}
+                    <Grid item xs={12} md={4}>
+                        <Card sx={{height: '100%', bgcolor: '#1e1e1e'}}>
+                            <CardContent>
+                                <Box display="flex" alignItems="center" gap={1} mb={2}>
+                                    <TrendingIcon color="primary"/>
+                                    <Typography variant="h6">Preferred Genres</Typography>
+                                </Box>
+                                <Box display="flex" flexWrap="wrap" gap={1}>
+                                    {insights.preferredGenres && insights.preferredGenres.length > 0 ? (
+                                        insights.preferredGenres.map((genre, index) => (
+                                            <Chip
+                                                key={index}
+                                                label={genre}
+                                                color="primary"
+                                                variant={index === 0 ? 'filled' : 'outlined'}
+                                            />
+                                        ))
+                                    ) : (
+                                        <Typography variant="body2" color="text.secondary">
+                                            No genre preferences identified yet
+                                        </Typography>
+                                    )}
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+
+                    {/* Reading Patterns */}
+                    <Grid item xs={12} md={8}>
+                        <Card sx={{height: '100%', bgcolor: '#1e1e1e'}}>
+                            <CardContent>
+                                <Typography variant="h6" gutterBottom>
+                                    Reading Patterns
+                                </Typography>
+                                <Typography variant="body1" color="text.secondary">
+                                    {insights.readingPatterns || 'Keep reading to discover your patterns!'}
+                                </Typography>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+
+                    {/* Suggested Genres */}
+                    <Grid item xs={12}>
+                        <Card sx={{bgcolor: '#1e1e1e'}}>
+                            <CardContent>
+                                <Box display="flex" alignItems="center" gap={1} mb={2}>
+                                    <ExploreIcon color="primary"/>
+                                    <Typography variant="h6">Suggested Genres to Explore</Typography>
+                                </Box>
+                                <Box display="flex" flexWrap="wrap" gap={1}>
+                                    {insights.suggestedGenres && insights.suggestedGenres.length > 0 ? (
+                                        insights.suggestedGenres.map((genre, index) => (
+                                            <Chip
+                                                key={index}
+                                                label={genre}
+                                                color="secondary"
+                                                variant="outlined"
+                                                icon={<ExploreIcon/>}
+                                            />
+                                        ))
+                                    ) : (
+                                        <Typography variant="body2" color="text.secondary">
+                                            No suggestions available yet
+                                        </Typography>
+                                    )}
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                </Grid>
+            </Box>
+        );
+    }
 }    
         export default ReadingInsights;

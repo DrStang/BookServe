@@ -1,6 +1,8 @@
 const nodemailer = require('nodemailer');
 const Book = require('../models/Book');
 const path = require('path');
+const fs = require('fs').promises;
+const ebookConverter = require('../services/ebookConverter');
 
 // Create email transporter
 const createTransporter = () => {
@@ -18,7 +20,7 @@ const createTransporter = () => {
 exports.sendBookByEmail = async (req, res) => {
   try {
     const { id } = req.params;
-    const { email } = req.body;
+    const { email, format } = req.body;
 
     if (!email) {
       return res.status(400).json({ error: 'Email address required' });
@@ -27,6 +29,33 @@ exports.sendBookByEmail = async (req, res) => {
     const book = await Book.findById(id);
     if (!book) {
       return res.status(404).json({ error: 'Book not found' });
+    }
+
+    let filePath = path.resolve(book.file_path);
+    let attachmentFilename = `${book.title}.${book.format}`;
+
+    // Check if file exists
+    try {
+      await fs.access(filePath);
+    } catch (err) {
+      return res.status(404).json({ error: 'Book file not found' });
+    }
+
+    // Convert to EPUB if requested and book needs conversion
+    const requestedFormat = format?.toLowerCase();
+    if (requestedFormat === 'epub' && ebookConverter.needsConversion(filePath)) {
+      try {
+        console.log(`Converting ${book.format} to EPUB for email...`);
+        filePath = await ebookConverter.convertToEpub(filePath, book.id);
+        filePath = path.resolve(filePath);
+        attachmentFilename = `${book.title}.epub`;
+      } catch (conversionError) {
+        console.error('Conversion error:', conversionError);
+        return res.status(500).json({
+          error: 'Failed to convert book to EPUB',
+          message: conversionError.message
+        });
+      }
     }
 
     const transporter = createTransporter();
@@ -44,8 +73,8 @@ exports.sendBookByEmail = async (req, res) => {
       `,
       attachments: [
         {
-          filename: `${book.title}.${book.format}`,
-          path: path.resolve(book.file_path)
+          filename: attachmentFilename,
+          path: filePath
         }
       ]
     };
