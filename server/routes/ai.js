@@ -80,17 +80,29 @@ router.get('/status', async (req, res) => {
  */
 router.get('/recommendations', authMiddleware, async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 5;
+    const userId = req.user.id;
+    const limit = parseInt(req.query.limit) || 10;
 
     // Check cache first
     const cacheKey = `ai:recommendations:${req.user.id}:${limit}`;
     const cached = await cache.get(cacheKey);
     if (cached) {
       console.log(`[AI] Serving cached recommendations for user ${req.user.id}`);
-      return res.json(cached);
+      return res.json({
+        ...cached,
+        fromCache: true
+      });
     }
     console.log(`[AI] Cache miss - generating fresh recommendations for user ${req.user.id}`);
 
+        // Check if AI is available
+    const aiAvailable = await ollamaAI.isServiceAvailable();
+    if (!aiAvailable) {
+      return res.status(503).json({ 
+        error: 'AI service unavailable',
+        message: 'The AI recommendation service is currently offline. Please try again later.'
+      });
+    }
 
     // Get user's reading history from site
     const siteProgress = await ReadingProgress.getAllProgress(req.user.id);
@@ -109,6 +121,20 @@ router.get('/recommendations', authMiddleware, async (req, res) => {
       ...goodreadsReadBooks
     ]);
 
+    console.log(`[AI] User ${userId}: ${siteReadBooks.filter(Boolean).length} site books, ${goodreadsReadBooks.length} Goodreads books, ${allReadBooks.length} unique total`);
+
+    if (allReadBooks.length === 0) {
+      return res.json({
+        recommendations: [],
+        message: 'Start reading some books to get personalized recommendations!',
+        metadata: {
+          total_books_analyzed: 0,
+          site_books: 0,
+          goodreads_books: 0
+        }
+      });
+    }
+
 
     // Get all available books for recommendations
     const allBooks = await Book.findAll(1000, 0);
@@ -117,6 +143,17 @@ router.get('/recommendations', authMiddleware, async (req, res) => {
     const readBookIds = new Set(allReadBooks.map(b => b.id));
     const unreadBooks = allBooks.filter(b => !readBookIds.has(b.id));
 
+     if (unreadBooks.length === 0) {
+      return res.json({
+        recommendations: [],
+        message: 'You\'ve read all the books in the library! Add more books to get recommendations.',
+        metadata: {
+          total_books_analyzed: allReadBooks.length,
+          site_books: siteReadBooks.filter(Boolean).length,
+          goodreads_books: goodreadsReadBooks.length
+        }
+      });
+    }
 
     // Get AI recommendations
     const recommendations = await ollamaAI.getRecommendations(
@@ -124,9 +161,8 @@ router.get('/recommendations', authMiddleware, async (req, res) => {
       unreadBooks,
       limit
     );
-
-    // Enrich with full book details
-    const enriched = await Promise.all(
+// Enrich recommendations with full book details
+    const enrichedRecommendations = await Promise.all(
       recommendations.map(async (rec) => {
         const book = await Book.findById(rec.id);
         return {
@@ -137,19 +173,17 @@ router.get('/recommendations', authMiddleware, async (req, res) => {
       })
     );
 
-    // Create response with metadata at top level
     const result = {
-      recommendations: enriched,
+      recommendations: enrichedRecommendations.filter(r => r.book),
       metadata: {
         total_books_analyzed: allReadBooks.length,
         site_books: siteReadBooks.filter(Boolean).length,
         goodreads_books: goodreadsReadBooks.length,
         available_for_recommendation: unreadBooks.length,
-        generated_at: new Date().toISOString(),
-        cached: false
+        generated_at: new Date().toISOString()
       }
     };
-
+    
     // Cache for 1 hour
     await cache.set(cacheKey, result, 7 * 24 * 60 * 60);
 
@@ -173,11 +207,22 @@ router.get('/insights', authMiddleware, async (req, res) => {
     const cached = await cache.get(cacheKey);
     if (cached) {
       console.log(`[AI] Serving cached insights for user ${req.user.id}`);
-      return res.json(cached);
+      return res.json({
+        ...cached,
+        fromCache: true
+      });
     }
 
     console.log(`[AI] Cache miss - generating fresh insights for user ${req.user.id}`);
 
+        // Check if AI is available
+    const aiAvailable = await ollamaAI.isServiceAvailable();
+    if (!aiAvailable) {
+      return res.status(503).json({ 
+        error: 'AI service unavailable',
+        message: 'The AI insights service is currently offline. Please try again later.'
+      });
+    }
     // Get user's reading history from site
     const siteProgress = await ReadingProgress.getAllProgress(req.user.id);
     const siteReadBooks = await Promise.all(
@@ -193,6 +238,15 @@ router.get('/insights', authMiddleware, async (req, res) => {
       ...goodreadsReadBooks
     ]);
 
+    if (allReadBooks.length === 0) {
+      return res.json({
+        insights: null,
+        message: 'Start reading books to get personalized insights!',
+        metadata: {
+          total_books_analyzed: 0
+        }
+      });
+    }
             
     // Generate insights
     const insights = await ollamaAI.generateReadingInsights(allReadBooks);
@@ -204,8 +258,7 @@ router.get('/insights', authMiddleware, async (req, res) => {
         total_books_analyzed: allReadBooks.length,
         site_books: siteReadBooks.filter(Boolean).length,
         goodreads_books: goodreadsReadBooks.length,
-        generated_at: new Date().toISOString(),
-        cached: false
+        generated_at: new Date().toISOString()
       }
     };
 
@@ -302,20 +355,34 @@ router.post('/chat', authMiddleware, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+/**
+ * GET /api/ai/cache-status
+ * Get AI cache service status (admin only)
+ */
+router.get('/cache-status', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    // getStatus is now async
+    const status = await aiCacheService.getStatus();
+    res.json(status);
+  } catch (error) {
+    console.error('Error getting AI cache status:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 /**
-* POST /api/ai/trigger-update
-* Manually trigger AI cache update for current user
-*/
+ * POST /api/ai/trigger-update
+ * Trigger background AI cache update for current user
+ */
 router.post('/trigger-update', authMiddleware, async (req, res) => {
   try {
+    // Trigger async update (don't wait)
     aiCacheService.queueUserUpdate(req.user.id);
-
-    res.json({
+    
+    res.json({ 
       message: 'AI cache update queued',
-      userId: req.user.id,
-      queueStatus: aiCacheService.getStatus()
-  });
+      userId: req.user.id 
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -324,51 +391,29 @@ router.post('/trigger-update', authMiddleware, async (req, res) => {
 
 /**
  * POST /api/ai/invalidate-cache
- * Invalidate AI cache for current user (admin only)
+ * Invalidate AI cache (admin only)
  */
-router.post('/invalidate-cache', authMiddleware, async (req, res) => {
+router.post('/invalidate-cache', authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
     const { userId, pattern } = req.body;
-
-    if(userId) {
-      await cache.invalidatePattern(`ai:*:${userId}*`);
+    
+    if (userId) {
+      // Invalidate specific user's cache
+      await cache.del(`ai:recommendations:${userId}:5`);
+      await cache.del(`ai:recommendations:${userId}:10`);
+      await cache.del(`ai:recommendations:${userId}:20`);
+      await cache.del(`ai:insights:${userId}`);
+      await cache.del(`ai:last_update:${userId}`);
       res.json({ message: `AI cache invalidated for user ${userId}` });
     } else if (pattern) {
+      // Invalidate by pattern
       await cache.invalidatePattern(pattern);
       res.json({ message: `AI cache invalidated for pattern: ${pattern}` });
     } else {
+      // Invalidate all AI cache
       await cache.invalidatePattern('ai:*');
       res.json({ message: 'All AI cache invalidated' });
     }
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-/**
- * GET /api/ai/cache-status
- * Get AI cache service status (admin only)
- */
-router.get('/cache-status', authMiddleware, async (req, res) => {
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-
-    const status = aiCacheService.getStatus();
-    
-    // Get last update time for current user
-    const lastUpdate = await aiCacheService.getLastUpdateTime(req.user.id);
-    
-    res.json({
-      ...status,
-      currentUser: {
-        userId: req.user.id,
-        lastUpdate: lastUpdate ? new Date(lastUpdate).toISOString() : null
-      }
-    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
