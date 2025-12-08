@@ -158,9 +158,16 @@ class MetadataService {
         metadata_updated_at: new Date().toISOString(),
       };
     
-      // Only update ISBN if we don't have one
+      // Update ISBN-13 if we don't have one
       if (!book.isbn_13 && metadata.merged.isbn_13) {
         updateData.isbn_13 = metadata.merged.isbn_13;
+        console.log(`  Adding ISBN-13: ${metadata.merged.isbn_13}`);
+      }
+      
+      // Update ISBN-10 if we don't have one
+      if (!book.isbn && metadata.merged.isbn) {
+        updateData.isbn = metadata.merged.isbn;
+        console.log(`  Adding ISBN-10: ${metadata.merged.isbn}`);
       }
 
       // Update the book
