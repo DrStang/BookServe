@@ -7,7 +7,7 @@ const nytBestsellersService = require('../services/nytBestsellersService');
  * GET /api/nyt/status
  * Get NYT Bestsellers service status (admin only)
  */
-router.get('/status', authMiddleware, adminMiddleware, (req, res) => {
+router.get('/status', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const status = nytBestsellersService.getStatus();
     res.json(status);
