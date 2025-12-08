@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const ollamaAI = require('../services/ollamaAI');
 const Book = require('../models/Book');
 const ReadingProgress = require('../models/ReadingProgress');
