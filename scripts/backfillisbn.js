@@ -54,17 +54,17 @@ async function searchGoogleBooks(title, author) {
       const volumeInfo = item.volumeInfo;
       const identifiers = volumeInfo.industryIdentifiers || [];
       
-      const isbn13 = identifiers.find(id => id.type === 'ISBN_13')?.identifier;
+      const isbn_13 = identifiers.find(id => id.type === 'ISBN_13')?.identifier;
       const isbn10 = identifiers.find(id => id.type === 'ISBN_10')?.identifier;
       
-      if (isbn13 || isbn10) {
+      if (isbn_13 || isbn10) {
         // Verify title roughly matches
         const normalizedSearchTitle = normalizeText(title);
         const normalizedResultTitle = normalizeText(volumeInfo.title);
         
         if (titlesMatch(normalizedSearchTitle, normalizedResultTitle)) {
           return {
-            isbn13,
+            isbn_13,
             isbn10,
             googleTitle: volumeInfo.title,
             googleAuthors: volumeInfo.authors?.join(', ')
@@ -135,7 +135,7 @@ function getBooksWithoutISBN(limitCount) {
 /**
  * Update book with ISBN
  */
-function updateBookISBN(bookId, isbn, isbn13) {
+function updateBookISBN(bookId, isbn, isbn_13) {
   return new Promise((resolve, reject) => {
     const updates = [];
     const params = [];
@@ -144,9 +144,9 @@ function updateBookISBN(bookId, isbn, isbn13) {
       updates.push('isbn = ?');
       params.push(isbn);
     }
-    if (isbn13) {
-      updates.push('isbn13 = ?');
-      params.push(isbn13);
+    if (isbn_13) {
+      updates.push('isbn_13 = ?');
+      params.push(isbn_13);
     }
     
     if (updates.length === 0) {
@@ -197,11 +197,11 @@ async function main() {
       const result = await searchGoogleBooks(book.title, book.author);
       
       if (result) {
-        console.log(`  Found: ISBN-13: ${result.isbn13 || 'N/A'}, ISBN-10: ${result.isbn10 || 'N/A'}`);
+        console.log(`  Found: ISBN-13: ${result.isbn_13 || 'N/A'}, ISBN-10: ${result.isbn10 || 'N/A'}`);
         console.log(`  Google: "${result.googleTitle}" by ${result.googleAuthors || 'Unknown'}`);
         
         if (!isDryRun) {
-          await updateBookISBN(book.id, result.isbn10, result.isbn13);
+          await updateBookISBN(book.id, result.isbn10, result.isbn_13);
           console.log(`  ✓ Updated`);
         } else {
           console.log(`  [DRY RUN] Would update`);
