@@ -18,6 +18,7 @@ import AIRecommendationsPage from './components/AI/AIRecommendationsPage';
 import PrivateRoute from './components/Common/PrivateRoute';
 import NYTPanel from './components/Admin/NYTAdminPanel';
 import RequestsPage from './components/Requests/RequestsPage';
+import NYTBestsellersPage from './components/NYT/NYTBestsellersPage';
 
 const darkTheme = createTheme({
   palette: {
@@ -125,7 +126,15 @@ function App() {
                 <NYTPanel />
               </PrivateRoute>
             }
-          />    
+          />   
+          <Route
+            path="/bestsellers"
+            element={
+              <PrivateRoute isAuthenticated={isAuthenticated}>
+                <NYTBestsellersPage />
+              </PrivateRoute>
+            }
+          />
           <Route
             path="/author/:authorName"
             element={
