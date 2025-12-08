@@ -13,7 +13,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const axios = require('axios');
-const { db } = require('../database/init');
+const { db } = require('.server/database/init');
 
 const GOOGLE_BOOKS_API = 'https://www.googleapis.com/books/v1/volumes';
 const DELAY_BETWEEN_REQUESTS = 1000; // 1 second to avoid rate limiting
