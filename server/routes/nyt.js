@@ -9,7 +9,7 @@ const nytBestsellersService = require('../services/nytBestsellersService');
  */
 router.get('/status', authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    const status = nytBestsellersService.getStatus();
+    const status = await nytBestsellersService.getStatus();
     res.json(status);
   } catch (error) {
     res.status(500).json({ error: error.message });
