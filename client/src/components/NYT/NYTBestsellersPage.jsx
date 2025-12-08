@@ -94,7 +94,7 @@ const NYTBestsellersPage = () => {
   };
 
   const normalizeAuthor = (author) => {
-    if (!author) return '':
+    if (!author) return '';
     const normalized = normalizeText(author);
     if (author.includes(',')) {
       const parts = author.split(',').map(p => p.trim());
