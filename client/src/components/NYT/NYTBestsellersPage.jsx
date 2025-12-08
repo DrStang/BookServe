@@ -27,7 +27,7 @@ import {
   ArrowForward as ArrowIcon,
   LibraryAdd as RequestIcon,
 } from '@mui/icons-material';
-import { nytAPI, booksAPI, requestsAPI } from '../services/api';
+import { nytAPI, booksAPI, requestsAPI } from '../../services/api';
 import BookDetailModal from '../Books/BookDetailModal';
 import { isAdmin } from '../../utils/auth';
 
