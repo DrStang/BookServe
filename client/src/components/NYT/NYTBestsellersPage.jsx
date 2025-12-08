@@ -28,7 +28,6 @@ import {
 } from '@mui/icons-material';
 import { nytAPI, booksAPI, requestsAPI } from '../services/api';
 import BookDetailModal from '../components/Books/BookDetailModal';
-import NavBar from '../components/NavBar/NavBar';
 import { isAdmin } from '../utils/auth';
 
 // Default placeholder for books without covers
