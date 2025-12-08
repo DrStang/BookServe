@@ -403,9 +403,7 @@ const NYTBestsellersPage = () => {
 
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: '#141414' }}>
-      <NavBar />
-      
-      <Container maxWidth="xl" sx={{ py: 4 }}>
+            <Container maxWidth="xl" sx={{ py: 4 }}>
         {/* Header */}
         <Box sx={{ mb: 4 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
