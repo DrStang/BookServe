@@ -129,6 +129,9 @@ const MyRequests = () => {
           <IconButton edge="start" color="inherit" onClick={() => navigate('/')}>
             <BackIcon />
           </IconButton>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            {isAdmin && activeTab === 1 ? 'All Book Requests' : 'My Book Requests'}
+          </Typography>
           <Button 
             variant="contained" 
             onClick={() => navigate('/requests')}
@@ -136,9 +139,6 @@ const MyRequests = () => {
                 >
             Requests Panel
           </Button>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            {isAdmin && activeTab === 1 ? 'All Book Requests' : 'My Book Requests'}
-          </Typography>
           <IconButton color="inherit" onClick={loadRequests} disabled={loading}>
            {loading ? <CircularProgress size={24} color="inherit" /> : <RefreshIcon />}
           </IconButton>
