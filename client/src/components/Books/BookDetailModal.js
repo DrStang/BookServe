@@ -35,6 +35,12 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { booksAPI, metadataAPI, emailAPI } from '../../services/api';
 
+// Helper to check if book format needs conversion to EPUB
+const needsEpubConversion = (format) => {
+  const convertibleFormats = ['mobi', 'azw', 'azw3'];
+  return convertibleFormats.includes(format?.toLowerCase());
+};
+
 const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBookUpdated, isAdmin = false }) => {
   const navigate = useNavigate();
   const [similarBooks, setSimilarBooks] = useState([]);
@@ -188,13 +194,17 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
 
   const handleDownload = async () => {
     if (!currentBook) return;
-    
+
     try {
-      const response = await booksAPI.download(currentBook.id);
+      // Convert to EPUB if the book is in a convertible format (mobi, azw, azw3)
+      const format = needsEpubConversion(currentBook.format) ? 'epub' : null;
+      const downloadFormat = format || currentBook.format;
+
+      const response = await booksAPI.download(currentBook.id, format);
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `${currentBook.title}.${currentBook.format}`);
+      link.setAttribute('download', `${currentBook.title}.${downloadFormat}`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -222,7 +232,9 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
 
   const handleEmailSubmit = async () => {
     try {
-      await emailAPI.sendBook(currentBook.id, email);
+      // Convert to EPUB if the book is in a convertible format (mobi, azw, azw3)
+      const format = needsEpubConversion(currentBook.format) ? 'epub' : null;
+      await emailAPI.sendBook(currentBook.id, email, format);
       setSnackbar({ open: true, message: 'Book sent to email', severity: 'success' });
       setEmailDialogOpen(false);
       setEmail('');

@@ -33,6 +33,12 @@ import { booksAPI, emailAPI } from '../../services/api';
 import BookDetails from '../BookDetails/BookDetails';
 import BookDetailModal from '../Books/BookDetailModal';
 
+// Helper to check if book format needs conversion to EPUB
+const needsEpubConversion = (format) => {
+  const convertibleFormats = ['mobi', 'azw', 'azw3'];
+  return convertibleFormats.includes(format?.toLowerCase());
+};
+
 const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
@@ -61,11 +67,15 @@ const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
 
   const handleDownload = async () => {
     try {
-      const response = await booksAPI.download(book.id);
+      // Convert to EPUB if the book is in a convertible format (mobi, azw, azw3)
+      const format = needsEpubConversion(book.format) ? 'epub' : null;
+      const downloadFormat = format || book.format;
+
+      const response = await booksAPI.download(book.id, format);
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `${book.title}.${book.format}`);
+      link.setAttribute('download', `${book.title}.${downloadFormat}`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -78,7 +88,9 @@ const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
 
   const handleEmailSubmit = async () => {
     try {
-      await emailAPI.sendBook(book.id, email);
+      // Convert to EPUB if the book is in a convertible format (mobi, azw, azw3)
+      const format = needsEpubConversion(book.format) ? 'epub' : null;
+      await emailAPI.sendBook(book.id, email, format);
       setSnackbar({ open: true, message: 'Book sent to email', severity: 'success' });
       setEmailDialogOpen(false);
       setEmail('');
