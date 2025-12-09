@@ -44,7 +44,10 @@ export const booksAPI = {
   },
   getById: (id) => api.get(`/books/${id}`),
   search: (query) => api.get('/books/search', { params: { q: query } }),
-  download: (id) => api.get(`/books/${id}/download`, { responseType: 'blob' }),
+  download: (id, format = null) => {
+    const params = format ? { format } : {};
+    return api.get(`/books/${id}/download`, { responseType: 'blob', params });
+  },
   getStreamUrl: (id) => {
     const token = localStorage.getItem('token');
     return `${API_BASE_URL}/books/${id}/stream${token ? `?token=${token}` : ''}`;
@@ -87,7 +90,7 @@ export const requestsAPI = {
 
 // Email
 export const emailAPI = {
-  sendBook: (id, email) => api.post(`/email/${id}/send`, { email }),
+  sendBook: (id, email, format = null) => api.post(`/email/${id}/send`, { email, format }),
 };
 
 // Metadata
