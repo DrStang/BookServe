@@ -339,7 +339,7 @@ exports.getCoverImage = async (req, res) => {
   try {
     res.set({
       'Cross-Origin-Resource-Policy': 'cross-origin',
-      'Access-Control-Allow-Origin': 'http://192.168.2.136:3000;,
+      'Access-Control-Allow-Origin': 'http://192.168.2.136:3000',
     });
     
     const book = await Book.findById(req.params.id);
