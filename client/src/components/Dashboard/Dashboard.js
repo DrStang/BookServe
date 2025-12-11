@@ -227,9 +227,9 @@ const Dashboard = ({ onLogout }) => {
       const response = await progressAPI.getAllProgress();
       // Create a map of book_id to progress for quick lookup
       const progressMap = {};
-      console.log('API Response:', response.status, data);
-      if(!response || !Array.isArray(data)) {
-        console.error('Invalid data structure:', data);
+      console.log('API Response:', response.status, response);
+      if(!response || !Array.isArray(response)) {
+        console.error('Invalid data structure:', response;
         return
       }  
       response.data.progress.forEach(p => {
