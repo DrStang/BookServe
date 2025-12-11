@@ -223,23 +223,28 @@ const Dashboard = ({ onLogout }) => {
   };
 
   const loadReadingProgress = async () => {
-    try {
-      const response = await progressAPI.getAllProgress();
-      // Create a map of book_id to progress for quick lookup
-      const progressMap = {};
-      console.log('API Response:', response.status, response);
-      if(!response || !Array.isArray(response)) {
-        console.error('Invalid data structure:', response)
-        return
-      }  
-      response.data.progress.forEach(p => {
-        progressMap[p.book_id] = p;
-      });
-      setReadingProgress(progressMap);
-    } catch (error) {
-      console.error('Error loading reading progress:', error);
+  try {
+    const response = await progressAPI.getAllProgress();
+    console.log('Full response object:', response);
+    console.log('Response.data:', response.data);
+    console.log('Is response.data.progress an array?', Array.isArray(response.data?.progress));
+    
+    if (!response?.data?.progress || !Array.isArray(response.data.progress)) {
+      console.error('Invalid data structure:', response.data);
+      setReadingProgress({}); // Set empty object so it doesn't crash
+      return;
     }
-  };
+    
+    const progressMap = {};
+    response.data.progress.forEach(p => {
+      progressMap[p.book_id] = p;
+    });
+    setReadingProgress(progressMap);
+  } catch (error) {
+    console.error('Error loading reading progress:', error);
+    setReadingProgress({}); // Set empty object on error
+  }
+};
 
   const loadContinueReading = async () => {
     try {
