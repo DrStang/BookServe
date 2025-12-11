@@ -229,7 +229,7 @@ const Dashboard = ({ onLogout }) => {
       const progressMap = {};
       console.log('API Response:', response.status, response);
       if(!response || !Array.isArray(response)) {
-        console.error('Invalid data structure:', response;
+        console.error('Invalid data structure:', response)
         return
       }  
       response.data.progress.forEach(p => {
