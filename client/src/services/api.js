@@ -56,10 +56,9 @@ export const booksAPI = {
     const token = localStorage.getItem('token');
     return `${API_BASE_URL}/books/${id}/stream${token ? `?token=${token}` : ''}`;
   },
-  getCoverUrl: (id) => {
-    const token = localStorage.getItem('token');
-    return `${API_BASE_URL}/books/${id}/cover${token ? `?token=${token}` : ''}`;
-  },
+getCoverUrl: (id) => {
+  return `${API_BASE_URL}/books/${id}/cover`;  // No token needed
+}
   upload: (formData) =>
     api.post('/books', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
