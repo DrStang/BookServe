@@ -58,7 +58,7 @@ export const booksAPI = {
   },
 getCoverUrl: (id) => {
   return `${API_BASE_URL}/books/${id}/cover`;  // No token needed
-}
+},
   upload: (formData) =>
     api.post('/books', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
