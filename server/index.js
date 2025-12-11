@@ -65,15 +65,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Serve static files from React app in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/build')));
-
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/build/index.html'));
-  });
-}
-
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err);
@@ -81,6 +72,19 @@ app.use((err, req, res, next) => {
     error: err.message || 'Internal server error'
   });
 });
+
+// Serve static files from React app in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../client/build')));
+
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/graphql'))
+      return next();
+  }
+    res.sendFile(path.join(__dirname, '../client/build/index.html'));
+  });
+}
+
 
 // 404 handler
 app.use((req, res) => {
