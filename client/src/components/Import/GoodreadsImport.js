@@ -109,7 +109,7 @@ const GoodreadsImport = ({ open, onClose, onImportComplete }) => {
               Export your Goodreads library as a CSV file:
             </Typography>
             <Typography variant="body2" component="ol" sx={{ pl: 2 }}>
-              <li><a href="https://www.goodreads.com/review/import" style="color: white" target="_blank" rel="noopener noreferrer">Go to Goodreads → My Books → Import/Export</a></li>
+              <li><a href="https://www.goodreads.com/review/import" style={{ color: "white" }} target="_blank" rel="noopener noreferrer">Go to Goodreads → My Books → Import/Export</a></li>
               <li>Click "Export Library" to generate a CSV file</li>
               <li>Click the produced link to download your file</li>
               <li>Upload the CSV file below</li>
