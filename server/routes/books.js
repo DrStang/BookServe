@@ -60,7 +60,7 @@ router.get('/:id/download', authMiddleware, bookController.downloadBook);
 router.get('/:id/stream', authMiddlewareFlexible, bookController.streamBook);
 
 // Use flexible auth for cover images (supports query param tokens for <img> tags)
-router.get('/:id/cover', authMiddlewareFlexible, bookController.getCoverImage);
+router.get('/:id/cover', bookController.getCoverImage);
 
 // Get similar books
 router.get('/:id/similar', authMiddleware, bookController.getSimilarBooks);
