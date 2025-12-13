@@ -169,6 +169,9 @@ export const adminAPI = {
   // NYT
   getNYTStatus: () => api.get('/nyt/status'),
   triggerNYTCheck: () => api.post('/nyt/trigger'),
+  getAllUsers: () => api.get('/admin/users'),
+  deleteUser: (userId) => api.delete(`/admin/users/${userId}`),
+  updateUserRole: (userId, role) => api.patch(`/admin/users/${userId}/role`, { role }),
 };
 
 export default api;
