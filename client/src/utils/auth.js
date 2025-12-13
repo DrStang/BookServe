@@ -52,6 +52,22 @@ export const getCurrentUser = () => {
 };
 
 /**
+ * Get the current user's ID
+ */
+export const getCurrentUserId = () => {
+  const user = getCurrentUser();
+  return user?.id || null;
+};
+
+/**
+ * Get the current user's username
+ */
+export const getCurrentUsername = () => {
+  const user = getCurrentUser();
+  return user?.username || null;
+};
+
+/**
  * Check if current user is an admin
  */
 export const isAdmin = () => {
@@ -90,6 +106,8 @@ export default {
   getToken,
   isAuthenticated,
   getCurrentUser,
+  getCurrentUserId,
+  getCurrentUsername,
   isAdmin,
   logout,
 };
