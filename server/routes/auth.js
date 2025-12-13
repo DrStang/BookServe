@@ -21,4 +21,7 @@ router.post('/login', authController.login);
 // Get profile (protected)
 router.get('/profile', authMiddleware, authController.getProfile);
 
+// Change password (protected)
+router.post('/change-password', authMiddleware, authController.changePassword);
+
 module.exports = router;
