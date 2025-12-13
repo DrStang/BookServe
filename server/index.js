@@ -31,6 +31,7 @@ const metadataRoutes = require('./routes/metadata');
 const progressRoutes = require('./routes/progress');
 const goodreadsRoutes = require('./routes/goodreads');
 const aiRoutes = require('./routes/ai');
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -67,6 +68,7 @@ app.use('/api/goodreads', goodreadsRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/scan', scanRoutes);
 app.use('/api/nyt', nytRoutes);
+app.use('/api/admin', adminRoutes);
 
 
 // Health check
