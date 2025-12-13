@@ -97,7 +97,6 @@ exports.changePassword = async (req, res) => {
     const { currentPassword, newPassword } = req.body;
     const userId = req.user.id;
 
-    // Validate input
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: 'Current password and new password are required' });
     }
@@ -106,19 +105,17 @@ exports.changePassword = async (req, res) => {
       return res.status(400).json({ error: 'New password must be at least 6 characters' });
     }
 
-    // Get user with password hash
-    const user = await User.findById(userId);
+    // Get user WITH password hash
+    const user = await User.findByIdWithPassword(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Verify current password
     const isPasswordValid = await User.verifyPassword(currentPassword, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({ error: 'Current password is incorrect' });
     }
 
-    // Update password
     await User.updatePassword(userId, newPassword);
 
     res.json({ message: 'Password changed successfully' });
