@@ -25,7 +25,10 @@ exports.register = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { username, email, password } = req.body;
+    const { username, email, password, inviteCode } = req.body;
+
+    if (!inviteCode || inviteCode !== process.env.INVITE_CODE) {
+      return res.status(403).json({ error: 'Valid invite code required to register' }
 
     // Check if user already exists
     const existingUser = await User.findByUsername(username);
