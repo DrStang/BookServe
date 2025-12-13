@@ -38,6 +38,8 @@ export const authAPI = {
   login: (username, password) =>
     api.post('/auth/login', { username, password }),
   getProfile: () => api.get('/auth/profile'),
+  changePassword: (currentPassword, newPassword) =>
+    api.post('/auth/change-password', { currentPassword, newPassword }),
 };
 
 // Books
