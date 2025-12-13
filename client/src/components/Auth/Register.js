@@ -17,6 +17,7 @@ const Register = ({ onRegister }) => {
     email: '',
     password: '',
     confirmPassword: '',
+    inviteCode: '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,13 +38,19 @@ const Register = ({ onRegister }) => {
       return;
     }
 
+    if (!formData.inviteCode.trim()) {
+      setError('Invite code is required');
+      return;
+    }  
+
     setLoading(true);
 
     try {
       const response = await authAPI.register(
         formData.username,
         formData.email,
-        formData.password
+        formData.password,
+        formData.inviteCode
       );
       onRegister(response.data.token);
     } catch (err) {
@@ -78,6 +85,22 @@ const Register = ({ onRegister }) => {
           )}
 
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              label="Invite Code"
+              name="inviteCode"
+              value={formData.inviteCode}
+              onChange={handleChange}
+              margin="normal"
+              required
+              autoFocus
+              helperText="Required - contact the admin for an invite code"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: '#e50914' },
+                },
+              }}
+            />    
             <TextField
               fullWidth
               label="Username"
