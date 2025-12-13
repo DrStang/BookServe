@@ -63,6 +63,28 @@ class User {
       );
     });
   }
+  static async findByIdWithPassword(id) {
+  return new Promise((resolve, reject) => {
+    db.get('SELECT * FROM users WHERE id = ?', [id], (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
+}
+
+static async updatePassword(userId, newPassword) {
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  return new Promise((resolve, reject) => {
+    db.run(
+      'UPDATE users SET password = ? WHERE id = ?',
+      [hashedPassword, userId],
+      (err) => {
+        if (err) reject(err);
+        else resolve();
+      }
+    );
+  });
+}
 
   static async getAll() {
     return new Promise((resolve, reject) => {
