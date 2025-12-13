@@ -31,7 +31,7 @@ const metadataRoutes = require('./routes/metadata');
 const progressRoutes = require('./routes/progress');
 const goodreadsRoutes = require('./routes/goodreads');
 const aiRoutes = require('./routes/ai');
-const adminRoutes = require('./routes/adminRoutes');
+const adminRoutes = require('./routes/AdminRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
