@@ -42,6 +42,7 @@ import { adminAPI, nytAPI } from '../../services/api';
 import { isAdmin } from '../../utils/auth';
 import BulkEditModal from './BulkEditModal';
 import SearchFailuresPanel from './SearchFailuresPanel';
+import UserManagementPanel from './UserManagementPanel';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -131,7 +132,6 @@ const AdminDashboard = () => {
       </Box>
     );
   }
-  <SearchFailuresPanel defaultExpanded={false} />
   
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: '#0f0f0f' }}>
@@ -214,6 +214,14 @@ const AdminDashboard = () => {
                 </Typography>
               </CardContent>
             </Card>
+          </Grid>
+
+          {/* User Management Section */}
+          <Grid item xs={12}>
+            <Typography variant="h5" gutterBottom sx={{ color: '#fff', mt: 2, mb: 2 }}>
+              User Management
+            </Typography>
+            <UserManagementPanel defaultExpanded={true} />
           </Grid>
 
           {/* Quick Actions */}
