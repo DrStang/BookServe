@@ -41,6 +41,8 @@ app.use(compression());
 app.use(cors({
   origin: [
     'http://localhost:3000',
+    'http://localhost',
+    'http://192.168.2.136',
     'http://192.168.2.136:3000',
     'http://127.0.0.1:3000'
   ],
