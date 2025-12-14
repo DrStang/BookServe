@@ -27,6 +27,10 @@ exports.register = async (req, res) => {
 
     const { username, email, password, inviteCode } = req.body;
 
+    console.log('Received inviteCode:', inviteCode);
+    console.log('Expected INVITE_CODE:', process.env.INVITE_CODE);
+    console.log('Match:', inviteCode === process.env.INVITE_CODE);
+    
     if (!inviteCode || inviteCode !== process.env.INVITE_CODE) {
       return res.status(403).json({ error: 'Valid invite code required to register' });
     }
