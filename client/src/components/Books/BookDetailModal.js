@@ -246,7 +246,7 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
   if (!currentBook) return null;
 
   const progress = readingProgress?.[currentBook.id];
-  const coverUrl = booksAPI.getCoverUrl(currentBook.id);
+  const coverUrl = currentBook.coverUrl || booksAPI.getCoverUrl(currentBook.id);
   const categories = currentBook.categories ? currentBook.categories.split(',').map(c => c.trim()) : [];
 
   return (
