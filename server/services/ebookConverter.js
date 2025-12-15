@@ -148,7 +148,7 @@ class EbookConverter {
 
   if (forEmail) {
     const sizeMB = await this.getFileSizeMB(outputPath);
-    console.log(`EPUB size: ${sizeMB.toFixed(2)MB`);
+    console.log(`EPUB size: ${sizeMB.toFixed(2)}MB`);
 
     if (sizeMB > this.maxEmailSizeMB) {
       console.log(`File exceeds ${this.maxEmailSizeMB}MB, attempting compression...`);
