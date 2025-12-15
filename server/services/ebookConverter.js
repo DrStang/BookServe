@@ -8,6 +8,7 @@ const execPromise = util.promisify(exec);
 class EbookConverter {
   constructor() {
     this.convertedDir = process.env.CONVERTED_BOOKS_PATH || './data/converted';
+    this.maxEmailSizeMB = 20;
     this.ensureConvertedDir();
   }
 
@@ -31,13 +32,68 @@ class EbookConverter {
     }
   }
 
+    /**
+   * Compress an EPUB file by optimizing images
+   * @param {string} epubPath - Path to the EPUB file
+   * @returns {Promise<string>} - Path to compressed EPUB
+   */
+
+  async compressEpub(epubPath) {
+    const compressedPath = epubPath.replace('.epub', '_compressed.epub');
+
+    try {
+      const command = `ebook-polish --compress-images --jpeg-quality=65 "${epubPath}" "${compressedPath}"`;
+
+      console.log('Compressing EPUB images...');
+      await execPromise(command, {
+        maxBuffer: 10 * 1024 * 1024
+      });
+
+      const originalStats = await fs.stat(epubPath);
+      const compressedStats = await fs.stat(compressedPath);
+
+      const originalMB = originalStats.size / (1024 * 1024);
+      const compressedMB = compressedStats.size / (1024 * 1024);
+
+      console.log(`Compression: ${originalMB.toFixed(2)}MB → ${compressedMB.toFixed(2)}MB`);
+
+      if (compressedMB >= originalMB * 0.95) {
+        await fs.unlink(compressedPath);
+        return epubPath;
+      }
+      await fs.unlink(epubPath);
+      await fs.rename(compressedPath, epubPath);
+
+      return epubPath;
+    } catch (error) {
+      console.warn('EPUB compression failed, using original:', error.message);
+
+      try {
+        await fs.unlink(compressedPath);
+      } catch (e) {}
+      return epubPath:
+    }
+  }
+  /**
+   * Get file size in MB
+   * @param {string} filePath - Path to file
+   * @returns {Promise<number>} - File size in MB
+   */
+  async getFileSizeMB(filePath) {
+    const stats = await fs.stat(filePath);
+    return stats.size / (1024 * 1024);
+  }
+
+
+
   /**
    * Convert MOBI/AZW to EPUB format
    * @param {string} inputPath - Path to the input file
    * @param {string} bookId - Book ID for naming
    * @returns {Promise<string>} - Path to converted EPUB file
    */
-  async convertToEpub(inputPath, bookId) {
+  async convertToEpub(inputPath, bookId, options = {}) {
+    const { forEmail = false } = options;
     const calibreInstalled = await this.isCalibreInstalled();
 
     if (!calibreInstalled) {
@@ -55,13 +111,17 @@ class EbookConverter {
     } catch (error) {
       // File doesn't exist, proceed with conversion
     }
-
-    console.log(`Converting ${ext} to EPUB for book ${bookId}...`);
-
-    try {
+    if (needsCoversion) {
+      console.log(`Converting ${ext} to EPUB for book ${bookId}...`);
+    
+      try {
       // Build ebook-convert command
       const command = `ebook-convert "${inputPath}" "${outputPath}" --enable-heuristics`;
 
+      if (forEmail) {
+        command += ' --compress-news-images --compress-news-images-max-size=800';
+      }
+        
       const { stdout, stderr } = await execPromise(command, {
         maxBuffer: 10 * 1024 * 1024 // 10MB buffer
       });
@@ -85,6 +145,24 @@ class EbookConverter {
       throw new Error(`Failed to convert ${ext} to EPUB: ${error.message}`);
     }
   }
+
+  if (forEmail) {
+    const sizeMB = await this.getFileSizeMB(outputPath);
+    console.log(`EPUB size: ${sizeMB.toFixed(2)MB`);
+
+    if (sizeMB > this.maxEmailSizeMB) {
+      console.log(`File exceeds ${this.maxEmailSizeMB}MB, attempting compression...`);
+      await this.compressEpub(outputPath);
+
+      const finalSizeMB = await this.getFileSizeMB(outputPath);
+      if (finalSizeMB > this.maxEmailSizeMB) {
+        throw new Error(`File too large for email (${finalSizeMB.toFixed(1)}MB). Gmail limit is ~${this.maxEmailSizeMB}MB.`);
+      }
+    }
+  }
+  return outputPath;
+}    
+
 
   /**
    * Convert PDF to text for indexing/search
