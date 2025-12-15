@@ -71,7 +71,7 @@ class EbookConverter {
       try {
         await fs.unlink(compressedPath);
       } catch (e) {}
-      return epubPath:
+      return epubPath;
     }
   }
   /**
