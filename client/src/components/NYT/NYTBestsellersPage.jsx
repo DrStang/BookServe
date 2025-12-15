@@ -252,7 +252,7 @@ const NYTBestsellersPage = () => {
         title: nytBook.title,
         author: nytBook.author,
         description: nytBook.description,
-        cover_image: nytBook.book_image,
+        coverUrl: nytBook.book_image,
         isbn13: nytBook.primary_isbn13,
         isbn: nytBook.primary_isbn10,
         publisher: nytBook.publisher,
