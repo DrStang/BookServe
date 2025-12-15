@@ -46,7 +46,7 @@ exports.sendBookByEmail = async (req, res) => {
     if (requestedFormat === 'epub' && ebookConverter.needsConversion(filePath)) {
       try {
         console.log(`Converting ${book.format} to EPUB for email...`);
-        filePath = await ebookConverter.convertToEpub(filePath, book.id);
+        filePath = await ebookConverter.convertToEpub(filePath, book.id, { forEmail: true });
         filePath = path.resolve(filePath);
         attachmentFilename = `${book.title}.epub`;
       } catch (conversionError) {
