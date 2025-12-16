@@ -37,17 +37,24 @@ async function getBookDetails(bookUrl) {
       const id = $(element).find('input[name="id"]').attr('value');
       const filename = $(element).find('input[name="filename"]').attr('value');
 
-      if (id && filename) {
-      downloadUrl = `https://oceanofpdf.com/Fetching_Resource.php?id=${id}&filename=${encodeURIComponent(filename)}`;
+       if (id && filename) {
+        const downloadUrl = `https://oceanofpdf.com/Fetching_Resource.php?id=${id}&filename=${encodeURIComponent(filename)}`;
+
+        if (filename.endsWith('.epub')) {
+          epubDownloadUrl = downloadUrl;
+        } else if (filename.endsWith('.pdf')) {
+          pdfDownloadUrl = downloadUrl;
+        }
       }
     });
 
-    return downloadUrl;
+    // Prefer EPUB over PDF
+    return epubDownloadUrl || pdfDownloadUrl;
   } catch (error) {
     console.error('Error fetching book details:', error.message);
     return null;
   }
-}  
+}
 
 async function download(url, filePath) {
   try {
