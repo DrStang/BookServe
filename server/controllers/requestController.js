@@ -2,7 +2,7 @@ const BookRequest = require('../models/BookRequest');
 const axios = require('axios');
 const xml2js = require('xml2js');
 const FormData = require('form-data');
-const { searchOceanOfPDF, download } = require('./oceanofpdf');
+const { searchOceanOfPDF, getBookDetails, download } = require('./oceanofpdf');
 
 // ============================================================================
 // SEARCH HELPER FUNCTIONS
@@ -997,17 +997,28 @@ async function handleOceanFallback(request) {
   }
 
   // Get the first result (assuming it's the best match)
-  const url = results[0];
-  const filePath = `downloads/${title.replace(/\s+/g, '_')}_${author.replace(/\s+/g, '_')}.pdf`;
+  for (const bookUrl of searchResults){
+    const downloadUrl = await getBookDetails(bookUrl);
+    if (downloadUrl) {
+      const filePath = `downloads/${title.replace(/\s+/g, '_')}_${author.replace(/\s+/g, '_')}.epub`;
 
   try {
-    await download(url, filePath);
+    await download(downloadUrl, filePath);
     console.log(`Successfully downloaded  for request ${requestId} from OceanOfPDF.`);
     updateRequestStatus(requestId, 'completed', { file_path: filePath });
   } catch (error) {
     console.error('Error downloading PDF from OceanOfPDF:', error.message);
     handleGeneralFailure(requestId, `Failed to download from OceanOfPDF: ${error.message}`);
+    continue;
+   }
+  }else {
+    console.warn(`No valid download link found for book at URL: ${bookUrl}`);
   }
+}
+  
+  // If no valid download link is found after all results
+  console.log(`No valid download links found on OceanOfPDF for request ${requestId}. Marking as failed.`);
+  handleNoResultsFound(requestId);
 }
 
 async function updateRequestStatus(requestId, status, data = {}) {
