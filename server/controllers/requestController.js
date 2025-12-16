@@ -3,6 +3,7 @@ const axios = require('axios');
 const xml2js = require('xml2js');
 const FormData = require('form-data');
 const { searchOceanOfPDF, getBookDetails, download } = require('./oceanofpdf');
+const path = require('path');
 
 // ============================================================================
 // SEARCH HELPER FUNCTIONS
@@ -986,11 +987,12 @@ async function processBookRequest(requestId) {
 //}
 async function handleOceanFallback(request) {
   const { title, author, requestId } = request;
+  const downloadPath = process.env.BOOKS_STORAGE_PATH; 
 
   // Search OceanOfPDF
-  const results = await searchOceanOfPDF(title, author);
+  const searchResults = await searchOceanOfPDF(title, author);
 
-  if (results.length === 0) {
+  if (searchResults.length === 0) {
     console.log(`No results found on OceanOfPDF for request ${requestId}. Marking as failed.`);
     handleNoResultsFound(requestId);
     return;
@@ -1000,7 +1002,8 @@ async function handleOceanFallback(request) {
   for (const bookUrl of searchResults){
     const downloadUrl = await getBookDetails(bookUrl);
     if (downloadUrl) {
-      const filePath = `downloads/${title.replace(/\s+/g, '_')}_${author.replace(/\s+/g, '_')}.epub`;
+      const fileName = path.basename(new URL(downloadURL).searchParams.get('filename'));
+      constfilePath = path.join(downloadPath, fileName.replace(/\s+/g, '_'));
 
   try {
     await download(downloadUrl, filePath);
