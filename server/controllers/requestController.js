@@ -2,6 +2,7 @@ const BookRequest = require('../models/BookRequest');
 const axios = require('axios');
 const xml2js = require('xml2js');
 const FormData = require('form-data');
+const { searchOceanOfPDF, download } = require('./oceanofpdf');
 
 // ============================================================================
 // SEARCH HELPER FUNCTIONS
@@ -928,21 +929,23 @@ async function processBookRequest(requestId) {
     if (!request) return;
 
     // Update status to searching
-    await BookRequest.updateStatus(requestId, 'searching');
+    await updateRequestStatus (requestId, 'searching');
 
     // Search NZBHydra with all strategies
     const nzbResults = await searchNZBHydra(request.title, request.author, request.isbn, requestId);
 
     if (!nzbResults || nzbResults.length === 0) {
-      await BookRequest.updateStatus(requestId, 'failed', {
-        error_message: 'No books found for download. Will retry.'
-      });
-      // Schedule retry
-      const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
-      await BookRequest.scheduleRetry(requestId, retryIntervalDays);
-      console.log(`Scheduled retry for request ${requestId} in ${retryIntervalDays} days`);
+     console.log(`No results found on NZBHydra for request ${requestId}. Attempting OceanOfPDF...`);
+      await handleOceanFallback(request);
       return;
     }
+      
+      // Schedule retry
+      //const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
+      //await BookRequest.scheduleRetry(requestId, retryIntervalDays);
+      //console.log(`Scheduled retry for request ${requestId} in ${retryIntervalDays} days`);
+      //return;
+    //}
 
     // Get the best result (first one, already sorted by score)
     const bestResult = nzbResults[0];
@@ -952,31 +955,85 @@ async function processBookRequest(requestId) {
     const sabnzbdId = await sendToSABnzbd(bestResult);
 
     if (!sabnzbdId) {
-      await BookRequest.updateStatus(requestId, 'failed', {
-        error_message: 'Failed to add to SABnzbd'
-      });
-      // Schedule retry
-      const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
-      await BookRequest.scheduleRetry(requestId, retryIntervalDays);
-      console.log(`Scheduled retry for request ${requestId} in ${retryIntervalDays} days`);
+      handleSabnzbdFailure(requestId)
       return;
-    }
+      }
+      // Schedule retry
+      //const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
+      //await BookRequest.scheduleRetry(requestId, retryIntervalDays);
+      //console.log(`Scheduled retry for request ${requestId} in ${retryIntervalDays} days`);
+      //return;
+    //}
+    
+
+    
 
     // Update request with SABnzbd ID
-    await BookRequest.updateStatus(requestId, 'downloading', {
+      updateRequestStatus(requestId, 'downloading', {
       sabnzbd_id: sabnzbdId
     });
 
   } catch (error) {
     console.error('Error processing book request:', error);
-    await BookRequest.updateStatus(requestId, 'failed', {
-      error_message: error.message
-    });
+    handleGeneralFailure(requestId, error.message);
+    }
+}
     // Schedule retry
-    const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
-    await BookRequest.scheduleRetry(requestId, retryIntervalDays);
-    console.log(`Scheduled retry for request ${requestId} in ${retryIntervalDays} days`);
+    //const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
+    //await BookRequest.scheduleRetry(requestId, retryIntervalDays);
+    //console.log(`Scheduled retry for request ${requestId} in ${retryIntervalDays} days`);
+  //}
+//}
+async function handleOceanFallback(request) {
+  const { title, author, requestId } = request;
+
+  // Search OceanOfPDF
+  const results = await searchOceanOfPDF(title, author);
+
+  if (results.length === 0) {
+    console.log(`No results found on OceanOfPDF for request ${requestId}. Marking as failed.`);
+    handleNoResultsFound(requestId);
+    return;
   }
+
+  // Get the first result (assuming it's the best match)
+  const url = results[0];
+  const filePath = `downloads/${title.replace(/\s+/g, '_')}_${author.replace(/\s+/g, '_')}.pdf`;
+
+  try {
+    await download(url, filePath);
+    console.log(`Successfully downloaded  for request ${requestId} from OceanOfPDF.`);
+    updateRequestStatus(requestId, 'completed', { file_path: filePath });
+  } catch (error) {
+    console.error('Error downloading PDF from OceanOfPDF:', error.message);
+    handleGeneralFailure(requestId, `Failed to download from OceanOfPDF: ${error.message}`);
+  }
+}
+
+async function updateRequestStatus(requestId, status, data = {}) {
+  await BookRequest.updateStatus(requestId, status, data);
+}
+
+function scheduleRetry(requestId, days) {
+  const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || days;
+  return BookRequest.scheduleRetry(requestId, retryIntervalDays);
+}
+
+async function handleNoResultsFound(requestId) {
+  updateRequestStatus(requestId, 'failed', { error_message: 'No books found for download. Will retry.' });
+  scheduleRetry(requestId, 3);
+  console.log(`Scheduled retry for request ${requestId} in 3 days`);
+}
+
+async function handleSabnzbdFailure(requestId) {
+  updateRequestStatus(requestId, 'failed', { error_message: 'Failed to add to SABnzbd' });
+  scheduleRetry(requestId, 3);
+  console.log(`Scheduled retry for request ${requestId} in 3 days`);
+}
+
+async function handleGeneralFailure(requestId, errorMessage) {
+  updateRequestStatus(requestId, 'failed', { error_message: errorMessage });
+  scheduleRetry(requestId, 3);
 }
 
 // Export for use in other modules
