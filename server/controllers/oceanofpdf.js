@@ -17,9 +17,15 @@ async function searchOceanOfPDF(title, author) {
     const query = `${title} ${author}`.replace(/\s+/g, '+');
     const url = `/?s=${query}`;
 
-    const { data, headers } await instance.get(url);
+    const response = await instance.get(url);
+
+    if (!response || !response.data) {
+        console.error('No data received from OceanOfPDF:', response);
+      return [];
+    }
+      
     // Fetch the search results page
-    const $ = cheerio.load(data);
+    const $ = cheerio.load(response.data);
 
     // Parse and extract relevant links
     const results = [];
@@ -31,15 +37,20 @@ async function searchOceanOfPDF(title, author) {
     });
     return results;
   } catch (error) {
-    console.error('Error searching OceanOfPDF:', error.message);
-    return [];
+    console.error('Error searching OceanOfPDF:', error.message, error.response ? error.response.status : '');    return [];
   }
 }
 async function getBookDetails(bookUrl) {
   try {
-    const { data, headers } = await instance.get(bookUrl);
+    const response = await instance.get(bookUrl);
 
-    const $ = cheerio.load(data);
+    // Check if the response contains data
+    if (!response || !response.data) {
+      console.error('No data received from OceanOfPDF for book details:', response);
+      return null;
+    }
+
+    const $ = cheerio.load(response.data);
 
     let pdfDownloadUrl = null;
     let epubDownloadUrl = null;
