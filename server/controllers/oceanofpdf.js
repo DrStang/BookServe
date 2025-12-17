@@ -1,35 +1,24 @@
 const axios = require('axios');
+const puppeteer = require('puppeteer');
 const cheerio = require('cheerio');
 const fs = require('fs');
 
-const instance = axios.create({
-  baseURL:'https://oceanofpdf.com',
-  headers: {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Referer': 'https://oceanofpdf.com/',
-    'Origin': 'https://oceanofpdf.com/',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Connection': 'keep-alive'
-  },
-  withCredentials: true
-});    
+
 async function searchOceanOfPDF(title, author) {
+  const browser = await puppeteer.launch();
+  const page = await browser.newPage();
+  
   try {
     // Construct search query URL
     const query = `${title} ${author}`.replace(/\s+/g, '+');
-    const url = `/?s=${query}`;
+    const url = `https://oceanofpdf.com/?s=${query}`;
 
-    const response = await instance.get(url);
+    await page.goto(url, { waitUntil: 'networkidle2'});
 
-    if (!response || !response.data) {
-        console.error('No data received from OceanOfPDF:', response);
-      return [];
-    }
+    const html = await page.content();
       
     // Fetch the search results page
-    const $ = cheerio.load(response.data);
+    const $ = cheerio.load(html);
 
     // Parse and extract relevant links
     const results = [];
@@ -45,16 +34,12 @@ async function searchOceanOfPDF(title, author) {
   }
 }
 async function getBookDetails(bookUrl) {
+  const browser = await puppeteer.launch();
+  const page = await browser.newPage();
   try {
-    const response = await instance.get(bookUrl);
-
-    // Check if the response contains data
-    if (!response || !response.data) {
-      console.error('No data received from OceanOfPDF for book details:', response);
-      return null;
-    }
-
-    const $ = cheerio.load(response.data);
+    await page.goto(bookUrl, { waitUntil: 'networkidle2' });
+    const html = await page.content()
+    const $ = cheerio.load(html);
 
     let pdfDownloadUrl = null;
     let epubDownloadUrl = null;
