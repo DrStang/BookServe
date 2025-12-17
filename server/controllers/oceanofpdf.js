@@ -20,7 +20,7 @@ async function searchOceanOfPDF(title, author) {
         results.push(link);
       }
     });
-
+    console.log(url);
     return results;
   } catch (error) {
     console.error('Error searching OceanOfPDF:', error.message);
