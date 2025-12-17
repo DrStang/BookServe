@@ -2,8 +2,6 @@ const BookRequest = require('../models/BookRequest');
 const axios = require('axios');
 const xml2js = require('xml2js');
 const FormData = require('form-data');
-const { searchOceanOfPDF, getBookDetails, download } = require('./oceanofpdf');
-const path = require('path');
 
 // ============================================================================
 // SEARCH HELPER FUNCTIONS
@@ -930,23 +928,22 @@ async function processBookRequest(requestId) {
     if (!request) return;
 
     // Update status to searching
-    await updateRequestStatus (requestId, 'searching');
+    await BookRequest.updateStatus(requestId, 'searching');
 
     // Search NZBHydra with all strategies
     const nzbResults = await searchNZBHydra(request.title, request.author, request.isbn, requestId);
 
     if (!nzbResults || nzbResults.length === 0) {
-     console.log(`No results found on NZBHydra for request ${requestId}. Attempting OceanOfPDF...`);
-      await handleOceanFallback(request);
-      return;
-    }
+      await BookRequest.updateStatus(requestId, 'failed', {
+        error_message: 'No books found for download. Will retry.'
+      });
       
       // Schedule retry
-      //const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
-      //await BookRequest.scheduleRetry(requestId, retryIntervalDays);
-      //console.log(`Scheduled retry for request ${requestId} in ${retryIntervalDays} days`);
-      //return;
-    //}
+      const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
+      await BookRequest.scheduleRetry(requestId, retryIntervalDays);
+      console.log(`Scheduled retry for request ${requestId} in ${retryIntervalDays} days`);
+      return;
+    }
 
     // Get the best result (first one, already sorted by score)
     const bestResult = nzbResults[0];
@@ -956,98 +953,33 @@ async function processBookRequest(requestId) {
     const sabnzbdId = await sendToSABnzbd(bestResult);
 
     if (!sabnzbdId) {
-      handleSabnzbdFailure(requestId)
-      return;
-      }
+      await BookRequest.updateStatus(requestId, 'failed', {
+        error_message: 'Failed to add to SABnzbd'
+      });
       // Schedule retry
-      //const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
-      //await BookRequest.scheduleRetry(requestId, retryIntervalDays);
-      //console.log(`Scheduled retry for request ${requestId} in ${retryIntervalDays} days`);
-      //return;
-    //}
-    
+      const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
+      await BookRequest.scheduleRetry(requestId, retryIntervalDays);
+      console.log(`Scheduled retry for request ${requestId} in ${retryIntervalDays} days`);
+      return;
+    }
 
     
 
     // Update request with SABnzbd ID
-      updateRequestStatus(requestId, 'downloading', {
+      await BookRequest.updateStatus(requestId, 'downloading', {
       sabnzbd_id: sabnzbdId
     });
 
   } catch (error) {
     console.error('Error processing book request:', error);
-    handleGeneralFailure(requestId, error.message);
-    }
-}
+    await BookRequest.updateStatus(requestId, 'failed', {
+      error_message: error.message
+    });
     // Schedule retry
-    //const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
-    //await BookRequest.scheduleRetry(requestId, retryIntervalDays);
-    //console.log(`Scheduled retry for request ${requestId} in ${retryIntervalDays} days`);
-  //}
-//}
-async function handleOceanFallback(request) {
-  const { title, author, requestId } = request;
-  const downloadPath = process.env.BOOKS_STORAGE_PATH; 
-
-  // Search OceanOfPDF
-  const searchResults = await searchOceanOfPDF(title, author);
-
-  if (searchResults.length === 0) {
-    console.log(`No results found on OceanOfPDF for request ${requestId}. Marking as failed.`);
-    handleNoResultsFound(requestId);
-    return;
+    const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
+    await BookRequest.scheduleRetry(requestId, retryIntervalDays);
+    console.log(`Scheduled retry for request ${requestId} in ${retryIntervalDays} days`);
   }
-
-  // Get the first result (assuming it's the best match)
-  for (const bookUrl of searchResults){
-    const downloadUrl = await getBookDetails(bookUrl);
-    if (downloadUrl) {
-      const fileName = path.basename(new URL(downloadURL).searchParams.get('filename'));
-      constfilePath = path.join(downloadPath, fileName.replace(/\s+/g, '_'));
-
-  try {
-    await download(downloadUrl, filePath);
-    console.log(`Successfully downloaded  for request ${requestId} from OceanOfPDF.`);
-    updateRequestStatus(requestId, 'completed', { file_path: filePath });
-  } catch (error) {
-    console.error('Error downloading PDF from OceanOfPDF:', error.message);
-    handleGeneralFailure(requestId, `Failed to download from OceanOfPDF: ${error.message}`);
-    continue;
-   }
-  }else {
-    console.warn(`No valid download link found for book at URL: ${bookUrl}`);
-  }
-}
-  
-  // If no valid download link is found after all results
-  console.log(`No valid download links found on OceanOfPDF for request ${requestId}. Marking as failed.`);
-  handleNoResultsFound(requestId);
-}
-
-async function updateRequestStatus(requestId, status, data = {}) {
-  await BookRequest.updateStatus(requestId, status, data);
-}
-
-function scheduleRetry(requestId, days) {
-  const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || days;
-  return BookRequest.scheduleRetry(requestId, retryIntervalDays);
-}
-
-async function handleNoResultsFound(requestId) {
-  updateRequestStatus(requestId, 'failed', { error_message: 'No books found for download. Will retry.' });
-  scheduleRetry(requestId, 3);
-  console.log(`Scheduled retry for request ${requestId} in 3 days`);
-}
-
-async function handleSabnzbdFailure(requestId) {
-  updateRequestStatus(requestId, 'failed', { error_message: 'Failed to add to SABnzbd' });
-  scheduleRetry(requestId, 3);
-  console.log(`Scheduled retry for request ${requestId} in 3 days`);
-}
-
-async function handleGeneralFailure(requestId, errorMessage) {
-  updateRequestStatus(requestId, 'failed', { error_message: errorMessage });
-  scheduleRetry(requestId, 3);
 }
 
 // Export for use in other modules
