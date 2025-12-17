@@ -6,7 +6,7 @@ async function searchOceanOfPDF(title, author) {
   try {
     // Construct search query URL
     const query = `${title} ${author}`.replace(/\s+/g, '+');
-    const url = `https://www.oceanofpdf.com/?s=${query}`;
+    const url = `https://oceanofpdf.com/?s=${query}`;
     console.log(url);
 
     // Fetch the search results page
