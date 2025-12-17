@@ -7,6 +7,7 @@ async function searchOceanOfPDF(title, author) {
     // Construct search query URL
     const query = `${title} ${author}`.replace(/\s+/g, '+');
     const url = `https://www.oceanofpdf.com/?s=${query}`;
+    console.log(url);
 
     // Fetch the search results page
     const { data } = await axios.get(url);
@@ -22,7 +23,7 @@ async function searchOceanOfPDF(title, author) {
     });
     return results;
   } catch (error) {
-    console.error(`${url}Error searching OceanOfPDF:`, error.message);
+    console.error('Error searching OceanOfPDF:', error.message);
     return [];
   }
 }
