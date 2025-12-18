@@ -937,7 +937,7 @@ async function processBookRequest(requestId) {
       await BookRequest.updateStatus(requestId, 'failed', {
         error_message: 'No books found for download. Will retry.'
       });
-      await this.notifyUser(requestId);
+      await notifyUser(requestId);
       
       // Schedule retry
       const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
@@ -957,7 +957,7 @@ async function processBookRequest(requestId) {
       await BookRequest.updateStatus(requestId, 'failed', {
         error_message: 'Failed to add to SABnzbd'
       });
-      await this.notifyUser(requestId);
+      await notifyUser(requestId);
       // Schedule retry
       const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
       await BookRequest.scheduleRetry(requestId, retryIntervalDays);
@@ -977,14 +977,14 @@ async function processBookRequest(requestId) {
     await BookRequest.updateStatus(requestId, 'failed', {
       error_message: error.message
     });
-    await this.notifyUser(requestId);
+    await notifyUser(requestId);
     // Schedule retry
     const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
     await BookRequest.scheduleRetry(requestId, retryIntervalDays);
     console.log(`Scheduled retry for request ${requestId} in ${retryIntervalDays} days`);
   }
 }
-async notifyUser(requestId) {
+async function notifyUser(requestId) {
   try {
     const request = await BookRequest.findById(requestId);
 
