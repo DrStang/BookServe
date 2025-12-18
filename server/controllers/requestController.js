@@ -999,7 +999,7 @@ async function notifyUser(requestId) {
     <p> Book: ${request.title} </p>
     <p> Author: ${request.author || 'Unknown'}
     `;
-    const adminEmail = process.env.ADMIN_EMAIL || dandolewski@gmail.com;
+    const adminEmail = process.env.ADMIN_EMAIL || 'dandolewski@gmail.com';
     await emailController.sendNotificationEmail(adminEmail,subject,text,html);
     console.log('Email sent to admin');
   } catch (error) {
