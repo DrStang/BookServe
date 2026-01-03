@@ -193,9 +193,8 @@ const Dashboard = ({ onLogout }) => {
         setTotalBooks(filteredBooks.length);
       } else {
         // Server-side pagination and filtering
-        let searchQuery = '';
         if (searchQuery.trim()) {
-          // Use search endpoint
+          // Use search endpoint for basic search
           const response = await booksAPI.search(searchQuery);
           setBooks(response.data.books.slice(offset, offset + limit));
           setTotalBooks(response.data.count);
