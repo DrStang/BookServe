@@ -328,49 +328,106 @@ class NYTBestsellersService {
 
   /**
    * Find book in library with fuzzy matching
+   * Uses word-based matching to handle titles with special characters
    */
   async findBookInLibrary(title, author) {
     const { db } = require('../database/init');
     const normalizedTitle = this.normalizeText(title);
     const authorLastName = this.getAuthorLastName(author);
-    
+
+    // Extract significant words (3+ chars) from title for more reliable matching
+    const titleWords = normalizedTitle.split(' ').filter(w => w.length >= 3);
+
+    // Build a query that normalizes the database title the same way
+    // SQLite doesn't have regex, so we use REPLACE to strip common punctuation
+    const normalizeDbTitle = `
+      REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+        LOWER(title),
+        '''', ''), '"', ''), '-', ' '), ':', ''), '.', ''), ',', '')
+    `;
+
     return new Promise((resolve, reject) => {
-      // Search by normalized title containing key words and author last name
-      db.get(
-        `SELECT * FROM books 
-         WHERE LOWER(title) LIKE ? 
-         AND LOWER(author) LIKE ?`,
-        [`%${normalizedTitle.substring(0, 30)}%`, `%${authorLastName}%`],
-        (err, row) => {
-          if (err) reject(err);
-          else resolve(row);
-        }
-      );
+      // If we have enough title words, search using the first few significant words
+      if (titleWords.length >= 2) {
+        // Search for first 3 significant words (or all if fewer)
+        const searchWords = titleWords.slice(0, 3);
+        const conditions = searchWords.map(() => `${normalizeDbTitle} LIKE ?`).join(' AND ');
+        const params = [
+          ...searchWords.map(w => `%${w}%`),
+          `%${authorLastName}%`
+        ];
+
+        db.get(
+          `SELECT * FROM books
+           WHERE ${conditions}
+           AND LOWER(author) LIKE ?`,
+          params,
+          (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          }
+        );
+      } else {
+        // For short titles, use original approach with normalized comparison
+        db.get(
+          `SELECT * FROM books
+           WHERE ${normalizeDbTitle} LIKE ?
+           AND LOWER(author) LIKE ?`,
+          [`%${normalizedTitle}%`, `%${authorLastName}%`],
+          (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          }
+        );
+      }
     });
   }
 
   /**
    * Check if a book has already been requested
+   * Uses normalized title comparison to handle special characters
    */
   async findExistingRequest(title, author, isbn13, isbn10) {
     const { db } = require('../database/init');
     const normalizedTitle = this.normalizeText(title);
     const authorLastName = this.getAuthorLastName(author);
 
+    // Extract significant words for title matching
+    const titleWords = normalizedTitle.split(' ').filter(w => w.length >= 3).slice(0, 3);
+
+    // Normalize database title the same way (strip punctuation)
+    const normalizeDbTitle = `
+      REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+        LOWER(title),
+        '''', ''), '"', ''), '-', ' '), ':', ''), '.', ''), ',', '')
+    `;
+
     return new Promise((resolve, reject) => {
+      // Build title match conditions using significant words
+      let titleCondition;
+      let titleParams;
+
+      if (titleWords.length >= 2) {
+        titleCondition = titleWords.map(() => `${normalizeDbTitle} LIKE ?`).join(' AND ');
+        titleParams = titleWords.map(w => `%${w}%`);
+      } else {
+        titleCondition = `${normalizeDbTitle} LIKE ?`;
+        titleParams = [`%${normalizedTitle.substring(0, 25)}%`];
+      }
+
       // Check all statuses that should prevent re-requesting:
       // - Active statuses (pending, searching, downloading)
       // - Recently failed (within 14 days)
       // - Recently completed (within 30 days)
       const query = `
-        SELECT * FROM book_requests 
+        SELECT * FROM book_requests
         WHERE (
           -- Check by ISBN13
           (isbn = ? AND ? IS NOT NULL)
           -- Check by ISBN10
           OR (isbn = ? AND ? IS NOT NULL)
-          -- Check by title/author similarity
-          OR (LOWER(title) LIKE ? AND LOWER(author) LIKE ?)
+          -- Check by title/author similarity (normalized)
+          OR (${titleCondition} AND LOWER(author) LIKE ?)
         )
         AND (
           status IN ('pending', 'searching', 'downloading')
@@ -383,7 +440,7 @@ class NYTBestsellersService {
       const params = [
         isbn13, isbn13,
         isbn10, isbn10,
-        `%${normalizedTitle.substring(0, 25)}%`,
+        ...titleParams,
         `%${authorLastName}%`
       ];
 
