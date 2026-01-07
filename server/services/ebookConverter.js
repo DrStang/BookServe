@@ -111,7 +111,7 @@ class EbookConverter {
     } catch (error) {
       // File doesn't exist, proceed with conversion
     }
-    if (needsCoversion) {
+    if (needsConversion) {
       console.log(`Converting ${ext} to EPUB for book ${bookId}...`);
     
       try {
