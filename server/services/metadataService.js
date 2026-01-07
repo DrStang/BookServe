@@ -48,7 +48,7 @@ class MetadataService {
     connectionLimit: 5
   });
 
-  async function 
+  async function searchGoodreadsDB(title, author, isbn = null)
 
   /**
    * Merge metadata from multiple sources
