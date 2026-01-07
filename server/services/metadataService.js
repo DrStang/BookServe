@@ -2,6 +2,7 @@ const googleBooksService = require('./googleBooksService');
 const openLibraryService = require('./openLibraryService');
 const coverCacheService = require('./coverCacheService');
 const Book = require('../models/Book');
+const mariadb = require('mariadb');
 
 class MetadataService {
   /**
@@ -39,6 +40,15 @@ class MetadataService {
       return results;
     }
   }
+  const pool = mariadb.createPool({
+    host: '192.168.2.104',
+    user: 'goodreads',
+    password: 'goodreads',
+    database: 'Goodreads',
+    connectionLimit: 5
+  });
+
+  async function 
 
   /**
    * Merge metadata from multiple sources
