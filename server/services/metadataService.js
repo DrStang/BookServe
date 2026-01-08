@@ -2,6 +2,7 @@ const googleBooksService = require('./googleBooksService');
 const openLibraryService = require('./openLibraryService');
 const coverCacheService = require('./coverCacheService');
 const Book = require('../models/Book');
+const goodreadsRatings = require('./goodreadsRatings');
 
 class MetadataService {
   /**
@@ -11,12 +12,13 @@ class MetadataService {
     const results = {
       google: null,
       openLibrary: null,
+      goodreadsRatings: null,
       merged: null,
     };
 
     try {
       // Fetch from both sources in parallel
-      const [googleData, openLibraryData] = await Promise.all([
+      const [googleData, openLibraryData, goodreadsRatings] = await Promise.all([
         googleBooksService.getMetadata(bookInfo).catch(err => {
           console.error('Google Books fetch error:', err);
           return null;
@@ -25,13 +27,18 @@ class MetadataService {
           console.error('OpenLibrary fetch error:', err);
           return null;
         }),
+        goodreadsRatings.getMetadata(bookInfo).catch(error => {
+          console.error('Goodreads Ratings fetch error:', err);
+          return null;
+        }),  
       ]);
 
       results.google = googleData;
       results.openLibrary = openLibraryData;
+      results.goodreads = goodreadsRatings;
 
       // Merge the results, preferring Google Books for most fields
-      results.merged = this.mergeMetadata(googleData, openLibraryData, bookInfo);
+      results.merged = this.mergeMetadata(googleData, openLibraryData, goodreadsRatings, bookInfo);
 
       return results;
     } catch (error) {
@@ -45,7 +52,7 @@ class MetadataService {
    * Merge metadata from multiple sources
    * Priority: Google Books > OpenLibrary > Original
    */
-  mergeMetadata(googleData, openLibraryData, originalData) {
+  mergeMetadata(googleData, openLibraryData, goodreadsRatings, originalData) {
     const merged = { ...originalData };
 
     // Helper to set value if not null/undefined
@@ -85,7 +92,10 @@ class MetadataService {
     }
 
     // For ratings, prefer Google Books but combine if both exist
-    if (googleData?.average_rating && googleData?.ratings_count) {
+    if (goodreadsRatings?.average_rating && goodreadsRatings?.ratings_count) {
+      merged.average_rating = goodreadsRating.average_rating;
+      merged.ratings_count = goodreadsRating.ratings_count;
+    }  else if (googleData?.average_rating && googleData?.ratings_count) {
       merged.average_rating = googleData.average_rating;
       merged.ratings_count = googleData.ratings_count;
     } else if (openLibraryData?.average_rating && openLibraryData?.ratings_count) {
