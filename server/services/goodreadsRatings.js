@@ -20,8 +20,9 @@ class GoodreadsRatings {
       rows.forEach(row => { console.log(`Rating: ${rows.star_rating}, Rating_Count: ${rows.num_ratings}`)};
 
       return {
-        averageRating: rows.star_rating,
-        ratings_count: rows.num_ratings};
+        average_rating: rows.star_rating,
+        ratings_count: rows.num_ratings
+      };
     } catch (err) {
         console.error("Error occured with Goodreads Rating retrieval:", err);
         throw err;
@@ -42,8 +43,9 @@ class GoodreadsRatings {
       rows.forEach(row => { console.log(`Rating: ${rows.star_rating}, Rating_Count: ${rows.num_ratings}`)};
 
       return {
-        averageRating: rows.star_rating,
-        ratings_count: rows.num_ratings};
+        average_rating: rows.star_rating,
+        ratings_count: rows.num_ratings
+      };
     } catch (err) {
         console.error("Error occured with Goodreads Rating retrieval:", err);
         throw err;
