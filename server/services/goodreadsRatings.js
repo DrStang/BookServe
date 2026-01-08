@@ -2,26 +2,33 @@ const mariadb = require('mariadb');
 
 class GoodreadsRatings {                        
 
-  const pool = mariadb.createPool({
-    host: '192.168.2.104',
-    user: 'goodreads',
-    password: 'goodreads',
-    database: 'Goodreads',
-    connectionLimit: 5
-  });
+  constructor() {
+    this.pool = mariadb.createPool({
+      host: '192.168.2.104',
+      user: 'goodreads',
+      password: 'goodreads',
+      database: 'Goodreads',
+      connectionLimit: 5
+    });
+  }  
 
   async searchISBN(isbn) {
     let conn; 
     try {
       conn = await pool.getConnection();
-      const query = 'SELECT star_rating, num_ratings FROM Scrape WHERE isbn = ?";
+      const query = 'SELECT star_rating, num_ratings FROM Scrape WHERE isbn = ?';
 
       const rows = await conn.query(query, [isbn]);
-      rows.forEach(row => { console.log(`Rating: ${rows.star_rating}, Rating_Count: ${rows.num_ratings}`)};
+
+      if (rows.length === 0) {
+        return null;
+      }
+      const row =rows[0]
+      console.log(`Rating: ${row.star_rating}, Rating_Count: ${row.num_ratings}`);
 
       return {
-        average_rating: rows.star_rating,
-        ratings_count: rows.num_ratings
+        average_rating: row.star_rating,
+        ratings_count: row.num_ratings
       };
     } catch (err) {
         console.error("Error occured with Goodreads Rating retrieval:", err);
@@ -37,14 +44,21 @@ class GoodreadsRatings {
     let conn; 
     try {
       conn = await pool.getConnection();
-      const query = 'SELECT star_rating, num_ratings FROM Scrape WHERE name = ? AND author = ?";
+      const query = 'SELECT star_rating, num_ratings FROM Scrape WHERE name = ? AND author = ?';
 
       const rows = await conn.query(query, [title, author]);
-      rows.forEach(row => { console.log(`Rating: ${rows.star_rating}, Rating_Count: ${rows.num_ratings}`)};
+
+      if (rows.length === 0) {
+        return null;
+      }
+
+      const row = rows[0];
+      
+      console.log(`Rating: ${row.star_rating}, Rating_Count: ${row.num_ratings}`);
 
       return {
-        average_rating: rows.star_rating,
-        ratings_count: rows.num_ratings
+        average_rating: row.star_rating,
+        ratings_count: row.num_ratings
       };
     } catch (err) {
         console.error("Error occured with Goodreads Rating retrieval:", err);
