@@ -15,7 +15,7 @@ class GoodreadsRatings {
   async searchISBN(isbn) {
     let conn; 
     try {
-      conn = await pool.getConnection();
+      conn = await this.pool.getConnection();
       const query = 'SELECT star_rating, num_ratings FROM Scrape WHERE isbn = ?';
 
       const rows = await conn.query(query, [isbn]);
