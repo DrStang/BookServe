@@ -52,7 +52,7 @@ class MetadataService {
    * Merge metadata from multiple sources
    * Priority: Google Books > OpenLibrary > Original
    */
-  mergeMetadata(googleData, openLibraryData, goodreadsRatings, originalData) {
+  mergeMetadata(googleData, openLibraryData, goodreadsData, originalData) {
     const merged = { ...originalData };
 
     // Helper to set value if not null/undefined
