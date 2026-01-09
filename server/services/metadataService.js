@@ -18,7 +18,7 @@ class MetadataService {
 
     try {
       // Fetch from both sources in parallel
-      const [googleData, openLibraryData, goodreadsRatings] = await Promise.all([
+      const [googleData, openLibraryData, goodreadsData] = await Promise.all([
         googleBooksService.getMetadata(bookInfo).catch(err => {
           console.error('Google Books fetch error:', err);
           return null;
@@ -27,7 +27,7 @@ class MetadataService {
           console.error('OpenLibrary fetch error:', err);
           return null;
         }),
-        goodreadsRatings.getMetadata(bookInfo).catch(error => {
+        goodreadsRatings.getMetadata(bookInfo).catch(err => {
           console.error('Goodreads Ratings fetch error:', err);
           return null;
         }),  
@@ -35,10 +35,10 @@ class MetadataService {
 
       results.google = googleData;
       results.openLibrary = openLibraryData;
-      results.goodreads = goodreadsRatings;
+      results.goodreads = goodreadsData;
 
       // Merge the results, preferring Google Books for most fields
-      results.merged = this.mergeMetadata(googleData, openLibraryData, goodreadsRatings, bookInfo);
+      results.merged = this.mergeMetadata(googleData, openLibraryData, goodreadsData, bookInfo);
 
       return results;
     } catch (error) {
@@ -92,9 +92,9 @@ class MetadataService {
     }
 
     // For ratings, prefer Google Books but combine if both exist
-    if (goodreadsRatings?.average_rating && goodreadsRatings?.ratings_count) {
-      merged.average_rating = goodreadsRating.average_rating;
-      merged.ratings_count = goodreadsRating.ratings_count;
+    if (goodreadsData?.average_rating && goodreadsData?.ratings_count) {
+      merged.average_rating = goodreadsData.average_rating;
+      merged.ratings_count = goodreadsData.ratings_count;
     }  else if (googleData?.average_rating && googleData?.ratings_count) {
       merged.average_rating = googleData.average_rating;
       merged.ratings_count = googleData.ratings_count;
