@@ -12,6 +12,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogContentText,
   DialogActions,
   TextField,
   Button,
@@ -21,6 +22,7 @@ import {
   Box,
   LinearProgress,
   Chip,
+  Link,
 } from '@mui/material';
 import {
   MoreVert as MoreIcon,
@@ -266,6 +268,17 @@ const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
       <Dialog open={emailDialogOpen} onClose={() => setEmailDialogOpen(false)}>
         <DialogTitle>Send Book to Email</DialogTitle>
         <DialogContent>
+          <DialogContentText sx ={{ fontSize: '0.875rem', mb: 2 }}>
+            Ensure dandolewski@gmail.com is in 'Approved Personal Document E-mail List' in your 
+              <Link
+                href="https://www.amazon.com/hz/mycd/preferences/myx#/home/settings/payment"
+                target="_blank"
+                rel="noopener"
+                sx={{ ml: 0.5 }}
+              >
+                Amazon settings
+              </Link>    
+          </DialogContentText>    
           <TextField
             autoFocus
             margin="dense"
