@@ -108,6 +108,8 @@ const initDatabase = () => {
       // Add notification preferences to users table
       addColumnIfNotExists('users', 'email_notifications', 'INTEGER DEFAULT 1');
 
+      addColumnIfNotExists('users', 'kindle_email', 'TEXT');
+
       // Add series columns to books table
       addColumnIfNotExists('books', 'series', 'TEXT');
       addColumnIfNotExists('books', 'series_number', 'REAL');
