@@ -1,39 +1,49 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Card,
-  CardContent,
   CardMedia,
+  CardContent,
   CardActions,
   Typography,
   IconButton,
-  Chip,
-  Box,
   Menu,
   MenuItem,
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogContentText,
   DialogActions,
   TextField,
   Button,
   Snackbar,
   Alert,
-  FormControlLabel,
+  Rating,
+  Box,
+  LinearProgress,
+  Chip,
+  Link,
   Checkbox,
   CircularProgress,
+  FormControlLabel,
 } from '@mui/material';
 import {
-  Download as DownloadIcon,
   MoreVert as MoreIcon,
-  Info as InfoIcon,
-  Email as EmailIcon,
   MenuBook as ReadIcon,
+  Download as DownloadIcon,
+  Email as EmailIcon,
+  Info as InfoIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
 import { booksAPI, emailAPI } from '../../services/api';
 import BookDetailModal from '../Books/BookDetailModal';
 
-const BookCard = ({ book, onClick, onUpdate, readingProgress }) => {
+// Helper to check if book format needs conversion to EPUB
+const needsEpubConversion = (format) => {
+  const convertibleFormats = ['mobi', 'azw', 'azw3'];
+  return convertibleFormats.includes(format?.toLowerCase());
+};
+
+const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
@@ -41,12 +51,16 @@ const BookCard = ({ book, onClick, onUpdate, readingProgress }) => {
   const [saveEmail, setSaveEmail] = useState(false);
   const [hasSavedEmail, setHasSavedEmail] = useState(false);
   const [loadingSavedEmail, setLoadingSavedEmail] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [coverError, setCoverError] = useState(false);
   const [sending, setSending] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [coverError, setCoverError] = useState(false);
 
-  // Fetch saved email when dialog opens
+  // Reset cover error when book changes (e.g., when metadata is refreshed)
+  useEffect(() => {
+    setCoverError(false);
+  }, [book.cover_image, book.id]);
+
   useEffect(() => {
     if (emailDialogOpen) {
       fetchSavedEmail();
@@ -61,7 +75,7 @@ const BookCard = ({ book, onClick, onUpdate, readingProgress }) => {
       if (savedEmail) {
         setEmail(savedEmail);
         setHasSavedEmail(true);
-        setSaveEmail(false); // Don't show save checkbox if already saved
+        setSaveEmail(false);
       } else {
         setHasSavedEmail(false);
       }
@@ -80,31 +94,32 @@ const BookCard = ({ book, onClick, onUpdate, readingProgress }) => {
     setAnchorEl(null);
   };
 
-  const handleDownload = async () => {
-    handleMenuClose();
-    try {
-      const response = await booksAPI.download(book.id);
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `${book.title}.${book.format || 'epub'}`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      setSnackbar({ open: true, message: 'Download started', severity: 'success' });
-    } catch (error) {
-      setSnackbar({ open: true, message: 'Download failed', severity: 'error' });
-    }
-  };
-
   const handleRead = () => {
     navigate(`/read/${book.id}`);
   };
 
+  const handleDownload = async () => {
+    try {
+      const format = needsEpubConversion(book.format) ? 'epub' : null;
+      const downloadFormat = format || book.format;
+
+      const response = await booksAPI.download(book.id, format);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${book.title}.${downloadFormat}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setSnackbar({ open: true, message: 'Download started', severity: 'success' });
+    } catch (error) {
+      setSnackbar({ open: true, message: 'Download failed', severity: 'error' });
+    }
+    handleMenuClose();
+  };
+
   const handleEmailDialogClose = () => {
     setEmailDialogOpen(false);
-    // Reset state when closing
     if (!hasSavedEmail) {
       setEmail('');
     }
@@ -119,10 +134,7 @@ const BookCard = ({ book, onClick, onUpdate, readingProgress }) => {
 
     setSending(true);
     try {
-      // Determine format - convert to EPUB if needed
-      const needsConversion = ['mobi', 'azw', 'azw3', 'pdf'].includes(book.format?.toLowerCase());
-      const format = needsConversion ? 'epub' : null;
-      
+      const format = needsEpubConversion(book.format) ? 'epub' : null;
       await emailAPI.sendBook(book.id, email, format, saveEmail);
       
       let message = 'Book sent to email';
@@ -216,13 +228,41 @@ const BookCard = ({ book, onClick, onUpdate, readingProgress }) => {
             }}
             sx={{
               cursor: book.author ? 'pointer' : 'default',
-              '&:hover': book.author ? { color: '#e50914' } : {},
+              '&:hover': book.author ? {
+                color: '#e50914',
+                textDecoration: 'underline'
+              } : {}
             }}
           >
             {book.author || 'Unknown Author'}
           </Typography>
+          {book.average_rating && (
+            <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+              <Rating value={book.average_rating} precision={0.5} size="small" readOnly />
+              <Typography variant="caption" sx={{ ml: 0.5 }}>
+                ({book.average_rating.toFixed(1)})
+              </Typography>
+            </Box>
+          )}
         </CardContent>
-        <CardActions sx={{ justifyContent: 'space-between' }}>
+        {readingProgress && readingProgress.progress > 0 && (
+          <Box sx={{ px: 2, pb: 1 }}>
+            <LinearProgress
+              variant="determinate"
+              value={readingProgress.progress}
+              sx={{
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                '& .MuiLinearProgress-bar': {
+                  backgroundColor: '#e50914',
+                  borderRadius: 2,
+                }
+              }}
+            />
+          </Box>
+        )}
+        <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
           <IconButton
             color="primary"
             onClick={(e) => {
@@ -240,25 +280,25 @@ const BookCard = ({ book, onClick, onUpdate, readingProgress }) => {
               handleDownload();
             }}
             title="Download"
-          >
+          >    
             <DownloadIcon />
-          </IconButton>
+          </IconButton>    
           <IconButton
-            color="primary"
-            onClick={(e) => {
-              e.stopPropagation();
-              setEmailDialogOpen(true);
-            }}
-            title="Send to Email"
+              color="primary"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEmailDialogOpen(true);
+              }}
+              title="Send to Email"
           >
-            <EmailIcon />
-          </IconButton>
-          <IconButton
-            onClick={(e) => {
-              e.stopPropagation();
-              handleMenuOpen(e);
-            }}
-            title="More options"
+              <EmailIcon />
+          </IconButton>      
+          <IconButton 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleMenuOpen(e);
+                }} 
+                title="More options"
           >
             <MoreIcon />
           </IconButton>
@@ -287,15 +327,21 @@ const BookCard = ({ book, onClick, onUpdate, readingProgress }) => {
         </MenuItem>
       </Menu>
 
-      {/* Email Dialog with Save Option */}
-      <Dialog 
-        open={emailDialogOpen} 
-        onClose={handleEmailDialogClose}
-        maxWidth="sm"
-        fullWidth
-      >
+      {/* Email Dialog */}
+      <Dialog open={emailDialogOpen} onClose={handleEmailDialogClose} maxWidth="sm" fullWidth>
         <DialogTitle>Send Book to Email</DialogTitle>
         <DialogContent>
+          <DialogContentText sx={{ fontSize: '0.875rem', mb: 2 }}>
+            Ensure dandolewski@gmail.com is in 'Approved Personal Document E-mail List' in your 
+            <Link
+              href="https://www.amazon.com/hz/mycd/preferences/myx#/home/settings/payment"
+              target="_blank"
+              rel="noopener"
+              sx={{ ml: 0.5 }}
+            >
+              Amazon settings
+            </Link>    
+          </DialogContentText>
           {loadingSavedEmail ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
               <CircularProgress size={24} />
@@ -314,8 +360,7 @@ const BookCard = ({ book, onClick, onUpdate, readingProgress }) => {
                 placeholder="your-kindle@kindle.com"
                 helperText={hasSavedEmail ? "Using your saved email address" : "Enter your Kindle or device email"}
               />
-              
-              {/* Show save option only if no email is currently saved */}
+
               {!hasSavedEmail && email && (
                 <FormControlLabel
                   control={
@@ -330,7 +375,6 @@ const BookCard = ({ book, onClick, onUpdate, readingProgress }) => {
                 />
               )}
 
-              {/* Show clear option if email is saved */}
               {hasSavedEmail && (
                 <Box sx={{ mt: 1 }}>
                   <Typography variant="caption" color="text.secondary">
@@ -375,7 +419,7 @@ const BookCard = ({ book, onClick, onUpdate, readingProgress }) => {
         onClose={() => setDetailsOpen(false)}
         onEmail={() => setEmailDialogOpen(true)}
         readingProgress={readingProgress}
-      />
+      /> 
     </>
   );
 };
