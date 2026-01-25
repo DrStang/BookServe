@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const Book = require('../models/Book');
+const User = require('../models/User');
 const path = require('path');
 const fs = require('fs').promises;
 const ebookConverter = require('../services/ebookConverter');
@@ -81,12 +82,77 @@ exports.sendBookByEmail = async (req, res) => {
 
     await transporter.sendMail(mailOptions);
 
+    // Save email if requested
+    if (saveEmail && req.user?.id) {
+      try {
+        await User.saveKindleEmail(req.user.id, email);
+        console.log(`Saved kindle email for user ${req.user.id}: ${email}`);
+      } catch (saveError) {
+        console.error('Error saving kindle email:', saveError);
+        // Don't fail the request if saving email fails
+      }
+    }
+
     res.json({ message: 'Book sent successfully to ' + email });
   } catch (error) {
     console.error('Error sending email:', error);
     res.status(500).json({ error: 'Error sending book by email' });
   }
 };
+
+// Save user's kindle email
+exports.saveEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const userId = req.user.id;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email address required' });
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email address' });
+    }
+
+    const result = await User.saveKindleEmail(userId, email);
+    res.json({ 
+      message: 'Email saved successfully',
+      kindle_email: result.kindle_email
+    });
+  } catch (error) {
+    console.error('Error saving email:', error);
+    res.status(500).json({ error: 'Error saving email' });
+  }
+};
+
+// Clear user's saved kindle email
+exports.clearSavedEmail = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    await User.clearKindleEmail(userId);
+    res.json({ message: 'Saved email cleared successfully' });
+  } catch (error) {
+    console.error('Error clearing saved email:', error);
+    res.status(500).json({ error: 'Error clearing saved email' });
+  }
+};
+
+
+// Get user's saved kindle email
+exports.getSavedEmail = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const kindleEmail = await User.getKindleEmail(userId);
+    res.json({ kindle_email: kindleEmail });
+  } catch (error) {
+    console.error('Error fetching saved email:', error);
+    res.status(500).json({ error: 'Error fetching saved email' });
+  }
+};
+
+
 
 exports.testEmail = async (req, res) => {
   try {
