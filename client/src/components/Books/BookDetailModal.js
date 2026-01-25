@@ -3,6 +3,8 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogContentText,
+  Link,
   DialogActions,
   Button,
   Typography,
@@ -97,7 +99,6 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
     }
   }, [editing, fetchSeriesList]);
 
-  // Fetch saved email when email dialog opens
   useEffect(() => {
     if (emailDialogOpen) {
       fetchSavedEmail();
@@ -121,7 +122,7 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
     } finally {
       setLoadingSavedEmail(false);
     }
-  };
+  };  
 
   const loadSimilarBooks = async () => {
     if (!book) return;
@@ -131,22 +132,107 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
       const response = await booksAPI.getSimilar(book.id, 6);
       setSimilarBooks(response.data.books);
     } catch (error) {
-      console.error('Failed to load similar books:', error);
+      console.error('Error loading similar books:', error);
     } finally {
       setLoadingSimilar(false);
     }
   };
 
-  const handleRead = () => {
-    onClose();
-    navigate(`/read/${currentBook.id}`);
+  const handleEdit = () => {
+    setEditedBook({ ...currentBook });
+    setEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditing(false);
+    setEditedBook({});
+    setDeleteConfirm(false);
+  };
+
+  const handleSaveEdit = async () => {
+    setSaving(true);
+    try {
+      await booksAPI.update(currentBook.id, {
+        title: editedBook.title,
+        author: editedBook.author,
+        isbn: editedBook.isbn,
+        publisher: editedBook.publisher,
+        published_date: editedBook.published_date,
+        series: editedBook.series || null,
+        series_number: editedBook.series_number || null,
+        description: editedBook.description,
+        categories: editedBook.categories,
+        language: editedBook.language,
+      });
+      
+      // Reload book data
+      const response = await booksAPI.getById(currentBook.id);
+      setCurrentBook(response.data.book);
+      setEditing(false);
+      setSnackbar({ open: true, message: 'Book updated successfully', severity: 'success' });
+      
+      // Notify parent to refresh if callback provided
+      if (onBookUpdated) {
+        onBookUpdated();
+      }
+    } catch (error) {
+      console.error('Error updating book:', error);
+      setSnackbar({ open: true, message: 'Failed to update book', severity: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteConfirm) {
+      setDeleteConfirm(true);
+      return;
+    }
+    
+    try {
+      await booksAPI.delete(currentBook.id);
+      setSnackbar({ open: true, message: 'Book deleted successfully', severity: 'success' });
+      onClose();
+      // Notify parent to refresh if callback provided
+      if (onBookUpdated) {
+        onBookUpdated();
+      }
+    } catch (error) {
+      console.error('Error deleting book:', error);
+      setSnackbar({ open: true, message: 'Failed to delete book', severity: 'error' });
+    }
+  };
+
+  const handleRefreshMetadata = async () => {
+    try {
+      setRefreshing(true);
+      await metadataAPI.refreshBookMetadata(currentBook.id, true);
+      
+      // Reload book data
+      const response = await booksAPI.getById(currentBook.id);
+      setCurrentBook(response.data.book);
+      setSnackbar({ open: true, message: 'Metadata refreshed successfully', severity: 'success' });
+      
+      // Notify parent to refresh if callback provided
+      if (onBookUpdated) {
+        onBookUpdated();
+      }
+    } catch (error) {
+      console.error('Error refreshing metadata:', error);
+      setSnackbar({ open: true, message: 'Failed to refresh metadata', severity: 'error' });
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleDownload = async () => {
+    if (!currentBook) return;
+
     try {
+      // Convert to EPUB if the book is in a convertible format (mobi, azw, azw3)
       const format = needsEpubConversion(currentBook.format) ? 'epub' : null;
       const downloadFormat = format || currentBook.format;
-      
+
       const response = await booksAPI.download(currentBook.id, format);
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
@@ -155,10 +241,22 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
       document.body.appendChild(link);
       link.click();
       link.remove();
-      setSnackbar({ open: true, message: 'Download started', severity: 'success' });
     } catch (error) {
+      console.error('Download failed:', error);
       setSnackbar({ open: true, message: 'Download failed', severity: 'error' });
     }
+  };
+
+  const handleRead = () => {
+    if (!currentBook) return;
+    navigate(`/read/${currentBook.id}`);
+    onClose();
+  };
+
+  const handleAuthorClick = () => {
+    if (!currentBook?.author) return;
+    navigate(`/author/${encodeURIComponent(currentBook.author)}`);
+    onClose();
   };
 
   const handleEmailDialogOpen = () => {
@@ -171,32 +269,30 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
       setEmail('');
     }
     setSaveEmail(false);
-  };
+  };  
 
   const handleEmailSubmit = async () => {
     if (!email) {
       setSnackbar({ open: true, message: 'Please enter an email address', severity: 'warning' });
       return;
     }
-
     setSending(true);
     try {
+      // Convert to EPUB if the book is in a convertible format (mobi, azw, azw3)
       const format = needsEpubConversion(currentBook.format) ? 'epub' : null;
       await emailAPI.sendBook(currentBook.id, email, format, saveEmail);
-      
       let message = 'Book sent to email';
       if (saveEmail) {
         message += ' (email saved for future use)';
         setHasSavedEmail(true);
-      }
-      
-      setSnackbar({ open: true, message, severity: 'success' });
+      }  
+      setSnackbar({ open: true, message: message, severity: 'success' });
       handleEmailDialogClose();
     } catch (error) {
       setSnackbar({ open: true, message: 'Failed to send email', severity: 'error' });
     } finally {
       setSending(false);
-    }
+    }  
   };
 
   const handleClearSavedEmail = async () => {
@@ -208,77 +304,13 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
     } catch (error) {
       setSnackbar({ open: true, message: 'Failed to clear saved email', severity: 'error' });
     }
-  };
-
-  const handleRefreshMetadata = async () => {
-    try {
-      setRefreshing(true);
-      const response = await metadataAPI.refreshBook(currentBook.id);
-      setCurrentBook(response.data.book);
-      setSnackbar({ open: true, message: 'Metadata refreshed successfully', severity: 'success' });
-      if (onBookUpdated) {
-        onBookUpdated(response.data.book);
-      }
-    } catch (error) {
-      setSnackbar({ open: true, message: 'Failed to refresh metadata', severity: 'error' });
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const handleStartEdit = () => {
-    setEditedBook({
-      title: currentBook.title || '',
-      author: currentBook.author || '',
-      description: currentBook.description || '',
-      isbn: currentBook.isbn || '',
-      publisher: currentBook.publisher || '',
-      published_date: currentBook.published_date || '',
-      categories: currentBook.categories || '',
-      series: currentBook.series || '',
-      series_number: currentBook.series_number || '',
-    });
-    setEditing(true);
-  };
-
-  const handleCancelEdit = () => {
-    setEditing(false);
-    setEditedBook({});
-  };
-
-  const handleSaveEdit = async () => {
-    try {
-      setSaving(true);
-      const response = await booksAPI.update(currentBook.id, editedBook);
-      setCurrentBook({ ...currentBook, ...editedBook });
-      setEditing(false);
-      setSnackbar({ open: true, message: 'Book updated successfully', severity: 'success' });
-      if (onBookUpdated) {
-        onBookUpdated({ ...currentBook, ...editedBook });
-      }
-    } catch (error) {
-      setSnackbar({ open: true, message: 'Failed to update book', severity: 'error' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    try {
-      await booksAPI.delete(currentBook.id);
-      setSnackbar({ open: true, message: 'Book deleted successfully', severity: 'success' });
-      onClose();
-      if (onBookUpdated) {
-        onBookUpdated(null);
-      }
-    } catch (error) {
-      setSnackbar({ open: true, message: 'Failed to delete book', severity: 'error' });
-    }
-  };
+  };  
 
   if (!currentBook) return null;
 
-  const defaultCover = `https://via.placeholder.com/200x300/1a1a1a/ffffff?text=${encodeURIComponent(currentBook.title)}`;
+  const progress = readingProgress?.[currentBook.id];
+  const coverUrl = currentBook.coverUrl || booksAPI.getCoverUrl(currentBook.id);
+  const categories = currentBook.categories ? currentBook.categories.split(',').map(c => c.trim()) : [];
 
   return (
     <>
@@ -290,259 +322,409 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
         PaperProps={{
           sx: {
             backgroundColor: '#1a1a1a',
-            backgroundImage: 'none',
-          },
+            maxHeight: '90vh',
+          }
         }}
       >
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6" component="span">
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 2 }}>
+          <Typography variant="h5" component="div">
             {editing ? 'Edit Book' : 'Book Details'}
           </Typography>
           <Box>
-            {!editing && isAdmin && (
+            {!editing && (
               <>
-                <IconButton onClick={handleRefreshMetadata} disabled={refreshing} title="Refresh metadata">
-                  {refreshing ? <CircularProgress size={20} /> : <RefreshIcon />}
-                </IconButton>
-                <IconButton onClick={handleStartEdit} title="Edit">
+                <IconButton onClick={handleEdit} title="Edit book" size="small" sx={{ mr: 1 }}>
                   <EditIcon />
                 </IconButton>
-                <IconButton onClick={() => setDeleteConfirm(true)} color="error" title="Delete">
+                <IconButton 
+                  onClick={handleRefreshMetadata} 
+                  disabled={refreshing}
+                  title="Refresh metadata" 
+                  size="small" 
+                  sx={{ mr: 1 }}
+                >
+                  {refreshing ? <CircularProgress size={20} /> : <RefreshIcon />}
+                </IconButton>
+                <IconButton 
+                  onClick={handleDelete}
+                  title={deleteConfirm ? 'Click again to confirm' : 'Delete book'}
+                  color={deleteConfirm ? 'error' : 'default'}
+                  size="small"
+                  sx={{ mr: 1 }}
+                >
                   <DeleteIcon />
                 </IconButton>
               </>
             )}
-            <IconButton onClick={onClose}>
+            <IconButton onClick={editing ? handleCancelEdit : onClose} size="small">
               <CloseIcon />
             </IconButton>
           </Box>
         </DialogTitle>
 
         <DialogContent dividers>
-          {editing ? (
-            // Edit Mode
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Title"
-                  value={editedBook.title}
-                  onChange={(e) => setEditedBook({ ...editedBook, title: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Author"
-                  value={editedBook.author}
-                  onChange={(e) => setEditedBook({ ...editedBook, author: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <Autocomplete
-                  freeSolo
-                  options={seriesOptions}
-                  loading={loadingSeries}
-                  value={editedBook.series || ''}
-                  onChange={(e, newValue) => setEditedBook({ ...editedBook, series: newValue || '' })}
-                  onInputChange={(e, newValue) => setEditedBook({ ...editedBook, series: newValue || '' })}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Series"
-                      InputProps={{
-                        ...params.InputProps,
-                        startAdornment: <SeriesIcon sx={{ mr: 1, color: 'text.secondary' }} />,
-                      }}
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Series Number"
-                  type="number"
-                  value={editedBook.series_number}
-                  onChange={(e) => setEditedBook({ ...editedBook, series_number: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="ISBN"
-                  value={editedBook.isbn}
-                  onChange={(e) => setEditedBook({ ...editedBook, isbn: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Publisher"
-                  value={editedBook.publisher}
-                  onChange={(e) => setEditedBook({ ...editedBook, publisher: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Published Date"
-                  value={editedBook.published_date}
-                  onChange={(e) => setEditedBook({ ...editedBook, published_date: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Categories"
-                  value={editedBook.categories}
-                  onChange={(e) => setEditedBook({ ...editedBook, categories: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Description"
-                  multiline
-                  rows={4}
-                  value={editedBook.description}
-                  onChange={(e) => setEditedBook({ ...editedBook, description: e.target.value })}
-                />
-              </Grid>
-            </Grid>
-          ) : (
-            // View Mode
-            <Grid container spacing={3}>
-              <Grid item xs={12} sm={4}>
-                <Box
-                  component="img"
-                  src={currentBook.cover_image ? booksAPI.getCoverUrl(currentBook.id) : defaultCover}
-                  alt={currentBook.title}
-                  sx={{
-                    width: '100%',
-                    maxHeight: 400,
-                    objectFit: 'contain',
-                    borderRadius: 1,
-                  }}
-                />
-                
-                {/* Action Buttons */}
-                <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Grid container spacing={3}>
+            {/* Book Cover and Basic Info */}
+            <Grid item xs={12} md={4}>
+              <Box
+                component="img"
+                src={coverUrl}
+                alt={currentBook.title}
+                sx={{
+                  width: '100%',
+                  height: 'auto',
+                  maxHeight: 400,
+                  objectFit: 'cover',
+                  borderRadius: 2,
+                  mb: 2,
+                }}
+              />
+
+              {/* Action Buttons - Only show when not editing */}
+              {!editing && (
+                <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column' }}>
                   <Button
                     variant="contained"
+                    fullWidth
                     startIcon={<ReadIcon />}
                     onClick={handleRead}
-                    sx={{ flex: 1 }}
+                    sx={{
+                      backgroundColor: '#e50914',
+                      '&:hover': { backgroundColor: '#b20710' },
+                    }}
                   >
-                    {readingProgress && readingProgress.progress > 0 ? 'Continue' : 'Read'}
+                    {progress && progress.progress > 0 ? 'Continue Reading' : 'Read'}
                   </Button>
                   <Button
                     variant="outlined"
+                    fullWidth
                     startIcon={<DownloadIcon />}
                     onClick={handleDownload}
-                    sx={{ flex: 1 }}
                   >
                     Download
                   </Button>
-                </Box>
-                <Button
-                  variant="outlined"
-                  startIcon={<EmailIcon />}
-                  onClick={handleEmailDialogOpen}
-                  fullWidth
-                  sx={{ mt: 1 }}
-                >
-                  Email
-                </Button>
-              </Grid>
-
-              <Grid item xs={12} sm={8}>
-                <Typography variant="h5" gutterBottom>
-                  {currentBook.title}
-                </Typography>
-                
-                {currentBook.series && (
-                  <Chip
-                    icon={<SeriesIcon />}
-                    label={`${currentBook.series}${currentBook.series_number ? ` #${currentBook.series_number}` : ''}`}
-                    size="small"
-                    sx={{ mb: 1 }}
-                  />
-                )}
-
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                  <AuthorIcon fontSize="small" color="action" />
-                  <Typography
-                    variant="subtitle1"
-                    sx={{ cursor: 'pointer', '&:hover': { color: '#e50914' } }}
-                    onClick={() => {
-                      onClose();
-                      navigate(`/author/${encodeURIComponent(currentBook.author)}`);
-                    }}
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    startIcon={<EmailIcon />}
+                    onClick={handleEmailDialogOpen}
                   >
-                    {currentBook.author || 'Unknown Author'}
-                  </Typography>
+                    Email
+                  </Button>
                 </Box>
-
-                {currentBook.average_rating && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                    <Rating value={currentBook.average_rating} precision={0.1} readOnly />
-                    <Typography variant="body2" color="text.secondary">
-                      {currentBook.average_rating.toFixed(1)} ({currentBook.ratings_count || 0} ratings)
-                    </Typography>
-                  </Box>
-                )}
-
-                <Divider sx={{ my: 2 }} />
-
-                {currentBook.description && (
-                  <Typography variant="body2" paragraph>
-                    {currentBook.description}
-                  </Typography>
-                )}
-
-                <Grid container spacing={2}>
-                  {currentBook.publisher && (
-                    <Grid item xs={6}>
-                      <Typography variant="caption" color="text.secondary">Publisher</Typography>
-                      <Typography variant="body2">{currentBook.publisher}</Typography>
-                    </Grid>
-                  )}
-                  {currentBook.published_date && (
-                    <Grid item xs={6}>
-                      <Typography variant="caption" color="text.secondary">Published</Typography>
-                      <Typography variant="body2">{currentBook.published_date}</Typography>
-                    </Grid>
-                  )}
-                  {currentBook.isbn && (
-                    <Grid item xs={6}>
-                      <Typography variant="caption" color="text.secondary">ISBN</Typography>
-                      <Typography variant="body2">{currentBook.isbn}</Typography>
-                    </Grid>
-                  )}
-                  {currentBook.page_count && (
-                    <Grid item xs={6}>
-                      <Typography variant="caption" color="text.secondary">Pages</Typography>
-                      <Typography variant="body2">{currentBook.page_count}</Typography>
-                    </Grid>
-                  )}
-                  {currentBook.categories && (
-                    <Grid item xs={12}>
-                      <Typography variant="caption" color="text.secondary">Categories</Typography>
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                        {currentBook.categories.split(',').map((cat, i) => (
-                          <Chip key={i} label={cat.trim()} size="small" variant="outlined" />
-                        ))}
-                      </Box>
-                    </Grid>
-                  )}
-                </Grid>
-              </Grid>
+              )}
             </Grid>
+
+            {/* Book Details */}
+            <Grid item xs={12} md={8}>
+              {editing ? (
+                // ========== EDIT MODE ==========
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <TextField
+                    fullWidth
+                    label="Title"
+                    value={editedBook.title || ''}
+                    onChange={(e) => setEditedBook({ ...editedBook, title: e.target.value })}
+                    variant="outlined"
+                  />
+                  <TextField
+                    fullWidth
+                    label="Author"
+                    value={editedBook.author || ''}
+                    onChange={(e) => setEditedBook({ ...editedBook, author: e.target.value })}
+                    variant="outlined"
+                  />
+                  
+                  {/* Series with Autocomplete */}
+                  <Grid container spacing={2}>
+                    <Grid item xs={8}>
+                      <Autocomplete
+                        freeSolo
+                        options={seriesOptions}
+                        loading={loadingSeries}
+                        value={editedBook.series || ''}
+                        onInputChange={(event, newValue) => {
+                          setEditedBook({ ...editedBook, series: newValue });
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Series"
+                            placeholder="Enter or select series"
+                            InputProps={{
+                              ...params.InputProps,
+                              startAdornment: (
+                                <>
+                                  <SeriesIcon sx={{ mr: 1, color: 'action.active' }} />
+                                  {params.InputProps.startAdornment}
+                                </>
+                              ),
+                              endAdornment: (
+                                <>
+                                  {loadingSeries ? <CircularProgress size={20} /> : null}
+                                  {params.InputProps.endAdornment}
+                                </>
+                              ),
+                            }}
+                          />
+                        )}
+                      />
+                    </Grid>
+                    <Grid item xs={4}>
+                      <TextField
+                        fullWidth
+                        label="Series #"
+                        type="number"
+                        value={editedBook.series_number || ''}
+                        onChange={(e) => setEditedBook({ ...editedBook, series_number: e.target.value })}
+                        variant="outlined"
+                        InputProps={{ inputProps: { min: 0, step: 0.5 } }}
+                      />
+                    </Grid>
+                  </Grid>
+
+                  <TextField
+                    fullWidth
+                    label="ISBN"
+                    value={editedBook.isbn || ''}
+                    onChange={(e) => setEditedBook({ ...editedBook, isbn: e.target.value })}
+                    variant="outlined"
+                  />
+                  <TextField
+                    fullWidth
+                    label="Publisher"
+                    value={editedBook.publisher || ''}
+                    onChange={(e) => setEditedBook({ ...editedBook, publisher: e.target.value })}
+                    variant="outlined"
+                  />
+                  <TextField
+                    fullWidth
+                    label="Published Date"
+                    value={editedBook.published_date || ''}
+                    onChange={(e) => setEditedBook({ ...editedBook, published_date: e.target.value })}
+                    variant="outlined"
+                    placeholder="YYYY or YYYY-MM-DD"
+                  />
+                  <TextField
+                    fullWidth
+                    label="Language"
+                    value={editedBook.language || ''}
+                    onChange={(e) => setEditedBook({ ...editedBook, language: e.target.value })}
+                    variant="outlined"
+                    placeholder="e.g., en, es, fr"
+                  />
+                  <TextField
+                    fullWidth
+                    label="Categories"
+                    value={editedBook.categories || ''}
+                    onChange={(e) => setEditedBook({ ...editedBook, categories: e.target.value })}
+                    variant="outlined"
+                    helperText="Comma-separated list of categories"
+                  />
+                  <TextField
+                    fullWidth
+                    label="Description"
+                    value={editedBook.description || ''}
+                    onChange={(e) => setEditedBook({ ...editedBook, description: e.target.value })}
+                    variant="outlined"
+                    multiline
+                    rows={4}
+                  />
+                </Box>
+              ) : (
+                // ========== VIEW MODE ==========
+                <>
+                  <Typography variant="h4" gutterBottom sx={{ fontWeight: 600 }}>
+                    {currentBook.title}
+                  </Typography>
+
+                  {currentBook.author && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                      <AuthorIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+                      <Typography
+                        variant="h6"
+                        onClick={handleAuthorClick}
+                        sx={{
+                          cursor: 'pointer',
+                          color: 'text.secondary',
+                          '&:hover': {
+                            color: '#e50914',
+                            textDecoration: 'underline',
+                          },
+                        }}
+                      >
+                        {currentBook.author}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* Rating */}
+                  {currentBook.average_rating && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                      <Rating value={currentBook.average_rating} readOnly precision={0.1} size="small" />
+                      <Typography variant="body2" color="text.secondary">
+                        {currentBook.average_rating.toFixed(1)}
+                        {currentBook.ratings_count && ` (${currentBook.ratings_count} ratings)`}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* Reading Progress */}
+                  {progress && progress.progress > 0 && (
+                    <Chip
+                      label={`${Math.round(progress.progress)}% Complete`}
+                      sx={{
+                        backgroundColor: '#e50914',
+                        mb: 2,
+                      }}
+                    />
+                  )}
+
+                  {/* Categories */}
+                  {categories.length > 0 && (
+                    <Box sx={{ mb: 2 }}>
+                      {categories.map((category, index) => (
+                        <Chip
+                          key={index}
+                          label={category}
+                          size="small"
+                          sx={{ mr: 0.5, mb: 0.5, backgroundColor: '#333' }}
+                        />
+                      ))}
+                    </Box>
+                  )}
+
+                  {/* Metadata */}
+                  <Box sx={{ mb: 2 }}>
+                    {currentBook.series && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <SeriesIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                        <Typography variant="body2" color="text.secondary">
+                          Series: {currentBook.series}
+                          {currentBook.series_number && ` #${currentBook.series_number}`}
+                        </Typography>
+                      </Box>
+                    )}
+                    {currentBook.published_date && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <CalendarIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                        <Typography variant="body2" color="text.secondary">
+                          Published: {currentBook.published_date}
+                        </Typography>
+                      </Box>
+                    )}
+                    {currentBook.publisher && (
+                      <Typography variant="body2" color="text.secondary">
+                        Publisher: {currentBook.publisher}
+                      </Typography>
+                    )}
+                    {currentBook.isbn && (
+                      <Typography variant="body2" color="text.secondary">
+                        ISBN: {currentBook.isbn}
+                      </Typography>
+                    )}
+                    {currentBook.page_count && (
+                      <Typography variant="body2" color="text.secondary">
+                        Pages: {currentBook.page_count}
+                      </Typography>
+                    )}
+                    {currentBook.language && (
+                      <Typography variant="body2" color="text.secondary">
+                        Language: {currentBook.language.toUpperCase()}
+                      </Typography>
+                    )}
+                    {currentBook.format && (
+                      <Typography variant="body2" color="text.secondary">
+                        Format: {currentBook.format.toUpperCase()}
+                      </Typography>
+                    )}
+                  </Box>
+
+                  {/* Description */}
+                  {currentBook.description && (
+                    <>
+                      <Divider sx={{ my: 2 }} />
+                      <Typography variant="h6" gutterBottom>
+                        Description
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+                        {currentBook.description}
+                      </Typography>
+                    </>
+                  )}
+                </>
+              )}
+            </Grid>
+          </Grid>
+
+          {/* Similar Books Section - Only show when not editing */}
+          {!editing && similarBooks.length > 0 && (
+            <>
+              <Divider sx={{ my: 3 }} />
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <ReadIcon />
+                Similar Books You Might Like
+              </Typography>
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                {similarBooks.map((similarBook) => (
+                  <Grid item xs={6} sm={4} md={2} key={similarBook.id}>
+                    <Box
+                      onClick={() => {
+                        onClose();
+                        setTimeout(() => {
+                          window.dispatchEvent(new CustomEvent('openBookDetail', { detail: similarBook }));
+                        }, 100);
+                      }}
+                      sx={{
+                        cursor: 'pointer',
+                        transition: 'transform 0.2s',
+                        '&:hover': {
+                          transform: 'scale(1.05)',
+                        },
+                      }}
+                    >
+                      <Box
+                        component="img"
+                        src={booksAPI.getCoverUrl(similarBook.id)}
+                        alt={similarBook.title}
+                        sx={{
+                          width: '100%',
+                          height: 'auto',
+                          aspectRatio: '2/3',
+                          objectFit: 'cover',
+                          borderRadius: 1,
+                          mb: 0.5,
+                        }}
+                      />
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          fontSize: '0.7rem',
+                        }}
+                      >
+                        {similarBook.title}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
+            </>
+          )}
+
+          {loadingSimilar && (
+            <Box sx={{ textAlign: 'center', py: 3 }}>
+              <Typography variant="body2" color="text.secondary">
+                Loading similar books...
+              </Typography>
+            </Box>
           )}
         </DialogContent>
 
-        <DialogActions>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
           {editing ? (
             <>
               <Button onClick={handleCancelEdit} startIcon={<CancelIcon />} color="inherit">
@@ -569,37 +751,32 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteConfirm} onClose={() => setDeleteConfirm(false)}>
-        <DialogTitle>Delete Book</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete "{currentBook.title}"? This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteConfirm(false)}>Cancel</Button>
-          <Button onClick={handleDelete} color="error" variant="contained">
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Email Dialog with Save Option */}
+      {/* Email Dialog */}
       <Dialog 
         open={emailDialogOpen} 
         onClose={handleEmailDialogClose}
         maxWidth="sm"
         fullWidth
-      >
+      >    
         <DialogTitle>Send Book to Email</DialogTitle>
         <DialogContent>
+          <DialogContentText sx={{ fontSize: '0.875rem', mb: 2 }}>
+            Ensure dandolewski@gmail.com is in 'Approved Personal Document E-mail List' in your 
+            <Link
+              href="https://www.amazon.com/hz/mycd/preferences/myx#/home/settings/payment"
+              target="_blank"
+              rel="noopener"
+              sx={{ ml: 0.5 }}
+            >
+              Amazon settings
+            </Link>    
+          </DialogContentText>  
           {loadingSavedEmail ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
               <CircularProgress size={24} />
             </Box>
-          ) : (
-            <>
+          ) : (  
+            <> 
               <TextField
                 autoFocus
                 margin="dense"
@@ -610,10 +787,8 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your-kindle@kindle.com"
-                helperText={hasSavedEmail ? "Using your saved email address" : "Enter your Kindle or device email"}
+                helperText={hasSavedEmail ? "Using your saved email address" : "Enter your Kindle or device email"}  
               />
-              
-              {/* Show save option only if no email is currently saved */}
               {!hasSavedEmail && email && (
                 <FormControlLabel
                   control={
@@ -644,7 +819,7 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
                 </Box>
               )}
             </>
-          )}
+          )}  
         </DialogContent>
         <DialogActions>
           <Button onClick={handleEmailDialogClose}>Cancel</Button>
