@@ -95,7 +95,12 @@ export const requestsAPI = {
 
 // Email
 export const emailAPI = {
-  sendBook: (id, email, format = null) => api.post(`/email/${id}/send`, { email, format }),
+  sendBook: (id, email, format = null, saveEmail = false) => 
+    api.post(`/email/${id}/send`, { email, format, saveEmail }),
+  testConfig: () => api.get('/email/test'),
+  getSavedEmail: () => api.get('/email/saved-email'),
+  saveEmail: (email) => api.post('/email/saved-email', { email }),
+  clearSavedEmail: () => api.delete('/email/saved-email'),
 };
 
 // Metadata
