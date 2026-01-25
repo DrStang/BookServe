@@ -94,6 +94,39 @@ static async updatePassword(userId, newPassword) {
       });
     });
   }
+  static async getKindleEmail(userId) {
+    return new Promise((resolve, reject) => {
+      db.get('SELECT kindle_email FROM users WHERE id = ?', [userId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row?.kindle_email || null);
+      });
+    });
+  }
+  static async saveKindleEmail(userId, kindleEmail) {
+    return new Promise((resolve, reject) => {
+      db.run(
+        'UPDATE users SET kindle_email = ? WHERE id = ?',
+        [kindleEmail, userId],
+        function(err) {
+          if (err) reject(err);
+          else resolve({ updated: this.changes > 0, kindle_email: kindleEmail });
+        }
+      );
+    });
+  }
+   // Clear user's saved kindle email
+  static async clearKindleEmail(userId) {
+    return new Promise((resolve, reject) => {
+      db.run(
+        'UPDATE users SET kindle_email = NULL WHERE id = ?',
+        [userId],
+        function(err) {
+          if (err) reject(err);
+          else resolve({ cleared: this.changes > 0 });
+        }
+      );
+    });
+  }
 }
 
 module.exports = User;
