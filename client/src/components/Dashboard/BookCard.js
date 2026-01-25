@@ -23,6 +23,9 @@ import {
   LinearProgress,
   Chip,
   Link,
+  Checkbox,
+  CircularProgress,
+  FormControlLabel,
 } from '@mui/material';
 import {
   MoreVert as MoreIcon,
@@ -45,8 +48,12 @@ const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const [email, setEmail] = useState('');
+  const [saveEmail, setSaveEmail] = useState(false);
+  const [hasSavedEmail, setHasSavedEmail] = useState(false);
+  const [loadingSavedEmail, setLoadingSavedEmail] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [sending, setSending] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [coverError, setCoverError] = useState(false);
 
@@ -54,6 +61,31 @@ const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
   useEffect(() => {
     setCoverError(false);
   }, [book.cover_image, book.id]);
+
+  useEffect(() => {
+    if (emailDialogOpen) {
+      fetchSavedEmail();
+    }
+  }, [emailDialogOpen]);
+
+  const fetchSavedEmail = async () => {
+    setLoadingSavedEmail(true);
+    try {
+      const response = await emailAPI.getSavedEmail();
+      const savedEmail = response.data.kindle_email;
+      if (savedEmail) {
+        setEmail(savedEmail);
+        setHasSavedEmail(true);
+        setSaveEmail(false); // Don't show save checkbox if already saved
+      } else {
+        setHasSavedEmail(false);
+      }
+    } catch (error) {
+      console.error('Error fetching saved email:', error);
+    } finally {
+      setLoadingSavedEmail(false);
+    }
+  };
 
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
@@ -87,17 +119,40 @@ const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
     }
     handleMenuClose();
   };
-
   const handleEmailSubmit = async () => {
+    if (!email) {
+      setSnackbar({ open: true, message: 'Please enter an email address', severity: 'warning' });
+      return;
+    }
+
+    setSending(true);
     try {
       // Convert to EPUB if the book is in a convertible format (mobi, azw, azw3)
       const format = needsEpubConversion(book.format) ? 'epub' : null;
       await emailAPI.sendBook(book.id, email, format);
+      if (saveEmail) {
+        message += ' (email saved for future use)';
+        setHasSavedEmail(true);
+      }
+      
       setSnackbar({ open: true, message: 'Book sent to email', severity: 'success' });
       setEmailDialogOpen(false);
       setEmail('');
     } catch (error) {
       setSnackbar({ open: true, message: 'Failed to send email', severity: 'error' });
+    } finally {
+      setSending(false);
+    }  
+  };
+
+  const handleClearSavedEmail = async () => {
+    try {
+      await emailAPI.clearSavedEmail();
+      setEmail('');
+      setHasSavedEmail(false);
+      setSnackbar({ open: true, message: 'Saved email cleared', severity: 'success' });
+    } catch (error) {
+      setSnackbar({ open: true, message: 'Failed to clear saved email', severity: 'error' });
     }
   };
 
@@ -265,7 +320,7 @@ const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
         </MenuItem>
       </Menu>
 
-      <Dialog open={emailDialogOpen} onClose={() => setEmailDialogOpen(false)}>
+      <Dialog open={emailDialogOpen} onClose={() => setEmailDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Send Book to Email</DialogTitle>
         <DialogContent>
           <DialogContentText sx ={{ fontSize: '0.875rem', mb: 2 }}>
@@ -278,22 +333,63 @@ const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
               >
                 Amazon settings
               </Link>    
-          </DialogContentText>    
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Email Address"
-            type="email"
-            fullWidth
-            variant="outlined"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+          </DialogContentText>
+          {loadingSavedEmail ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+              <CircularProgress size={24} />
+            </Box>
+          ) : (  
+            <TextField
+              autoFocus
+              margin="dense"
+              label="Email Address"
+              type="email"
+              fullWidth
+              variant="outlined"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="your-kindle@kindle.com"
+              helperText={hasSavedEmail ? "Using your saved email address" : "Enter your Kindle or device email"}
+            />
+
+            {!hasSavedEmail && email && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={saveEmail}
+                    onChange={(e) => setSaveEmail(e.target.checked)}
+                    color="primary"
+                  />
+                }
+                label="Save this email for future book deliveries"
+                sx={{ mt: 1 }}
+              />
+            )}
+
+            {hasSavedEmail && (
+              <Box sx={{ mt:1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  This is your saved email address.{' '}
+                  <Button
+                    size="small"
+                    onClick={handleClearSavedEmail}
+                    sx={{ textTransform: 'none', p: 0, minWidth: 'auto' }}
+                  >
+                    Clear saved email
+                  </Button>
+                </Typography>
+              </Box>
+            )}
+          </>
+        )}      
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEmailDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleEmailSubmit} variant="contained">
-            Send
+          <Button onClick={handleEmailSubmit} variant="contained"
+           disabled={sending || !email || loadingSavedEmail}
+            startIcon={sending ? <CircularProgress size={16} /> : null}
+          >
+            {sending ? 'Sending...' : 'Send'}
           </Button>
         </DialogActions>
       </Dialog>
