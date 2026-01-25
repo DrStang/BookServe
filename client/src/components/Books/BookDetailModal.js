@@ -269,7 +269,7 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
       setEmail('');
     }
     setSaveEmail(false);
-  ];  
+  };  
 
   const handleEmailSubmit = async () => {
     if (!email) {
