@@ -822,8 +822,9 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
           )}  
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => {handleEmailDialogClose}>Cancel</Button>
-          <Button onClick={handleEmailSubmit} 
+          <Button onClick={handleEmailDialogClose}>Cancel</Button>
+          <Button 
+            onClick={handleEmailSubmit} 
             variant="contained"
             disabled={sending || !email || loadingSavedEmail}
             startIcon={sending ? <CircularProgress size={16} /> : null}
