@@ -19,6 +19,7 @@ import PrivateRoute from './components/Common/PrivateRoute';
 import NYTPanel from './components/Admin/NYTAdminPanel';
 import RequestsPage from './components/Requests/RequestsPage';
 import NYTBestsellersPage from './components/NYT/NYTBestsellersPage';
+import BookPage from './components/Books/BookPage';
 
 const darkTheme = createTheme({
   palette: {
@@ -84,6 +85,14 @@ function App() {
             element={
               <PrivateRoute isAuthenticated={isAuthenticated}>
                 <Dashboard onLogout={handleLogout} />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/book/:id"
+            element={
+              <PrivateRoute isAuthenticated={isAuthenticated}>
+                <BookPage />
               </PrivateRoute>
             }
           />
