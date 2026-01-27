@@ -917,7 +917,142 @@ exports.getRequestStats = async (req, res) => {
     res.status(500).json({ error: 'Error fetching request statistics' });
   }
 };
+// ============================================================================
+// MARK AS FULFILLED (Admin manually added book)
+// ============================================================================
 
+exports.markAsFulfilled = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { bookId, notes } = req.body;
+
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' }); 
+    }
+
+    const request = await BookRequest.findById(id);
+
+    if (!request) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    if (request.status !== 'failed') {
+      return res.status(400).json({
+        error: 'Can only mark failed requests as fulfilled',
+        currentStatus: request.status
+      });
+    }
+
+    await BookRequest.updateStatus(id, 'completed', {
+      error_message: null,
+      fulfilled_manually: 1,
+      fulfilled_notes: notes || 'Manually added by admin',
+      fulfilled_book_id: bookId || null
+    });
+
+    await BookRequest.resetRetryStatus(id);
+
+    console.log(`[Fulfilled] Request ${id} marked as fulfilled by admin ${req.user.username}`);
+
+    await sendFulfilledNotification(request);
+
+    res.json({
+      success: true,
+      message: 'Request marked as fulfilled',
+      request: {
+        id: request.id,
+        title: request.title,
+        author: request.author,
+        status: 'completed'
+      }
+    });
+  } catch (error) {
+    console.error('Error marking request as fulfilled:', error);
+    res.status(500).json({ error: 'Error marking request as fulfilled'});
+  }
+};
+
+async function sendFulfilledNotification(request) {
+  try {
+    const { db } = require('../database/init');
+
+    const user = await new Promise((resolve, reject) => {
+      db.get(
+        'SELECT email, username, email_notifications FROM users WHERE id = ?',
+        [request.user_id],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    if (!user) {
+      console.log(`[Fulfilled] User not found for request ${request.id}`);
+      return;
+    }
+
+    if (user.email_notifications === 0) {
+      console.log(`[Fulfilled] User ${user.username} has email notifications disabled`);
+      return;
+    }
+
+    if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER) {
+      console.log('[Fulfilled] Email not configured, skipping notification');
+      return;
+    }
+
+    const emailController = require('./emailController');
+
+    const subject = `Book Now Available: ${request.title}`;
+
+    const text = `Great news! Your requested book is now available in the library.
+
+Book: ${request.title}
+Author: ${request.author || 'Unknown'}
+Status: Available
+
+The book has been manually added to the library and is ready for you to read or download.
+
+Log in to BookServe to access your book!
+
+---
+BookServe - Your Personal Book Library`;
+
+    const html = `
+      <h2>🎉 Great news! Your book is now available</h2>
+        <p>The book you requested has been added to the library:</p>
+        <table style="border-collapse: collapse; margin: 15px 0;">
+          <tr>
+            <td style="padding: 5px 10px; font-weight: bold;">Title:</td>
+            <td style="padding: 5px 10px;">${request.title}</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 10px; font-weight: bold;">Author:</td>
+            <td style="padding: 5px 10px;">${request.author || 'Unknown'}</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 10px; font-weight: bold;">Status:</td>
+            <td style="padding: 5px 10px; color: green; font-weight: bold;">✓ Available</td>
+          </tr>
+        </table>
+        <p>The book has been manually added to the library and is ready for you to read or download.</p>
+        <p><a href="https://books.drstang.xyz" style="display: inline-block; padding: 10px 20px; background-color: #e50914; color: white; text-decoration: none; border-radius: 4px; margin-top: 10px;">Open BookServe</a></p>
+        <hr style="margin-top: 20px;">
+        <p style="color: #666; font-size: 12px;">BookServe - Your Personal Book Library</p>
+      `;
+
+    await emailController.sendNotificationEmail(user.email, subject, text, html);
+    console.log(`[Fulfilled] Notification sent to ${user.email} for book: "${request.title}"`);
+  
+  } catch (error) {
+    console.error('[Fulfilled] Error sending notification:', error.message);
+  }
+}  
+      
+
+
+        
 // ============================================================================
 // BACKGROUND PROCESSING
 // ============================================================================
