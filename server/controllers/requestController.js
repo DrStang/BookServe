@@ -947,7 +947,7 @@ exports.markAsFulfilled = async (req, res) => {
       error_message: null,
       fulfilled_manually: 1,
       fulfilled_notes: notes || 'Manually added by admin',
-    });
+    };
     
     if (bookId && !isNaN(parseInt(bookId))) {
       additionalData.fulfilled_book_id = parseInt(bookId);
