@@ -91,6 +91,7 @@ export const requestsAPI = {
   retryWithCustomSearch: (id, customTerms = {}) =>
     api.post(`requests/${id}/retry`, customTerms),
   getSearchFailures: () => api.get('/requests/search-failures'),
+  markAsFulfilled: (id, data = {}) => api.post(`/requests/${id}/fulfill`, data),
 };
 
 // Email
