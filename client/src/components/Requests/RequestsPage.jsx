@@ -51,9 +51,12 @@ import {
   TrendingDown as FailureIcon,
   Info as InfoIcon,
   ArrowBack as BackIcon,
+  CheckCircle as FulfillIcon,
 } from '@mui/icons-material';
 import { requestsAPI } from '../../services/api';
 import { isAdmin as checkIsAdmin } from '../../utils/auth';
+import FulfillDialog from './FulfillDialog';
+
 
 // Status styling
 const statusColors = {
@@ -383,6 +386,10 @@ const RequestsPage = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState(0); // 0 = My Requests, 1 = All Requests (admin)
   const [statusFilter, setStatusFilter] = useState(null);
+
+  //Fulfill dialog state
+  const [fulfillDialogOpen, setFulfillDialogOpen] = useState(false);
+  const [requestToFulfill, setRequestToFulfill] = useState(null);
   
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -464,6 +471,18 @@ const RequestsPage = () => {
     fetchRequests();
     fetchStats();
   };
+
+  const handleFulfillClick = (request) => {
+    setRequestToFulfill(request);
+    setFulfillDialogOpen(true);
+  };
+
+  const handleFulfillSuccess = () => {
+    setFulfillDialogOpen(false);
+    setRequestToFulfill(null);
+    fetchRequests();
+    fetchStats();
+  };  
 
   const formatDate = (dateString) => {
     if (!dateString) return '-';
@@ -679,6 +698,17 @@ const RequestsPage = () => {
                   </TableCell>
                   <TableCell align="right">
                     <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+                      {isAdmin && request.status === 'failed' && (
+                        <Tooltip title="Mark as fulfilled (manually added)">
+                          <IconButton
+                            size="small"
+                            color="success"
+                            onClick={() => handleFulfillClick(request)}
+                          >
+                            <FulfillIcon />
+                          </IconButton>  
+                        </Tooltip>
+                      )}
                       {/* Retry button - show for failed requests */}
                       {request.status === 'failed' && (
                         <Tooltip title="Retry with custom search terms">
@@ -757,6 +787,17 @@ const RequestsPage = () => {
         request={requestToRetry}
         onRetrySuccess={handleRetrySuccess}
       />
+      {/* Fulfill Dialog */}
+      <FulfillDialog
+        open={fulfillDialogOpen}
+        onClose={() => {
+          setFulfillDialogOpen(false);
+          setRequestToFulfill(null);
+        }}
+        request={requestToFulfill}
+        onFulfillSuccess={handleFulfillSucess}
+      />
+      
     </Box>
   );
 };
