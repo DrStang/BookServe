@@ -104,6 +104,11 @@ const initDatabase = () => {
       addColumnIfNotExists('book_requests', 'max_retries', 'INTEGER DEFAULT 10');
       addColumnIfNotExists('book_requests', 'next_retry_at', 'DATETIME');
       addColumnIfNotExists('book_requests', 'last_retry_at', 'DATETIME');
+      addColumnIfNotExists('book_requests', 'fulfilled_manually', 'INTEGER DEFAULT 0');
+      addColumnIfNotExists('book_requests', 'fulfilled_notes', 'TEXT');
+      addColumnIfNotExists('book_requests', 'fulfilled_book_id', 'INTEGER');
+
+
 
       // Add notification preferences to users table
       addColumnIfNotExists('users', 'email_notifications', 'INTEGER DEFAULT 1');
