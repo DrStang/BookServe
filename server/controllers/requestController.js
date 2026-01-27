@@ -1011,13 +1011,8 @@ async function sendFulfilledNotification(request, linkedBookId = null) {
     const emailController = require('./emailController');
     const appUrl = 'https://books.drstang.xyz';
 
-    const bookLink = linkedBookId
-      ? `${appUrl}/book/${linkedBookId}`
-      : appUrl;
-
-    const bookLinkText = linkedBookId
-       ? `<p><a href="${bookLink}" style="display: inline-block; padding: 10px 20px; background-color: #e50914; color: white; text-decoration: none; border-radius: 4px; margin-top: 10px;">View Your Book</a></p>`
-      : `<p><a href="${bookLink}" style="display: inline-block; padding: 10px 20px; background-color: #e50914; color: white; text-decoration: none; border-radius: 4px; margin-top: 10px;">Open BookServe</a></p>`;
+    const searchQuery = encodeURIComponent(request.title);
+    const bookLink = `${appUrl}/?search=${searchQuery}`;
 
     const subject = `Book Now Available: ${request.title}`;
 
@@ -1029,7 +1024,7 @@ Status: Available
 
 The book has been manually added to the library and is ready for you to read or download.
 
-${linkedBookId ? `Direct link: ${bookLink}` : `Log in to BookServe to access your book: ${appUrl}`}
+Find your book: ${bookLink}
 
 ---
 BookServe - Your Personal Book Library`;
@@ -1052,7 +1047,11 @@ BookServe - Your Personal Book Library`;
           </tr>
         </table>
         <p>The book has been manually added to the library and is ready for you to read or download.</p>
-        ${bookLinkText}
+        <p>
+          <a href="${bookLink}" style="display: inline-block; padding: 10px 20px; background-color: #e50914; color: white; text-decoration: none; border-radius: 4px; margin-top: 10px;">
+            Find Your Book
+          </a>
+        </p>
         <hr style="margin-top: 20px;">
         <p style="color: #666; font-size: 12px;">BookServe - Your Personal Book Library</p>
       `;
