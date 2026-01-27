@@ -795,7 +795,7 @@ const RequestsPage = () => {
           setRequestToFulfill(null);
         }}
         request={requestToFulfill}
-        onFulfillSuccess={handleFulfillSucess}
+        onFulfillSuccess={handleFulfillSuccess}
       />
       
     </Box>
