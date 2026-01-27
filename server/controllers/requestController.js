@@ -1011,8 +1011,13 @@ async function sendFulfilledNotification(request, linkedBookId = null) {
     const emailController = require('./emailController');
     const appUrl = 'https://books.drstang.xyz';
 
-    const searchQuery = encodeURIComponent(request.title);
-    const bookLink = `${appUrl}/?search=${searchQuery}`;
+    
+    const bookLink = linkedBookId
+      ? `${appUrl}/book/${linkedBookId}`
+      : appUrl;
+
+    const buttonText = linkedBookId ? 'View Your Book' : 'Go to Library';
+
 
     const subject = `Book Now Available: ${request.title}`;
 
@@ -1024,7 +1029,7 @@ Status: Available
 
 The book has been manually added to the library and is ready for you to read or download.
 
-Find your book: ${bookLink}
+${linkedBookId ? `View your book: ${bookLink}` : `Go to library: ${bookLink}`}
 
 ---
 BookServe - Your Personal Book Library`;
@@ -1049,7 +1054,7 @@ BookServe - Your Personal Book Library`;
         <p>The book has been manually added to the library and is ready for you to read or download.</p>
         <p>
           <a href="${bookLink}" style="display: inline-block; padding: 10px 20px; background-color: #e50914; color: white; text-decoration: none; border-radius: 4px; margin-top: 10px;">
-            Find Your Book
+            ${buttonText}
           </a>
         </p>
         <hr style="margin-top: 20px;">
