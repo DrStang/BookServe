@@ -1,4 +1,5 @@
-// FulfillDialog.jsx - Add to client/src/components/Requests/FulfillDialog.jsx
+// FulfillDialog.jsx - Updated version
+// Replace client/src/components/Requests/FulfillDialog.jsx with this file
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -13,10 +14,13 @@ import {
   CircularProgress,
   Alert,
   Autocomplete,
+  Link,
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
   Email as EmailIcon,
+  MenuBook as BookIcon,
+  OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 import { requestsAPI, booksAPI } from '../../services/api';
 
@@ -28,6 +32,7 @@ const FulfillDialog = ({ open, onClose, request, onFulfillSuccess }) => {
   const [loadingBooks, setLoadingBooks] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const [searchInput, setSearchInput] = useState('');
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -36,30 +41,54 @@ const FulfillDialog = ({ open, onClose, request, onFulfillSuccess }) => {
       setSelectedBook(null);
       setError(null);
       setSuccess(false);
+      setSearchInput(request.title || '');
       
       // Search for matching books when dialog opens
-      searchMatchingBooks();
+      searchMatchingBooks(request.title);
     }
   }, [open, request]);
 
-  const searchMatchingBooks = async () => {
-    if (!request) return;
+  const searchMatchingBooks = async (searchTerm) => {
+    if (!searchTerm || searchTerm.length < 2) {
+      setBooks([]);
+      return;
+    }
     
     setLoadingBooks(true);
     try {
-      // Search for books matching the request title/author
-      const response = await booksAPI.getAll({ 
-        search: request.title,
-        limit: 20 
-      });
+      // Use the search endpoint which handles text search properly
+      const response = await booksAPI.search(searchTerm);
       setBooks(response.data.books || []);
     } catch (err) {
       console.error('Error searching for books:', err);
-      // Non-fatal, just means no autocomplete
+      // Try fallback to getAll with title filter
+      try {
+        const fallbackResponse = await booksAPI.getAll(20, 0, 'title', 'ASC', {});
+        // Filter client-side
+        const filtered = (fallbackResponse.data.books || []).filter(book => 
+          book.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          book.author?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        setBooks(filtered.slice(0, 20));
+      } catch (fallbackErr) {
+        console.error('Fallback search also failed:', fallbackErr);
+        setBooks([]);
+      }
     } finally {
       setLoadingBooks(false);
     }
   };
+
+  // Debounced search when user types
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchInput && searchInput.length >= 2) {
+        searchMatchingBooks(searchInput);
+      }
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const handleFulfill = async () => {
     setLoading(true);
@@ -172,7 +201,11 @@ const FulfillDialog = ({ open, onClose, request, onFulfillSuccess }) => {
               getOptionLabel={(option) => `${option.title} - ${option.author || 'Unknown'}`}
               value={selectedBook}
               onChange={(_, newValue) => setSelectedBook(newValue)}
+              inputValue={searchInput}
+              onInputChange={(_, newInputValue) => setSearchInput(newInputValue)}
               loading={loadingBooks}
+              filterOptions={(x) => x} // Disable client-side filtering, we handle it server-side
+              isOptionEqualToValue={(option, value) => option.id === value?.id}
               renderInput={(params) => (
                 <TextField
                   {...params}
@@ -192,15 +225,55 @@ const FulfillDialog = ({ open, onClose, request, onFulfillSuccess }) => {
               )}
               renderOption={(props, option) => (
                 <li {...props} key={option.id}>
-                  <Box>
-                    <Typography variant="body2">{option.title}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {option.author || 'Unknown'} • {option.format?.toUpperCase()}
-                    </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                    <BookIcon fontSize="small" color="action" />
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Typography variant="body2">{option.title}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {option.author || 'Unknown'} • {option.format?.toUpperCase() || 'Unknown format'}
+                      </Typography>
+                    </Box>
                   </Box>
                 </li>
               )}
             />
+
+            {/* Show link to selected book */}
+            {selectedBook && (
+              <Box sx={{ 
+                mt: 2, 
+                p: 1.5, 
+                bgcolor: 'success.main', 
+                bgcolor: 'rgba(46, 125, 50, 0.1)',
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'success.main'
+              }}>
+                <Typography variant="subtitle2" color="success.main" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <BookIcon fontSize="small" />
+                  Linked Book
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 0.5 }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {selectedBook.title}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {selectedBook.author || 'Unknown'} • {selectedBook.format?.toUpperCase()}
+                    </Typography>
+                  </Box>
+                  <Link 
+                    href={`/book/${selectedBook.id}`}
+                    target="_blank"
+                    rel="noopener"
+                    sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                  >
+                    <Typography variant="caption">View</Typography>
+                    <OpenInNewIcon fontSize="small" />
+                  </Link>
+                </Box>
+              </Box>
+            )}
 
             <TextField
               fullWidth
