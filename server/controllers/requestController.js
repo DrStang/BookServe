@@ -968,7 +968,7 @@ exports.markAsFulfilled = async (req, res) => {
         id: request.id,
         title: request.title,
         author: request.author,
-        status: 'completed'
+        status: 'completed',
         linkedBookId: bookId || null
       }
     });
