@@ -75,9 +75,7 @@ const Dashboard = ({ onLogout }) => {
   const [totalBooks, setTotalBooks] = useState(0);
   const [searchQuery, setSearchQuery] = useState(() => {
     const urlSearch = searchParams.get('search');
-    if (urlSearch) {
-      return urlSearch;
-    }
+    return urlSearch || '';
   });  
   const [selectedAuthor, setSelectedAuthor] = useState(null);
   const [selectedGenre, setSelectedGenre] = useState(null);
