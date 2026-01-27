@@ -28,4 +28,6 @@ router.get('/:id', authMiddleware, requestController.getRequestById);
 
 router.delete('/:id', authMiddleware, requestController.deleteRequest);
 
+router.post('/:id/fulfill', authMiddleware, adminMiddleware, requestController.markAsFulfilled);
+
 module.exports = router;
