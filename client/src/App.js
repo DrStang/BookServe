@@ -81,18 +81,18 @@ function App() {
             }
           />
           <Route
-            path="/"
-            element={
-              <PrivateRoute isAuthenticated={isAuthenticated}>
-                <Dashboard onLogout={handleLogout} />
-              </PrivateRoute>
-            }
-          />
-          <Route
             path="/book/:id"
             element={
               <PrivateRoute isAuthenticated={isAuthenticated}>
                 <BookPage />
+              </PrivateRoute>
+            }
+          />    
+          <Route
+            path="/"
+            element={
+              <PrivateRoute isAuthenticated={isAuthenticated}>
+                <Dashboard onLogout={handleLogout} />
               </PrivateRoute>
             }
           />
