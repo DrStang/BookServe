@@ -49,6 +49,7 @@ const needsEpubConversion = (format) => {
 };
 
 const BookPage = () => {
+  console.log('BookPage component loaded!');
   const { id } = useParams();
   const navigate = useNavigate();
   
