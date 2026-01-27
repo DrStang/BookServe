@@ -947,14 +947,18 @@ exports.markAsFulfilled = async (req, res) => {
       error_message: null,
       fulfilled_manually: 1,
       fulfilled_notes: notes || 'Manually added by admin',
-      fulfilled_book_id: bookId || null
     });
+    if (bookId && !isNaN(parseInt(bookId))) {
+      additionalData.fulfilled_book_id = parseInt(bookId);
+    }
 
+    await BookRequest.updateStatus(id, 'completed', additionalData);
+    
     await BookRequest.resetRetryStatus(id);
 
     console.log(`[Fulfilled] Request ${id} marked as fulfilled by admin ${req.user.username}`);
 
-    await sendFulfilledNotification(request);
+    await sendFulfilledNotification(request, bookId);
 
     res.json({
       success: true,
@@ -964,6 +968,7 @@ exports.markAsFulfilled = async (req, res) => {
         title: request.title,
         author: request.author,
         status: 'completed'
+        linkedBookId: bookId || null
       }
     });
   } catch (error) {
@@ -972,7 +977,7 @@ exports.markAsFulfilled = async (req, res) => {
   }
 };
 
-async function sendFulfilledNotification(request) {
+async function sendFulfilledNotification(request, linkedBookId = null) {
   try {
     const { db } = require('../database/init');
 
@@ -1003,6 +1008,15 @@ async function sendFulfilledNotification(request) {
     }
 
     const emailController = require('./emailController');
+    const appUrl = 'https://books.drstang.xyz';
+
+    const bookLink = linkedBookId
+      ? `${appUrl}/book/${linkedBookId}`
+      : appUrl;
+
+    const bookLinkText = linkedBookId
+       ? `<p><a href="${bookLink}" style="display: inline-block; padding: 10px 20px; background-color: #e50914; color: white; text-decoration: none; border-radius: 4px; margin-top: 10px;">View Your Book</a></p>`
+      : `<p><a href="${bookLink}" style="display: inline-block; padding: 10px 20px; background-color: #e50914; color: white; text-decoration: none; border-radius: 4px; margin-top: 10px;">Open BookServe</a></p>`;
 
     const subject = `Book Now Available: ${request.title}`;
 
@@ -1014,7 +1028,7 @@ Status: Available
 
 The book has been manually added to the library and is ready for you to read or download.
 
-Log in to BookServe to access your book!
+${linkedBookId ? `Direct link: ${bookLink}` : `Log in to BookServe to access your book: ${appUrl}`}
 
 ---
 BookServe - Your Personal Book Library`;
@@ -1037,7 +1051,7 @@ BookServe - Your Personal Book Library`;
           </tr>
         </table>
         <p>The book has been manually added to the library and is ready for you to read or download.</p>
-        <p><a href="https://books.drstang.xyz" style="display: inline-block; padding: 10px 20px; background-color: #e50914; color: white; text-decoration: none; border-radius: 4px; margin-top: 10px;">Open BookServe</a></p>
+        ${bookLinkText}
         <hr style="margin-top: 20px;">
         <p style="color: #666; font-size: 12px;">BookServe - Your Personal Book Library</p>
       `;
