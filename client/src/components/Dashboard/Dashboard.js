@@ -73,7 +73,12 @@ const Dashboard = ({ onLogout }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [books, setBooks] = useState([]);
   const [totalBooks, setTotalBooks] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => {
+    const urlSearch = searchParams.get('search');
+    if (urlSearch) {
+      return urlSearch;
+    }
+  });  
   const [selectedAuthor, setSelectedAuthor] = useState(null);
   const [selectedGenre, setSelectedGenre] = useState(null);
   const [selectedSeries, setSelectedSeries] = useState(null);
@@ -102,6 +107,12 @@ const Dashboard = ({ onLogout }) => {
   const [bookDetailOpen, setBookDetailOpen] = useState(false);
   const [goodreadsImportOpen, setGoodreadsImportOpen] = useState(false);
 
+  useEffect(() => {
+    if (searchParams.get('search')) {
+      setSearchParams({}, { replace: true });
+    }  
+  }, []);
+  
   useEffect(() => {
     loadBooks();
     loadReadingProgress();
@@ -137,13 +148,7 @@ const Dashboard = ({ onLogout }) => {
     }
   }, [selectedAuthor, selectedGenre, selectedSeries, selectedYear, searchQuery, sortBy, quickFilter]);
 
-  useEffect(() => {
-    const urlSearch = searchParams.get('search');
-    if (urlSearch) {
-      setSearchQuery(urlSearch);
-      setSearchParams({});
-    }
-  }, []);
+
   
   const loadBooks = async () => {
     try {
