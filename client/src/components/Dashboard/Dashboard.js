@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   AppBar,
   Toolbar,
@@ -70,13 +70,9 @@ const BOOKS_PER_PAGE = 24;
 
 const Dashboard = ({ onLogout }) => {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const [books, setBooks] = useState([]);
   const [totalBooks, setTotalBooks] = useState(0);
-  const [searchQuery, setSearchQuery] = useState(() => {
-    const urlSearch = searchParams.get('search');
-    return urlSearch || '';
-  });  
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedAuthor, setSelectedAuthor] = useState(null);
   const [selectedGenre, setSelectedGenre] = useState(null);
   const [selectedSeries, setSelectedSeries] = useState(null);
@@ -105,11 +101,6 @@ const Dashboard = ({ onLogout }) => {
   const [bookDetailOpen, setBookDetailOpen] = useState(false);
   const [goodreadsImportOpen, setGoodreadsImportOpen] = useState(false);
 
-  useEffect(() => {
-    if (searchParams.get('search')) {
-      setSearchParams({}, { replace: true });
-    }  
-  }, []);
   
   useEffect(() => {
     loadBooks();
