@@ -230,7 +230,7 @@ const BookPage = () => {
     );
   }
 
-  const coverUrl = book.cover_image || booksAPI.getCoverUrl(book.id);
+  const coverUrl = booksAPI.getCoverUrl(book.id);
   const categories = book.categories ? book.categories.split(',').map(c => c.trim()) : [];
 
   return (
