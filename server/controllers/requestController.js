@@ -689,33 +689,59 @@ async function getAAFilename(response, url, maxLength = 40) {
   return `${shortenedBase}${ext}`;
 
 }
+
+function buildSearchUrl(q) {
+  return `https://annas-archive.li/search?${new URLSearchParams({ q: String(q).trim() }).toString()}`;
+}
+
+function isNoResults(html) {
+  return(
+      /no files found/i.test(html)
+  )
+}
 async function searchAnna(isbn, name, author) {
+  const queries = [];
 
-  try {
-    let url;
+  if (isbn) queries.push(String(isbn));
+  const nameAuthor = `${name ?? ""} ${author ?? ""}`.replace(/\s+/g, " ").trim();
+  if (nameAuthor) queries.push(nameAuthor);
 
-    if (isbn) {
-      url = `https://annas-archive.li/search?q=${encodeURIComponent(isbn)}`;
-    } else {
-      const q =`${name ?? ""} ${author ?? ""}`.replace(/\s+/g, " " ).trim();
-      const params = new URLSearchParams( {q} );
-      url = `https://annas-archive.li/search?${params.toString()}`;
+  if (queries.length === 0) throw new Error("Need isbn or name/author");
+
+  let lastErr;
+
+  for (const q of queries) {
+    const url = buildSearchUrl(q);
+
+    try {
+      const res = await axios.get(url, {
+        headers: {
+          "User-Agent":
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36",
+          Accept: "text/html,*/*",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+        timeout: 30000,
+      });
+      if (isNoResults(res.data)) {
+        lastErr = new Error(`No results for query: ${q}`);
+        continue;
+      }
+
+      return {url, html: res.data, usedQuery: q};
+    } catch (error) {
+      lastErr = error;
     }
-    if (!isbn && !name && !author) throw new Error ("Need isbn or name/author");
+  }
 
-    const res = await axios.get(url, {
-      headers: {
-        "User-Agent":
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36",
-        Accept: "text/html,*/*",
-        "Accept-Language": "en-US,en;q=0.9",
-      },
-      timeout: 30000,
-    });
+  throw lastErr ?? new Error("AA search failed")
+}
 
-
+async function scrapeAnna(name, author, isbn){
+  const html = await searchAnna(name, author, isbn);
+  try {
     // Fetch the search results page
-    const $ = cheerio.load(res.data);
+    const $ = cheerio.load(html.data);
 
     // Parse and extract relevant links
     const href = $("a[href^='/md5/']").first().attr('href');
@@ -729,11 +755,12 @@ async function searchAnna(isbn, name, author) {
     console.error('Error searching AA:', error.message, error.response ? error.response.status : '');    return [];
   }
 }
+
 async function getAABook(isbn, name, author) {
 
-  const md5 = await searchAnna(isbn, name, author);
+  const md5 = await scrapeAnna(isbn, name, author);
   if (!md5) return null;
-  
+
   const API = process.env.ANNA_API || 'CdSzk5n7WFSrbD5AbG353s7HJqpb4';
   const url = `https://annas-archive.li/dyn/api/fast_download.json?md5=${md5}&key=${API}`;
 
