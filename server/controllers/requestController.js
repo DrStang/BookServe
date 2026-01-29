@@ -732,6 +732,8 @@ async function searchAnna(isbn, name, author) {
 async function getAABook(isbn, name, author) {
 
   const md5 = await searchAnna(isbn, name, author);
+  if (!md5) return null;
+  
   const API = process.env.ANNA_API || 'CdSzk5n7WFSrbD5AbG353s7HJqpb4';
   const url = `https://annas-archive.li/dyn/api/fast_download.json?md5=${md5}&key=${API}`;
 
@@ -1219,8 +1221,8 @@ async function processBookRequest(requestId) {
     const nzbResults = await searchNZBHydra(request.title, request.author, request.isbn, requestId);
 
     if (!nzbResults || nzbResults.length === 0) {
-      const anna = await getAABook(request.isbn, request.name, request.author)
       console.log('NZB failed, trying AA');
+      const anna = await getAABook(request.isbn, request.name, request.author)
       if (anna) {
         console.log('AA download successfully');
         await BookRequest.updateStatus(requestId, 'completed', anna);
