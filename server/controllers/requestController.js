@@ -699,11 +699,11 @@ function isNoResults(html) {
         /no files found/i.test(html)
     )
 }
-async function searchAnna({ isbn, name, author }) {
+async function searchAnna({ isbn, title, author }) {
     const queries = [];
 
     if (isbn) queries.push(String(isbn));
-    const nameAuthor = `${name ?? ""} ${author ?? ""}`.replace(/\s+/g, " ").trim();
+    const nameAuthor = `${title ?? ""} ${author ?? ""}`.replace(/\s+/g, " ").trim();
     if (nameAuthor) queries.push(nameAuthor);
 
     if (queries.length === 0) throw new Error("Need isbn or name/author");
@@ -737,7 +737,7 @@ async function searchAnna({ isbn, name, author }) {
     throw lastErr ?? new Error("AA search failed")
 }
 
-async function scrapeAnna(name, author, isbn){
+async function scrapeAnna(title, author, isbn){
     const { url, html, usedQuery } = await searchAnna({name, author, isbn});
     console.log("AA Used:", usedQuery, "URL:", url );
 
@@ -758,9 +758,9 @@ async function scrapeAnna(name, author, isbn){
     }
 }
 
-async function getAABook(isbn, name, author) {
+async function getAABook(isbn, title, author) {
 
-    const md5 = await scrapeAnna(isbn, name, author);
+    const md5 = await scrapeAnna(isbn, title, author);
     if (!md5) return null;
 
     const API = process.env.ANNA_API || 'CdSzk5n7WFSrbD5AbG353s7HJqpb4';
