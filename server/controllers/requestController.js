@@ -743,7 +743,7 @@ async function scrapeAnna(isbn, title, author){
 
     try {
         // Fetch the search results page
-        const $ = cheerio.load(html.data);
+        const $ = cheerio.load(html);
 
         // Parse and extract relevant links
         const href = $("a[href^='/md5/']").first().attr('href');
@@ -754,7 +754,8 @@ async function scrapeAnna(isbn, title, author){
 
 
     } catch (error) {
-        console.error('Error searching AA:', error.message, error.response ? error.response.status : '');    return [];
+        console.error('Error searching AA:', error.message, error.response ? error.response.status : '');    
+        return null;
     }
 }
 
