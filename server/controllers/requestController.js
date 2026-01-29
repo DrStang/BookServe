@@ -703,10 +703,10 @@ async function searchAnna({ isbn, title, author }) {
     const queries = [];
 
     if (isbn) queries.push(String(isbn));
-    const nameAuthor = `${title ?? ""} ${author ?? ""}`.replace(/\s+/g, " ").trim();
-    if (nameAuthor) queries.push(nameAuthor);
+    const titleAuthor = `${title ?? ""} ${author ?? ""}`.replace(/\s+/g, " ").trim();
+    if (titleAuthor) queries.push(titleAuthor);
 
-    if (queries.length === 0) throw new Error("Need isbn or name/author");
+    if (queries.length === 0) throw new Error("Need isbn or title/author");
 
     let lastErr;
 
@@ -737,8 +737,8 @@ async function searchAnna({ isbn, title, author }) {
     throw lastErr ?? new Error("AA search failed")
 }
 
-async function scrapeAnna(title, author, isbn){
-    const { url, html, usedQuery } = await searchAnna({name, author, isbn});
+async function scrapeAnna(isbn, title, author){
+    const { url, html, usedQuery } = await searchAnna({isbn, title, author });
     console.log("AA Used:", usedQuery, "URL:", url );
 
     try {
