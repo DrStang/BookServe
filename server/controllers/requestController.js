@@ -1251,7 +1251,7 @@ async function processBookRequest(requestId) {
 
         if (!nzbResults || nzbResults.length === 0) {
             console.log('NZB failed, trying AA');
-            const anna = await getAABook(request.isbn, request.name, request.author)
+            const anna = await getAABook(request.isbn, request.title, request.author)
             if (anna) {
                 console.log('AA download successfully');
                 await BookRequest.updateStatus(requestId, 'completed', anna);
