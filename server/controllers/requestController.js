@@ -699,7 +699,7 @@ function isNoResults(html) {
         /no files found/i.test(html)
     )
 }
-async function searchAnna( isbn, name, author ) {
+async function searchAnna({ isbn, name, author }) {
     const queries = [];
 
     if (isbn) queries.push(String(isbn));
@@ -728,7 +728,7 @@ async function searchAnna( isbn, name, author ) {
                 continue;
             }
 
-            return res;
+            return { url, html: res.data, usedQuery: q };
         } catch (error) {
             lastErr = error;
         }
@@ -738,10 +738,12 @@ async function searchAnna( isbn, name, author ) {
 }
 
 async function scrapeAnna(name, author, isbn){
-    const res = await searchAnna(name, author, isbn);
+    const { url, html, usedQuery } = await searchAnna({name, author, isbn});
+    console.log("AA Used:", usedQuery, "URL:", url );
+
     try {
         // Fetch the search results page
-        const $ = cheerio.load(res.data);
+        const $ = cheerio.load(html.data);
 
         // Parse and extract relevant links
         const href = $("a[href^='/md5/']").first().attr('href');
