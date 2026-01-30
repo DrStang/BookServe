@@ -1254,7 +1254,7 @@ async function processBookRequest(requestId) {
 
 
         if (anna) {
-          await BookRequest.updateStatus(requestId, 'completed', anna);
+          await BookRequest.updateStatus(requestId, 'completed');
         } else {
             console.log('AA failed, trying NZB');
             const nzbResults = await searchNZBHydra(request.title, request.author, request.isbn, requestId);
