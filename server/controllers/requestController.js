@@ -1248,14 +1248,37 @@ async function processBookRequest(requestId) {
         await BookRequest.updateStatus(requestId, 'searching');
 
         // Search NZBHydra with all strategies
-        const nzbResults = await searchNZBHydra(request.title, request.author, request.isbn, requestId);
+        const anna = await getAABook(request.isbn, request.title, request.author);
 
-        if (!nzbResults || nzbResults.length === 0) {
-            console.log('NZB failed, trying AA');
-            const anna = await getAABook(request.isbn, request.title, request.author)
-            if (anna) {
-                console.log('AA download successfully');
-                await BookRequest.updateStatus(requestId, 'completed', anna);
+
+        if (!anna) {
+            console.log('AA failed, trying NZB');
+            const nzbResults = await searchNZBHydra(request.title, request.author, request.isbn, requestId);
+            if (nzbResults) {
+              const bestResult = nzbResults[0];
+              console.log(`[Process] Best result for "${request.title}": "${bestResult.title}" (score: ${bestResult.relevanceScore})`);
+
+              // Send to SABnzbd
+              const sabnzbdId = await sendToSABnzbd(bestResult);
+
+              if (!sabnzbdId) {
+                await BookRequest.updateStatus(requestId, 'failed', {
+                  error_message: 'Failed to add to SABnzbd'
+                });
+                await notifyUser(requestId);
+                // Schedule retry
+                const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
+                await BookRequest.scheduleRetry(requestId, retryIntervalDays);
+                console.log(`Scheduled retry for request ${requestId} in ${retryIntervalDays} days`);
+                return;
+              }
+
+
+
+              // Update request with SABnzbd ID
+              await BookRequest.updateStatus(requestId, 'downloading', {
+                sabnzbd_id: sabnzbdId
+              });
 
             } else {
                 await BookRequest.updateStatus(requestId, 'failed', {
@@ -1269,34 +1292,10 @@ async function processBookRequest(requestId) {
                 await BookRequest.scheduleRetry(requestId, retryIntervalDays);
                 console.log(`Scheduled retry for request ${requestId} in ${retryIntervalDays} days`);
             }
-            return;
         }
 
         // Get the best result (first one, already sorted by score)
-        const bestResult = nzbResults[0];
-        console.log(`[Process] Best result for "${request.title}": "${bestResult.title}" (score: ${bestResult.relevanceScore})`);
-
-        // Send to SABnzbd
-        const sabnzbdId = await sendToSABnzbd(bestResult);
-
-        if (!sabnzbdId) {
-            await BookRequest.updateStatus(requestId, 'failed', {
-                error_message: 'Failed to add to SABnzbd'
-            });
-            await notifyUser(requestId);
-            // Schedule retry
-            const retryIntervalDays = parseInt(process.env.RETRY_INTERVAL_DAYS) || 3;
-            await BookRequest.scheduleRetry(requestId, retryIntervalDays);
-            console.log(`Scheduled retry for request ${requestId} in ${retryIntervalDays} days`);
-            return;
-        }
-
-
-
-        // Update request with SABnzbd ID
-        await BookRequest.updateStatus(requestId, 'downloading', {
-            sabnzbd_id: sabnzbdId
-        });
+      
 
     } catch (error) {
         console.error('Error processing book request:', error);
