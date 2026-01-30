@@ -1,4 +1,5 @@
 const BookRequest = require('../models/BookRequest');
+const folderScanService = require('../services/folderScanService');
 const axios = require('axios');
 const xml2js = require('xml2js');
 const FormData = require('form-data');
@@ -799,12 +800,18 @@ async function getAABook(isbn, title, author) {
 
         await finished(writer);
 
-        await confirmAADownload(filename);
+        const confirmed = await confirmAADownload(filename);
+
+        if(!confirmed){
+          console.error('AA download confirmation failed');
+          return null;
+        }
 
         return filePath;
 
     } catch (error) {
         console.error('Error downloading book:', error.message);
+        return null;
     }
 }
 async function confirmAADownload(filename){
@@ -1247,17 +1254,19 @@ async function processBookRequest(requestId) {
         // Update status to searching
         await BookRequest.updateStatus(requestId, 'searching');
 
-        // Search NZBHydra with all strategies
-        const anna = await getAABook(request.isbn, request.title, request.author);
+      const anna = await getAABook(request.isbn, request.title, request.author);
 
+      console.log(`[Process] AA result for "${request.title}":`, anna);
 
+      if (anna) {
+        console.log(`[Process] Updating status to completed for request ${requestId}`);
+        await BookRequest.updateStatus(requestId, 'completed');
+        await folderScanService.triggerScan();
+        console.log(`[Process] Status updated successfully`);
+      } else {
+        console.log('[Process] AA failed, trying NZB');
 
-
-        if (anna) {
-          await BookRequest.updateStatus(requestId, 'completed');
-        } else {
-            console.log('AA failed, trying NZB');
-            const nzbResults = await searchNZBHydra(request.title, request.author, request.isbn, requestId);
+        const nzbResults = await searchNZBHydra(request.title, request.author, request.isbn, requestId);
 
           if (!nzbResults || nzbResults.length === 0) {
             await nzbFailed(requestId);
@@ -1282,7 +1291,6 @@ async function processBookRequest(requestId) {
         }
 
 
-        // Get the best result (first one, already sorted by score)
 
 
     } catch (error) {
