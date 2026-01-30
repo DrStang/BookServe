@@ -125,8 +125,8 @@ const NYTBestsellersPage = () => {
         
         // Index by ISBN13 and ISBN10 (strip hyphens)
           const isbn13 = book.isbn_13 || book.isbn13;
-          if (book.isbn13) {
-            booksMap.byIsbn[book.isbn13.replace(/-/g, '')] = book;
+          if (isbn13) {
+            booksMap.byIsbn[isbn13.replace(/-/g, '')] = book;
           }
           if (book.isbn) {
             booksMap.byIsbn[book.isbn.replace(/-/g, '')] = book;
