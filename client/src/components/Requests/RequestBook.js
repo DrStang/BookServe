@@ -253,7 +253,7 @@ const RequestBook = () => {
 
   const handleViewInLibrary = () => {
     if (confirmDialog.libraryMatch) {
-      navigate(`/books/${confirmDialog.libraryMatch.id}`);
+      navigate(`/book/${confirmDialog.libraryMatch.id}`);
     }
     handleConfirmDialogClose();
   };
@@ -403,7 +403,7 @@ const RequestBook = () => {
                                         fullWidth
                                         variant="contained"
                                         startIcon={<BookIcon />}
-                                        onClick={() => navigate(`/books/${libraryMatch.id}`)}
+                                        onClick={() => navigate(`/book/${libraryMatch.id}`)}
                                         sx={{
                                           backgroundColor: '#4caf50',
                                           '&:hover': {
