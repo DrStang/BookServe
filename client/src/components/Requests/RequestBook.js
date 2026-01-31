@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AppBar,
@@ -105,7 +105,7 @@ const RequestBook = () => {
         }
         const normalizedTitle = normalizeText(book.title);
         if (normalizedTitle) {
-          if (!bookMap.byTitle[normalizedTitle]) {
+          if (!booksMap.byTitle[normalizedTitle]) {
             booksMap.byTitle[normalizedTitle] = [];
           }
           booksMap.byTitle[normalizedTitle].push(book);
