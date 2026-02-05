@@ -3,6 +3,10 @@ const axios = require('axios');
 // Google Books API base URL
 const GOOGLE_BOOKS_API_URL = 'https://www.googleapis.com/books/v1/volumes';
 const API_KEY = process.env.GOOGLE_BOOKS_API_KEY || ''; // Optional, but increases rate limits
+const proxyConfig = {
+  host: '155.138.227.76',
+  port: '3128',
+};  
 
 class GoogleBooksService {
   /**
@@ -19,8 +23,13 @@ class GoogleBooksService {
       if (API_KEY) {
         params.key = API_KEY;
       }
-
-      const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
+      
+      const instance = axios.create({
+        proxy: proxyConfig,
+      });
+      
+      //const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
+      const response = await instance.get(GOOGLE_BOOKS_API_URL, { params });
 
       return response.data.items ? response.data.items.map(this.formatBookData) : [];
     } catch (error) {
@@ -41,8 +50,11 @@ class GoogleBooksService {
       if (API_KEY) {
         params.key = API_KEY;
       }
-
-      const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
+      const instance = axios.create({
+        proxy: proxyConfig,
+      });
+      //const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
+      const response = await instance.get(GOOGLE_BOOKS_API_URL, { params });
 
       if (response.data.items && response.data.items.length > 0) {
         return this.formatBookData(response.data.items[0]);
@@ -73,8 +85,11 @@ class GoogleBooksService {
       if (API_KEY) {
         params.key = API_KEY;
       }
-
-      const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
+      const instance = axios.create({
+        proxy: proxyConfig,
+      });
+      //const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
+      const response = await instance.get(GOOGLE_BOOKS_API_URL, { params });
 
       if (response.data.items && response.data.items.length > 0) {
         return this.formatBookData(response.data.items[0]);
