@@ -4,6 +4,7 @@ const axios = require('axios');
 const GOOGLE_BOOKS_API_URL = 'https://www.googleapis.com/books/v1/volumes';
 const API_KEY = process.env.GOOGLE_BOOKS_API_KEY || ''; // Optional, but increases rate limits
 const proxyConfig = {
+  protocol: 'http',
   host: '155.138.227.76',
   port: '3128',
 };  
