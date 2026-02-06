@@ -38,6 +38,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { booksAPI, metadataAPI, emailAPI } from '../../services/api';
+import AddToCollectionButton from '../Collections/AddToCollectionButton';
 
 // Helper to check if book format needs conversion to EPUB
 const needsEpubConversion = (format) => {
@@ -411,6 +412,15 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
                   >
                     Email
                   </Button>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                    <AddToCollectionButton
+                      bookId={currentBook.id}
+                      bookTitle={currentBook.title}
+                    />
+                    <Typography variant="body2" sx={{ color: '#888' }}>
+                      Add to Collection
+                    </Typography>
+                  </Box>
                 </Box>
               )}
             </Grid>
