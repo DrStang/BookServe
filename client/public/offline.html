@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#e50914">
+    <title>Offline - BookServe</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #141414 0%, #1a1a2e 100%);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .icon {
+            width: 120px;
+            height: 120px;
+            margin-bottom: 30px;
+            opacity: 0.8;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 15px;
+            color: #e50914;
+        }
+
+        p {
+            font-size: 1.1rem;
+            color: #aaa;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .suggestions {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+
+        .suggestions h2 {
+            font-size: 1rem;
+            color: #e50914;
+            margin-bottom: 15px;
+        }
+
+        .suggestions ul {
+            list-style: none;
+        }
+
+        .suggestions li {
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            color: #ccc;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .suggestions li:last-child {
+            border-bottom: none;
+        }
+
+        .suggestions li svg {
+            width: 20px;
+            height: 20px;
+            color: #e50914;
+            flex-shrink: 0;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #e50914;
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #f40612;
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .status {
+            margin-top: 30px;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .status.online {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+        }
+
+        .status.offline {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .cached-books {
+            margin-top: 30px;
+            text-align: left;
+        }
+
+        .cached-books h2 {
+            font-size: 1rem;
+            color: #888;
+            margin-bottom: 15px;
+        }
+
+        .cached-books-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .cached-book {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            text-decoration: none;
+            color: #fff;
+            transition: background 0.2s;
+        }
+
+        .cached-book:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .cached-book-cover {
+            width: 40px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 4px;
+            background: #333;
+        }
+
+        .cached-book-info h3 {
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+        }
+
+        .cached-book-info span {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            p {
+                font-size: 1rem;
+            }
+
+            .icon {
+                width: 80px;
+                height: 80px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Offline Icon -->
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M18.364 5.636a9 9 0 010 12.728M5.636 18.364a9 9 0 010-12.728"/>
+        <path d="M15.536 8.464a5 5 0 010 7.072M8.464 15.536a5 5 0 010-7.072"/>
+        <circle cx="12" cy="12" r="1"/>
+        <line x1="2" y1="2" x2="22" y2="22" stroke-linecap="round"/>
+    </svg>
+
+    <h1>You're Offline</h1>
+    <p>
+        It looks like you've lost your internet connection.
+        Don't worry - you can still read any books you've saved for offline reading.
+    </p>
+
+    <div class="suggestions">
+        <h2>While you're offline, you can:</h2>
+        <ul>
+            <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+                </svg>
+                Read books you've downloaded for offline access
+            </li>
+            <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+                </svg>
+                Your reading progress will sync when you're back online
+            </li>
+            <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                Check back when your connection is restored
+            </li>
+        </ul>
+    </div>
+
+    <button class="btn" onclick="window.location.reload()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 4v6h-6"/>
+            <path d="M1 20v-6h6"/>
+            <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+        </svg>
+        Try Again
+    </button>
+
+    <div id="status" class="status offline">
+        <span id="status-icon">●</span> Currently offline
+    </div>
+
+    <div id="cached-books" class="cached-books" style="display: none;">
+        <h2>📚 Available Offline</h2>
+        <div id="cached-books-list" class="cached-books-list">
+            <!-- Populated by JavaScript -->
+        </div>
+    </div>
+</div>
+
+<script>
+    // Check online status
+    function updateStatus() {
+        const statusEl = document.getElementById('status');
+        const statusIcon = document.getElementById('status-icon');
+
+        if (navigator.onLine) {
+            statusEl.className = 'status online';
+            statusEl.innerHTML = '<span>●</span> Back online! Redirecting...';
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1000);
+        } else {
+            statusEl.className = 'status offline';
+            statusEl.innerHTML = '<span>●</span> Currently offline';
+        }
+    }
+
+    window.addEventListener('online', updateStatus);
+    window.addEventListener('offline', updateStatus);
+    updateStatus();
+
+    // Check for cached books
+    async function loadCachedBooks() {
+        if ('caches' in window) {
+            try {
+                const cache = await caches.open('bookserve-books-v1');
+                const keys = await cache.keys();
+
+                if (keys.length > 0) {
+                    const container = document.getElementById('cached-books');
+                    const list = document.getElementById('cached-books-list');
+
+                    container.style.display = 'block';
+
+                    // Get book info from localStorage
+                    const savedBooks = JSON.parse(localStorage.getItem('offlineBooks') || '[]');
+
+                    savedBooks.forEach(book => {
+                        const link = document.createElement('a');
+                        link.href = `/read/${book.id}`;
+                        link.className = 'cached-book';
+                        link.innerHTML = `
+                <img src="${book.cover || '/icons/icon-72x72.png'}"
+                     alt="" class="cached-book-cover"
+                     onerror="this.src='/icons/icon-72x72.png'">
+                <div class="cached-book-info">
+                  <h3>${book.title || 'Untitled'}</h3>
+                  <span>${book.author || 'Unknown Author'}</span>
+                </div>
+              `;
+                        list.appendChild(link);
+                    });
+                }
+            } catch (e) {
+                console.warn('Could not load cached books:', e);
+            }
+        }
+    }
+
+    loadCachedBooks();
+</script>
+</body>
+</html>
