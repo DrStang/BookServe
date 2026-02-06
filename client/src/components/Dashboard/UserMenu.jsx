@@ -14,14 +14,18 @@ import {
   Lock as PasswordIcon,
   Logout as LogoutIcon,
   Email as EmailIcon,
+  Notifications as NotificationsIcon,
 } from '@mui/icons-material';
 import ChangePasswordDialog from './ChangePasswordDialog';
+import NotificationSettings from "../Common/NotificationSettings";
 
 const SUPPORT_EMAIL = 'dandolewski@gmail.com';
 
 const UserMenu = ({ onLogout, username }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [notificationSettingOpen, setNotificationSettingOpen] = useState(false);
+
   const open = Boolean(anchorEl);
 
   const handleClick = (event) => {
@@ -36,6 +40,11 @@ const UserMenu = ({ onLogout, username }) => {
     handleClose();
     setChangePasswordOpen(true);
   };
+
+  const handleNotificationSettings = () => {
+    handleClose();
+    setNotificationSettingOpen(true);
+  }
 
   const handleContactSupport = () => {
     handleClose();
@@ -113,6 +122,13 @@ const UserMenu = ({ onLogout, username }) => {
           <ListItemText>Contact Support</ListItemText>
         </MenuItem>
 
+        <MenuItem onClick={handleNotificationSettings}>
+          <ListItemIcon>
+            <NotificationsIcon fontSize="small" sx={{ color: '#fff' }} />
+          </ListItemIcon>
+          <ListItemText>Notification Settings</ListItemText>
+        </MenuItem>
+
         <Divider sx={{ borderColor: '#333', my: 1 }} />
 
         <MenuItem onClick={handleLogout}>
@@ -128,6 +144,10 @@ const UserMenu = ({ onLogout, username }) => {
       <ChangePasswordDialog
         open={changePasswordOpen}
         onClose={() => setChangePasswordOpen(false)}
+      />
+      <NotificationSettings
+          open={notificationSettingOpen}
+          onClose={() => setNotificationSettingOpen(false)}
       />
     </>
   );
