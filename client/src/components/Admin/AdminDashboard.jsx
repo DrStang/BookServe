@@ -156,7 +156,6 @@ const AdminDashboard = () => {
             {error}
           </Alert>
         )}
-        <SearchIndexAdmin />
 
         <Grid container spacing={3}>
           {/* Quick Stats */}
@@ -449,6 +448,8 @@ const AdminDashboard = () => {
               </CardContent>
             </Card>
           </Grid>
+          <SearchIndexAdmin />
+
           <SearchFailuresPanel defaultExpanded={false} />
 
           {/* Navigation Links */}
