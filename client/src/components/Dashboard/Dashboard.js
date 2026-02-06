@@ -829,14 +829,6 @@ const Dashboard = ({ onLogout }) => {
             </Button>
             <Button
               color="inherit"
-              startIcon={<FullTextSearchIcon />}
-              onClick={() => navigate('/search')}
-              sx={{ mr:2 }}
-            >
-              Search Inside Books
-            </Button>
-            <Button
-              color="inherit"
               startIcon={<AddIcon />}
               onClick={() => navigate('/request')}
               sx={{ mr: 2 }}
@@ -913,6 +905,21 @@ const Dashboard = ({ onLogout }) => {
                       }}
                     >
                       Advanced Search
+                    </Button>
+                    <Button
+                        variant="outlined"
+                        startIcon={<FullTextSearchIcon />}
+                        onClick={() => navigate('/search')}
+                        sx={{
+                          borderColor: '#e50914',
+                          color: '#e50914',
+                          '&:hover': {
+                            borderColor: '#b20710',
+                            backgroundColor: 'rgba(229, 9, 20, 0.1)',
+                          },
+                        }}
+                    >
+                      Search Inside Books
                     </Button>
                   </InputAdornment>
                 ),
