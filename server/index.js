@@ -21,7 +21,7 @@ const searchRoutes = require('./routes/search');
 const collectionsRoutes = require('./routes/collections');
 const fullTextSearchService = require('./services/fullTextSearchService');
 const Collection = require('./models/Collection');
-
+const notificationRoutes = require('./routes/notifications');
 
 // Import GraphQL schema and resolvers
 const typeDefs = require('./graphql/schema');
@@ -77,6 +77,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/opds', opdsRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/collections', collectionsRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 
 // Health check
