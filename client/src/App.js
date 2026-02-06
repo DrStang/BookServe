@@ -20,6 +20,9 @@ import NYTPanel from './components/Admin/NYTAdminPanel';
 import RequestsPage from './components/Requests/RequestsPage';
 import NYTBestsellersPage from './components/NYT/NYTBestsellersPage';
 import BookPage from './components/Books/BookPage';
+import CollectionsPage from './components/Collections/CollectionsPage';
+import FullTextSearchPage from './components/Search/FullTextSearchPage';
+import { registerServiceWorker } from "./services/api";
 
 const darkTheme = createTheme({
   palette: {
@@ -51,6 +54,10 @@ function App() {
     localStorage.removeItem('token');
     setIsAuthenticated(false);
   };
+
+  useEffect(() => {
+      registerServiceWorker();
+  }, []);
 
   return (
     <ThemeProvider theme={darkTheme}>
@@ -162,6 +169,22 @@ function App() {
             element={
               <PrivateRoute isAuthenticated={isAuthenticated}>
                 <ReadingList />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/collections"
+            element={
+              <PrivateRoute isAuthenticated={isAuthenticated}>
+                  <CollectionsPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/search"
+            element={
+              <PrivateRoute isAuthenticated={isAuthenticated}>
+                  <FullTextSearchPage />
               </PrivateRoute>
             }
           />
