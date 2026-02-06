@@ -448,9 +448,11 @@ const AdminDashboard = () => {
               </CardContent>
             </Card>
           </Grid>
-          <SearchIndexAdmin />
+          <Grid item xs={12}>
+            <SearchIndexAdmin defaultExpanded={true} />
+          </Grid>
 
-          <SearchFailuresPanel defaultExpanded={false} />
+          <SearchFailuresPanel defaultExpanded={true} />
 
           {/* Navigation Links */}
           <Grid item xs={12}>
