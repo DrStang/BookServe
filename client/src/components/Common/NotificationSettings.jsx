@@ -1,139 +1,146 @@
 /**
- * Notification Settings Component
+ * Notification Settings Dialog Component
  *
- * Allows users to enable/disable push notifications.
- * Can be added to settings page or user menu.
+ * Dialog for managing push notification settings.
+ * Used from UserMenu via open/onClose props.
  */
 
 import React, { useState, useEffect } from 'react';
 import {
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
     Box,
     Typography,
     Switch,
     Button,
     Alert,
     CircularProgress,
-    Paper,
-    Snackbar,
+    IconButton,
+    Divider,
 } from '@mui/material';
 import {
-    Notifications as NotificationIcon,
-    NotificationsOff as NotificationOffIcon,
-    NotificationsActive as NotificationActiveIcon,
+    Notifications as NotificationsIcon,
+    NotificationsActive as NotificationsActiveIcon,
+    NotificationsOff as NotificationsOffIcon,
+    Close as CloseIcon,
+    Send as SendIcon,
 } from '@mui/icons-material';
 import api from '../../services/api';
 
-const NotificationSettings = ({ compact = false }) => {
-    const [permission, setPermission] = useState(Notification.permission);
+const NotificationSettings = ({ open, onClose }) => {
+    const [permission, setPermission] = useState('default');
     const [isSubscribed, setIsSubscribed] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [enabling, setEnabling] = useState(false);
+    const [toggling, setToggling] = useState(false);
     const [error, setError] = useState(null);
-    const [snackbar, setSnackbar] = useState({ open: false, message: '' });
+    const [success, setSuccess] = useState(null);
+    const [isSupported, setIsSupported] = useState(true);
 
     useEffect(() => {
-        checkStatus();
-    }, []);
+        if (open) {
+            checkStatus();
+        }
+    }, [open]);
 
     const checkStatus = async () => {
         try {
             setLoading(true);
+            setError(null);
 
             // Check if notifications are supported
             if (!('Notification' in window) || !('serviceWorker' in navigator)) {
-                setError('Push notifications are not supported in this browser');
+                setIsSupported(false);
+                setLoading(false);
                 return;
             }
+
+            setPermission(Notification.permission);
 
             // Check server status
             const response = await api.get('/notifications/status');
             setIsSubscribed(response.data.hasSubscription);
-            setPermission(Notification.permission);
         } catch (err) {
             console.error('Error checking notification status:', err);
+            // Don't show error if notifications just aren't configured
+            if (err.response?.status !== 503) {
+                setError('Failed to check notification status');
+            }
         } finally {
             setLoading(false);
         }
     };
 
-    const enableNotifications = async () => {
+    const handleToggle = async () => {
+        setToggling(true);
+        setError(null);
+        setSuccess(null);
+
         try {
-            setEnabling(true);
-            setError(null);
+            if (isSubscribed) {
+                // Disable notifications
+                const registration = await navigator.serviceWorker.ready;
+                const subscription = await registration.pushManager.getSubscription();
 
-            // Request permission
-            const permissionResult = await Notification.requestPermission();
-            setPermission(permissionResult);
+                if (subscription) {
+                    await subscription.unsubscribe();
+                    await api.post('/notifications/unsubscribe', { endpoint: subscription.endpoint });
+                }
 
-            if (permissionResult !== 'granted') {
-                setError('Notification permission denied');
-                return;
-            }
+                setIsSubscribed(false);
+                setSuccess('Notifications disabled');
+            } else {
+                // Enable notifications
+                const permissionResult = await Notification.requestPermission();
+                setPermission(permissionResult);
 
-            // Get VAPID public key
-            const keyResponse = await api.get('/notifications/vapid-key');
-            const vapidPublicKey = keyResponse.data.publicKey;
+                if (permissionResult !== 'granted') {
+                    setError('Notification permission was denied. Please enable notifications in your browser settings.');
+                    setToggling(false);
+                    return;
+                }
 
-            if (!vapidPublicKey) {
-                setError('Push notifications not configured on server');
-                return;
-            }
+                // Get VAPID key from server
+                const keyResponse = await api.get('/notifications/vapid-key');
+                const vapidPublicKey = keyResponse.data.publicKey;
 
-            // Get service worker registration
-            const registration = await navigator.serviceWorker.ready;
+                if (!vapidPublicKey) {
+                    setError('Push notifications are not configured on the server. Please contact the administrator.');
+                    setToggling(false);
+                    return;
+                }
 
-            // Subscribe to push
-            const subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
-            });
+                // Get service worker registration
+                const registration = await navigator.serviceWorker.ready;
 
-            // Send subscription to server
-            await api.post('/notifications/subscribe', { subscription });
-
-            setIsSubscribed(true);
-            setSnackbar({ open: true, message: 'Notifications enabled!' });
-        } catch (err) {
-            console.error('Error enabling notifications:', err);
-            setError(err.response?.data?.error || 'Failed to enable notifications');
-        } finally {
-            setEnabling(false);
-        }
-    };
-
-    const disableNotifications = async () => {
-        try {
-            setEnabling(true);
-
-            const registration = await navigator.serviceWorker.ready;
-            const subscription = await registration.pushManager.getSubscription();
-
-            if (subscription) {
-                // Unsubscribe locally
-                await subscription.unsubscribe();
-
-                // Remove from server
-                await api.post('/notifications/unsubscribe', {
-                    endpoint: subscription.endpoint
+                // Subscribe to push
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
                 });
-            }
 
-            setIsSubscribed(false);
-            setSnackbar({ open: true, message: 'Notifications disabled' });
+                // Send subscription to server
+                await api.post('/notifications/subscribe', { subscription });
+
+                setIsSubscribed(true);
+                setSuccess('Notifications enabled! You\'ll be notified when your book requests are ready.');
+            }
         } catch (err) {
-            console.error('Error disabling notifications:', err);
-            setError('Failed to disable notifications');
+            console.error('Error toggling notifications:', err);
+            setError(err.response?.data?.error || 'Failed to update notification settings');
         } finally {
-            setEnabling(false);
+            setToggling(false);
         }
     };
 
-    const sendTestNotification = async () => {
+    const handleSendTest = async () => {
         try {
+            setError(null);
             await api.post('/notifications/test');
-            setSnackbar({ open: true, message: 'Test notification sent!' });
+            setSuccess('Test notification sent! Check your notifications.');
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to send test');
+            setError(err.response?.data?.error || 'Failed to send test notification');
         }
     };
 
@@ -154,94 +161,144 @@ const NotificationSettings = ({ compact = false }) => {
         return outputArray;
     }
 
-    if (loading) {
-        return (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: compact ? 1 : 2 }}>
-                <CircularProgress size={20} />
-                <Typography variant="body2">Checking notification status...</Typography>
-            </Box>
-        );
-    }
-
-    // Compact version for settings dropdown
-    if (compact) {
-        return (
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {isSubscribed ? (
-                        <NotificationActiveIcon sx={{ color: '#22c55e' }} />
-                    ) : (
-                        <NotificationOffIcon sx={{ color: '#888' }} />
-                    )}
-                    <Typography variant="body2">Notifications</Typography>
-                </Box>
-                <Switch
-                    checked={isSubscribed}
-                    onChange={isSubscribed ? disableNotifications : enableNotifications}
-                    disabled={enabling || permission === 'denied'}
-                    color="primary"
-                />
-            </Box>
-        );
-    }
-
-    // Full version for settings page
     return (
-        <Paper sx={{ p: 3, backgroundColor: '#1a1a1a', borderRadius: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                <NotificationIcon sx={{ color: '#e50914', fontSize: 28 }} />
-                <Typography variant="h6" sx={{ color: '#fff' }}>
-                    Push Notifications
-                </Typography>
-            </Box>
-
-            {error && (
-                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-                    {error}
-                </Alert>
-            )}
-
-            {permission === 'denied' && (
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                    Notifications are blocked by your browser. Please enable them in your browser settings.
-                </Alert>
-            )}
-
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                <Box>
-                    <Typography sx={{ color: '#fff' }}>
-                        {isSubscribed ? 'Notifications Enabled' : 'Notifications Disabled'}
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: '#888' }}>
-                        Get notified when your book requests are ready
-                    </Typography>
+        <Dialog
+            open={open}
+            onClose={onClose}
+            maxWidth="sm"
+            fullWidth
+            PaperProps={{
+                sx: {
+                    backgroundColor: '#1a1a1a',
+                    color: '#fff',
+                },
+            }}
+        >
+            <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <NotificationsIcon sx={{ color: '#e50914' }} />
+                    <Typography variant="h6">Push Notifications</Typography>
                 </Box>
-                <Switch
-                    checked={isSubscribed}
-                    onChange={isSubscribed ? disableNotifications : enableNotifications}
-                    disabled={enabling || permission === 'denied'}
-                    color="primary"
-                />
-            </Box>
+                <IconButton onClick={onClose} sx={{ color: '#888' }}>
+                    <CloseIcon />
+                </IconButton>
+            </DialogTitle>
 
-            {isSubscribed && (
-                <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={sendTestNotification}
-                    sx={{ borderColor: '#888', color: '#888' }}
-                >
-                    Send Test Notification
+            <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+
+            <DialogContent>
+                {loading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                        <CircularProgress sx={{ color: '#e50914' }} />
+                    </Box>
+                ) : !isSupported ? (
+                    <Alert severity="warning" sx={{ mb: 2 }}>
+                        Push notifications are not supported in this browser.
+                    </Alert>
+                ) : (
+                    <>
+                        {error && (
+                            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+                                {error}
+                            </Alert>
+                        )}
+
+                        {success && (
+                            <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
+                                {success}
+                            </Alert>
+                        )}
+
+                        {permission === 'denied' && (
+                            <Alert severity="warning" sx={{ mb: 2 }}>
+                                Notifications are blocked by your browser. Please enable them in your browser settings and try again.
+                            </Alert>
+                        )}
+
+                        {/* Main Toggle */}
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                p: 2,
+                                backgroundColor: 'rgba(255,255,255,0.05)',
+                                borderRadius: 2,
+                                mb: 3,
+                            }}
+                        >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                {isSubscribed ? (
+                                    <NotificationsActiveIcon sx={{ fontSize: 40, color: '#22c55e' }} />
+                                ) : (
+                                    <NotificationsOffIcon sx={{ fontSize: 40, color: '#888' }} />
+                                )}
+                                <Box>
+                                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                                        {isSubscribed ? 'Notifications Enabled' : 'Notifications Disabled'}
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ color: '#888' }}>
+                                        {isSubscribed
+                                            ? 'You\'ll receive notifications when your book requests are ready'
+                                            : 'Enable to get notified when books are available'
+                                        }
+                                    </Typography>
+                                </Box>
+                            </Box>
+                            <Switch
+                                checked={isSubscribed}
+                                onChange={handleToggle}
+                                disabled={toggling || permission === 'denied'}
+                                sx={{
+                                    '& .MuiSwitch-switchBase.Mui-checked': {
+                                        color: '#22c55e',
+                                    },
+                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                        backgroundColor: '#22c55e',
+                                    },
+                                }}
+                            />
+                        </Box>
+
+                        {/* Info */}
+                        <Typography variant="body2" sx={{ color: '#888', mb: 2 }}>
+                            When enabled, you'll receive browser notifications for:
+                        </Typography>
+                        <Box component="ul" sx={{ color: '#aaa', pl: 2, mb: 3 }}>
+                            <li>Book requests completed and ready to read</li>
+                            <li>New books added to the library</li>
+                            <li>Reading reminders (coming soon)</li>
+                        </Box>
+
+                        {/* Test Button */}
+                        {isSubscribed && (
+                            <Button
+                                variant="outlined"
+                                startIcon={<SendIcon />}
+                                onClick={handleSendTest}
+                                fullWidth
+                                sx={{
+                                    borderColor: 'rgba(255,255,255,0.2)',
+                                    color: '#fff',
+                                    '&:hover': {
+                                        borderColor: '#e50914',
+                                        backgroundColor: 'rgba(229, 9, 20, 0.1)',
+                                    },
+                                }}
+                            >
+                                Send Test Notification
+                            </Button>
+                        )}
+                    </>
+                )}
+            </DialogContent>
+
+            <DialogActions sx={{ p: 2 }}>
+                <Button onClick={onClose} sx={{ color: '#888' }}>
+                    Close
                 </Button>
-            )}
-
-            <Snackbar
-                open={snackbar.open}
-                autoHideDuration={3000}
-                onClose={() => setSnackbar({ ...snackbar, open: false })}
-                message={snackbar.message}
-            />
-        </Paper>
+            </DialogActions>
+        </Dialog>
     );
 };
 
