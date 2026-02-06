@@ -418,7 +418,7 @@ const CollectionsPage = () => {
                                                     <CardMedia
                                                         component="img"
                                                         height="200"
-                                                        image={booksAPI.getCoverUrl(book.id)'}
+                                                        image={booksAPI.getCoverUrl(book.id)}
                                                         alt={book.title}
                                                         sx={{ objectFit: 'cover' }}
                                                         onError={(e) => {
