@@ -96,7 +96,7 @@ const NEW_FEATURES = [
         color: '#f59e0b',
         howToUse: [
             'In your e-reader app, add a new OPDS catalog',
-            'Enter the URL: http://your-server:5000/opds',
+            'Enter the URL: https://books.drstang.xyz/opds',
             'Browse by author, genre, series, or search',
             'Download books directly to your e-reader',
         ],
