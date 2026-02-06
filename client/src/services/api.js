@@ -180,4 +180,113 @@ export const adminAPI = {
   updateUserRole: (userId, role) => api.patch(`/admin/users/${userId}/role`, { role }),
 };
 
+// Collections / Reading Lists
+export const collectionsAPI = {
+  getAll: () => api.get('/collections'),
+  getStats: () => api.get('/collections/stats'),
+  getById: (id) => api.get(`/collections/${id}`),
+  create: (data) => api.post('/collections', data),
+  update: (id, data) => api.put(`/collections/${id}`, data),
+  delete: (id) => api.delete(`/collections/${id}`),
+  addBook: (collectionId, bookId, notes = null) =>
+      api.post(`/collections/${collectionId}/books`, { bookId, notes }),
+  removeBook: (collectionId, bookId) =>
+      api.delete(`/collections/${collectionId}/books/${bookId}`),
+  updateBookNotes: (collectionId, bookId, notes) =>
+      api.put(`/collections/${collectionId}/books/${bookId}`, { notes }),
+  reorderBooks: (collectionId, bookIds) =>
+      api.post(`/collections/${collectionId}/reorder`, { bookIds }),
+  moveBook: (bookId, fromCollectionId, toCollectionId) =>
+      api.post('/collections/move-book', { bookId, fromCollectionId, toCollectionId }),
+  getBookCollections: (bookId) => api.get(`/collections/book/${bookId}`),
+  initDefaults: () => api.post('/collections/init'),
+};
+
+// Full-Text Search
+export const searchAPI = {
+  search: (query, limit = 50, offset = 0) =>
+      api.get('/search', { params: { q: query, limit, offset } }),
+  searchInBook: (bookId, query, limit = 50) =>
+      api.get(`/search/book/${bookId}`, { params: { q: query, limit } }),
+  getStats: () => api.get('/search/stats'),
+  getStatus: () => api.get('/search/status'),
+  triggerIndex: (force = false) => api.post('/search/index', { force }),
+  indexBook: (bookId) => api.post(`/search/index/${bookId}`),
+  removeFromIndex: (bookId) => api.delete(`/search/index/${bookId}`),
+  initFTS: () => api.post('/search/init'),
+};
+
+// PWA / Offline Support Helpers
+export const offlineAPI = {
+  isBookCached: async (bookId) => {
+    if (!('caches' in window)) return false;
+    try {
+      const cache = await caches.open('bookserve-books-v1');
+      const response = await cache.match(`/api/books/${bookId}/stream`);
+      return !!response;
+    } catch {
+      return false;
+    }
+  },
+
+  cacheBook: async (bookId, bookInfo) => {
+    if (!navigator.serviceWorker?.controller) return false;
+    navigator.serviceWorker.controller.postMessage({
+      type: 'CACHE_BOOK',
+      bookId,
+      url: `/api/books/${bookId}/stream`
+    });
+    const offlineBooks = JSON.parse(localStorage.getItem('offlineBooks') || '[]');
+    if (!offlineBooks.find(b => b.id === bookId)) {
+      offlineBooks.push({
+        id: bookId,
+        title: bookInfo.title,
+        author: bookInfo.author,
+        cover: bookInfo.cover_image
+      });
+      localStorage.setItem('offlineBooks', JSON.stringify(offlineBooks));
+    }
+    return true;
+  },
+
+  uncacheBook: async (bookId) => {
+    if (!navigator.serviceWorker?.controller) return false;
+    navigator.serviceWorker.controller.postMessage({
+      type: 'REMOVE_CACHED_BOOK',
+      url: `/api/books/${bookId}/stream`
+    });
+    const offlineBooks = JSON.parse(localStorage.getItem('offlineBooks') || '[]');
+    localStorage.setItem('offlineBooks', JSON.stringify(offlineBooks.filter(b => b.id !== bookId)));
+    return true;
+  },
+
+  getCachedBooks: () => JSON.parse(localStorage.getItem('offlineBooks') || '[]'),
+};
+
+// Service Worker Registration
+export const registerServiceWorker = async () => {
+  if (!('serviceWorker' in navigator)) {
+    console.log('[PWA] Service workers not supported');
+    return null;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    console.log('[PWA] Service worker registered:', registration.scope);
+
+    registration.addEventListener('updatefound', () => {
+      const newWorker = registration.installing;
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          window.dispatchEvent(new CustomEvent('sw-update-available', { detail: { registration } }));
+        }
+      });
+    });
+
+    return registration;
+  } catch (error) {
+    console.error('[PWA] Service worker registration failed:', error);
+    return null;
+  }
+};
 export default api;
