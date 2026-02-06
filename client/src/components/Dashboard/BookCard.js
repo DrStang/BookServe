@@ -299,6 +299,7 @@ const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
               bookId={book.id}
               bookTitle={book.title}
               size="small"
+              color="primary"
             />
           </Box>
 
