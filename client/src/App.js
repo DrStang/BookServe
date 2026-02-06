@@ -60,12 +60,12 @@ function App() {
       registerServiceWorker();
   }, []);
 
-  <WhatsNewModal />
 
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
       <Router>
+        {isAuthenticated && <WhatsNewModal />}
         <Routes>
           <Route
             path="/login"
