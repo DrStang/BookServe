@@ -51,6 +51,8 @@ import {
   MenuBook as ReadIcon,
   Download as DownloadIcon,
   AutoAwesome as AIIcon,
+  CollectionsBookmark as CollectionsIcon,
+  SearchOutlined as FullTextSearchIcon,
   Psychology as InsightsIcon,
   Chat as ChatIcon,
   AdminPanelSettings as AdminIcon,
@@ -816,7 +818,23 @@ const Dashboard = ({ onLogout }) => {
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
               BookServe
             </Typography>
-            <AdminNavButton />  
+            <AdminNavButton />
+            <Button
+              color="inherit"
+              startIcon={<CollectionsIcon />}
+              onClick={() => navigate('/collections')}
+              sx={{ mr:2 }}
+            >
+              Collections
+            </Button>
+            <Button
+              color="inherit"
+              startIcon={<FullTextSearchIcon />}
+              onClick={() => navigate('/search')}
+              sx={{ mr:2 }}
+            >
+              Search Inside Books
+            </Button>
             <Button
               color="inherit"
               startIcon={<AddIcon />}
