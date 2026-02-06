@@ -51,6 +51,7 @@ import {
     Favorite as FavoriteIcon,
     CheckCircle as CheckCircleIcon,
     MenuBook as MenuBookIcon,
+    ArrowBack as BackIcon,
     Search as SearchIcon,
     ColorLens as ColorLensIcon,
     DragIndicator as DragIcon,
@@ -280,6 +281,9 @@ const CollectionsPage = () => {
         <Box sx={{ p: 3, backgroundColor: '#141414', minHeight: '100vh' }}>
             {/* Header */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <IconButton edge="start" color="inherit" onClick={() => navigate('/')}>
+                    <BackIcon />
+                </IconButton>
                 <Typography variant="h4" sx={{ color: '#fff', fontWeight: 'bold' }}>
                     My Collections
                 </Typography>
@@ -390,7 +394,7 @@ const CollectionsPage = () => {
                                     </Typography>
                                     <Button
                                         variant="outlined"
-                                        onClick={() => navigate('/')}
+                                        onClick={() => navigate('/dashboard')}
                                         sx={{ borderColor: '#e50914', color: '#e50914' }}
                                     >
                                         Browse Library
@@ -414,7 +418,7 @@ const CollectionsPage = () => {
                                                     <CardMedia
                                                         component="img"
                                                         height="200"
-                                                        image={book.cover_image || '/placeholder-cover.png'}
+                                                        image={coverUrl || '/placeholder-cover.png'}
                                                         alt={book.title}
                                                         sx={{ objectFit: 'cover' }}
                                                     />
