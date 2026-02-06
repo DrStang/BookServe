@@ -109,6 +109,15 @@ class GoodreadsMetadata {
         }
     }
 
+        async getMetadata(bookInfo) {
+        const { isbn, title, author } = bookInfo;
+
+        if (isbn) {
+            const result = await this.fetchByIsbn(isbn);
+            if (result) return result;
+        }
+    }
+
     async fetchByIsbn(isbn) {
         if (!isbn) throw new Error("Missing ISBN");
         if (!this.page) throw new Error("Client not initialized. Call init() first.");
