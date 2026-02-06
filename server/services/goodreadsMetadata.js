@@ -52,7 +52,7 @@ async function getJsonLdBook(page) {
 
 }
 
-class GoodreadsIsbnClient {
+class GoodreadsMetadata {
     constructor(opts = {}) {
         this.headless = opts.headless ?? true;
 
@@ -293,4 +293,4 @@ class GoodreadsIsbnClient {
     }
 }
 
-module.exports = { GoodreadsIsbnClient };
+module.exports = { GoodreadsMetadata };
