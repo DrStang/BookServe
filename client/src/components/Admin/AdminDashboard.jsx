@@ -43,6 +43,7 @@ import { isAdmin } from '../../utils/auth';
 import BulkEditModal from './BulkEditModal';
 import SearchFailuresPanel from './SearchFailuresPanel';
 import UserManagementPanel from './UserManagementPanel';
+import SearchIndexAdmin from './SearchIndexAdmin';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -155,6 +156,7 @@ const AdminDashboard = () => {
             {error}
           </Alert>
         )}
+        <SearchIndexAdmin />
 
         <Grid container spacing={3}>
           {/* Quick Stats */}
