@@ -82,6 +82,7 @@ class PushNotificationService {
      */
     async saveSubscription(userId, subscription) {
         const { endpoint, keys } = subscription;
+        await this.initializeTable();
 
         return new Promise((resolve, reject) => {
             db.run(
