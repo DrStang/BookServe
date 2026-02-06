@@ -908,6 +908,7 @@ const Dashboard = ({ onLogout }) => {
                     </Button>
                     <Button
                         variant="outlined"
+                        size="small"
                         startIcon={<FullTextSearchIcon />}
                         onClick={() => navigate('/search')}
                         sx={{
