@@ -23,6 +23,7 @@ import BookPage from './components/Books/BookPage';
 import CollectionsPage from './components/Collections/CollectionsPage';
 import FullTextSearchPage from './components/Search/FullTextSearchPage';
 import { registerServiceWorker } from "./services/api";
+import WhatsNewModal from './components/WhatsNewModal/WhatsNewModal';
 
 const darkTheme = createTheme({
   palette: {
@@ -58,6 +59,8 @@ function App() {
   useEffect(() => {
       registerServiceWorker();
   }, []);
+
+  <WhatsNewModal />
 
   return (
     <ThemeProvider theme={darkTheme}>
