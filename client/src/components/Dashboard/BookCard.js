@@ -36,6 +36,7 @@ import {
 } from '@mui/icons-material';
 import { booksAPI, emailAPI } from '../../services/api';
 import BookDetailModal from '../Books/BookDetailModal';
+import AddToCollectionButton from "../Collections/AddToCollectionButton";
 
 // Helper to check if book format needs conversion to EPUB
 const needsEpubConversion = (format) => {
@@ -292,7 +293,15 @@ const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
               title="Send to Email"
           >
               <EmailIcon />
-          </IconButton>      
+          </IconButton>
+          <Box onClick={(e) => e.stopPropagation()}>
+            <AddToCollectionButton
+              bookId={book.id}
+              bookTitle={book.title}
+              size="small"
+            />
+          </Box>
+
           <IconButton 
                 onClick={(e) => {
                   e.stopPropagation();
