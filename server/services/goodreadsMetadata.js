@@ -109,7 +109,7 @@ class GoodreadsMetadata {
         }
     }
 
-        async getMetadata(bookInfo) {
+    async getMetadata(bookInfo) {
         const { isbn, title, author } = bookInfo;
 
         if (isbn) {
@@ -183,7 +183,7 @@ class GoodreadsMetadata {
             return cleanText(await dd.first().innerText());
         };
 
-        let published_date  null;
+        let published_date = null;
         let publisher = null;
 
         try {
