@@ -418,7 +418,7 @@ const CollectionsPage = () => {
                                                     <CardMedia
                                                         component="img"
                                                         height="200"
-                                                        image={coverUrl || '/placeholder-cover.png'}
+                                                        image={book.coverUrl || '/placeholder-cover.png'}
                                                         alt={book.title}
                                                         sx={{ objectFit: 'cover' }}
                                                     />
