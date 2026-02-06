@@ -761,56 +761,54 @@ async function scrapeAnna(isbn, title, author){
 }
 
 async function getAABook(isbn, title, author) {
-
-    const md5 = await scrapeAnna(isbn, title, author);
-    if (!md5) return null;
-
-    const API = process.env.ANNA_API || 'CdSzk5n7WFSrbD5AbG353s7HJqpb4';
-    const url = `https://annas-archive.li/dyn/api/fast_download.json?md5=${md5}&key=${API}`;
-
-
-
-    const response = await fetch(url)
-    if (!response){
-        console.error('Failed to get book link:', response);
-        return null;
-    }
-
-    const json = await response.json()
-
-    const downloadLink = json.download_url;
-
-    if (!downloadLink) {
-        console.error('Failed to parse AA JSON:', response);
-        return null;
-    }
-
     try {
-
-        const response = await axios({
+        const md5 = await scrapeAnna(isbn, title, author);
+        if (!md5) return null;
+    
+        const API = process.env.ANNA_API || 'CdSzk5n7WFSrbD5AbG353s7HJqpb4';
+        const url = `https://annas-archive.li/dyn/api/fast_download.json?md5=${md5}&key=${API}`;
+    
+    
+    
+        const response = await fetch(url)
+        if (!response){
+            console.error('Failed to get book link:', response);
+            return null;
+        }
+    
+        const json = await response.json()
+    
+        const downloadLink = json.download_url;
+    
+        if (!downloadLink) {
+            console.error('Failed to parse AA JSON:', response);
+            return null;
+        }
+    
+       const dlresponse = await axios({
             method: 'GET',
             url: downloadLink,
             responseType: 'stream'
         })
-        const filename = await getAAFilename(response, downloadLink);
+        const filename = await getAAFilename(dlresponse, downloadLink);
         const filePath = path.resolve(process.env.BOOKS_STORAGE_PATH, filename);
         const writer = fs.createWriteStream(filePath);
-
-        response.data.pipe(writer);
-
+    
+        dlresponse.data.pipe(writer);
+    
         await finished(writer);
-
+    
         const confirmed = await confirmAADownload(filename);
-
+    
         if(!confirmed){
-          console.error('AA download confirmation failed');
-          return null;
+            console.error('AA download confirmation failed');
+            return null;
         }
-
+    
         return filePath;
 
     } catch (error) {
-        console.error('Error downloading book:', error.message);
+        console.error('[AA]Error downloading book:', error.message);
         return null;
     }
 }
