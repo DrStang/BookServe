@@ -28,7 +28,7 @@ async function getJsonLdBook(page) {
 
                 const name = obj.name;
                 const image = Array.isArray(obj.image) ? obj.image[0] : obj.image;
-                const numPages = obj.numberOfPages !=null
+                const page_count = obj.numberOfPages !=null
                     ? parseIntFromText(String(obj.numberOfPages))
                     : null;
                 const language = obj.inLanguage;
@@ -36,10 +36,10 @@ async function getJsonLdBook(page) {
                 if (name && (agg.ratingValue || agg.ratingCount)) {
                     return {
                         title: cleanText(String(name)),
-                        rating: agg.ratingValue != null ? Number(agg.ratingValue) : null,
+                        average_rating: agg.ratingValue != null ? Number(agg.ratingValue) : null,
                         ratings_count: agg.ratingCount != null ? Number(agg.ratingCount) : null,
-                        image_url: image,
-                        numPages,
+                        cover_image_url: image,
+                        page_count,
                         language,
                     };
                 }
@@ -48,7 +48,7 @@ async function getJsonLdBook(page) {
             // ignore
         }
     }
-    return { title: null, rating: null, ratings_count: null, numPages: null, language: null };
+    return { title: null, average_rating: null, ratings_count: null, page_count: null, language: null, cover_image_url: null };
 
 }
 
@@ -146,19 +146,19 @@ class GoodreadsMetadata {
             description = cleanText(await desc.first().innerText());
         }
 
-        let genres = [];
+        let categories = [];
         const genreEls = this.page.locator(
             '.BookPageMetadataSection__genreButton .Button__labelItem'
         );
 
         if ((await genreEls.count()) > 0) {
-            genres = await genreEls.evaluateAll(els =>
+            categories = await genreEls.evaluateAll(els =>
                 els
                     .map(e => (e.textContent || '').trim())
                     .filter(Boolean)
             );
 
-            genres = [...new Set(genres)];
+            categories = [...new Set(categories)];
         }
 
 
@@ -174,8 +174,8 @@ class GoodreadsMetadata {
             return cleanText(await dd.first().innerText());
         };
 
-        let publishedOn = null;
-        let publishedBy = null;
+        let published_date  null;
+        let publisher = null;
 
         try {
             const nd = this.page.locator("script#__NEXT_DATA__");
@@ -191,17 +191,17 @@ class GoodreadsMetadata {
                     if (book?.details) {
                         const t = book.details.publicationTime;
                         if (typeof t === "number") {
-                            publishedOn = new Date(t).toISOString().slice(0, 10);
+                            published_date = new Date(t).toISOString().slice(0, 10);
                         }
-                        publishedBy = book.details.publisher || null;
+                        publisher = book.details.publisher || null;
                     }
-                    if (!publishedOn) {
+                    if (!published_date) {
                         const workKey = Object.key(apollo).find(k => k.startsWith("Work:"));
                         const work = workKey ? apollo[workKey] : null;
 
                         const wt = work?.details?.publicationTime;
                         if (typeof wt === "number") {
-                            publishedOn = new Date(wt).toISOString().slice(0, 10);
+                            published_date = new Date(wt).toISOString().slice(0, 10);
                         }
                     }
                 }
@@ -232,13 +232,13 @@ class GoodreadsMetadata {
         }
 
         // Rating fallback
-        let rating = jld.rating;
-        if (rating == null) {
+        let average_rating = jld.average_rating;
+        if (average_rating == null) {
             const loc = this.page.locator(".RatingStatistics__rating, [data-testid='ratingValue'], span[itemprop='ratingValue']");
             if ((await loc.count()) > 0) {
                 const raw = cleanText(await loc.first().textContent());
-                rating = raw ? Number(raw.replace(",", ".")) : null;
-                if (Number.isNaN(rating)) rating = null;
+                average_rating = raw ? Number(raw.replace(",", ".")) : null;
+                if (Number.isNaN(average_rating)) average_rating = null;
             }
         }
 
@@ -259,15 +259,15 @@ class GoodreadsMetadata {
         }
 
         // Cover image (best effort)
-        let image_url = jld.image_url;
-        if (image_url == null) {
+        let cover_image_url = jld.cover_image_url;
+        if (cover_image_url == null) {
             const img = this.page.locator("img.ResponsiveImage");
-            if ((await img.count()) > 0) image_url = await img.first().getAttribute("src");
+            if ((await img.count()) > 0) cover_image_url = await img.first().getAttribute("src");
         }
-        let numPages = jld.numPages;
-        if (numPages == null) {
+        let page_count = jld.page_count;
+        if (page_count == null) {
             const pagesRaw = await readDetail("Pages");
-            numPages = pagesRaw ? parseIntFromText(pagesRaw) : null;
+            page_count = pagesRaw ? parseIntFromText(pagesRaw) : null;
         }
         let language = jld.language;
         if (language == null) {
@@ -279,16 +279,16 @@ class GoodreadsMetadata {
             isbn: String(isbn),
             title,
             author,
-            rating,
+            average_rating,
             ratings_count,
-            image_url,
+            cover_image_url,*
             description,
-            genres,
-            publishedOn,
-            publishedBy,
-            numPages,
+            categories,
+            published_date,
+            publisher,
+            page_count,
             language,
-            book_url: this.page.url(),
+            preview_link: this.page.url(),
         };
     }
 }
