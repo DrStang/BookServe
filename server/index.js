@@ -16,6 +16,11 @@ const aiCacheService = require('./services/aiCacheService');
 const nytBestsellersService = require('./services/nytBestsellersService');
 const scanRoutes = require('./routes/scan');
 const nytRoutes = require('./routes/nyt');
+const opdsRoutes = require('./routes/opds');
+const searchRoutes = require('./routes/search');
+const collectionsRoutes = require('./routes/collections');
+const fullTextSearchService = require('./services/fullTextSearchService');
+const Collection = require('./models/Collection');
 
 
 // Import GraphQL schema and resolvers
@@ -69,6 +74,9 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/scan', scanRoutes);
 app.use('/api/nyt', nytRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/opds', opdsRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/collections', collectionsRoutes);
 
 
 // Health check
@@ -123,6 +131,14 @@ const startServer = async () => {
     aiCacheService.start();
 
     nytBestsellersService.start();
+
+    fullTextSearchService.initializeFTS().then(() => {
+      console.log('Full-Text search initialized');
+    });
+
+    Collection.initializeTables().then(() => {
+      console.log('Collections tables initialized');
+    });
 
     // Create GraphQL server with context
     const apolloServer = new ApolloServer({
