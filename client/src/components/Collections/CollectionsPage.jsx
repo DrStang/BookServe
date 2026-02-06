@@ -390,7 +390,7 @@ const CollectionsPage = () => {
                                     </Typography>
                                     <Button
                                         variant="outlined"
-                                        onClick={() => navigate('/dashboard')}
+                                        onClick={() => navigate('/')}
                                         sx={{ borderColor: '#e50914', color: '#e50914' }}
                                     >
                                         Browse Library
