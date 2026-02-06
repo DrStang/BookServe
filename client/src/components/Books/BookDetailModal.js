@@ -412,7 +412,7 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
                   >
                     Email
                   </Button>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                  {/*<Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
                     <AddToCollectionButton
                       bookId={currentBook.id}
                       bookTitle={currentBook.title}
@@ -420,7 +420,15 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
                     <Typography variant="body2" sx={{ color: '#888' }}>
                       Add to Collection
                     </Typography>
-                  </Box>
+                  </Box>*/}
+                  <AddToCollectionButton
+                    bookId={currentBook.id}
+                    bookTitle={currentBook.title}
+                    variant="outlined"
+                    fullWidth
+                  >
+                    Add to Collection
+                  </AddToCollectionButton>
                 </Box>
               )}
             </Grid>
