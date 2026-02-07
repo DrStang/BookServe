@@ -1,16 +1,20 @@
 const axios = require('axios');
+import { HTTPsProxyAgent } from "http-proxy-agent";
 
 // Google Books API base URL
 const GOOGLE_BOOKS_API_URL = 'https://www.googleapis.com/books/v1/volumes';
 const API_KEY = process.env.GOOGLE_BOOKS_API_KEY || ''; // Optional, but increases rate limits
-const proxyConfig = {
-  host: 'brd.superproxy.io',
-  port: 33335,
-  auth: {
-    username:'brd-customer-hl_5a8bb918-zone-isp_proxy1',
-    password:'u5ebns6d36n6',
-  },  
-};  
+const proxyUrl =
+    "http://brd-customer-hl_5a8bb918-zone-isp_proxy1:u5ebns6d36n6@brd.superproxy.io:33335";
+
+const agent = new HttpsProxyAgent(proxyUrl);
+
+const instance = axios.create({
+  proxy: false,
+  httpAgent: agent,
+  httpsAgent: agent,
+  timeout: 30000,
+});  
 
 class GoogleBooksService {
   /**
@@ -28,9 +32,6 @@ class GoogleBooksService {
         params.key = API_KEY;
       }
       
-      const instance = axios.create({
-        proxy: proxyConfig,
-      });
       
       //const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
       const response = await instance.get(GOOGLE_BOOKS_API_URL, { params });
@@ -54,9 +55,7 @@ class GoogleBooksService {
       if (API_KEY) {
         params.key = API_KEY;
       }
-     const instance = axios.create({
-       proxy: proxyConfig,
-     });
+
       //const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
      const response = await instance.get(GOOGLE_BOOKS_API_URL, { params });
 
@@ -89,9 +88,7 @@ class GoogleBooksService {
       if (API_KEY) {
         params.key = API_KEY;
       }
-      const instance = axios.create({
-       proxy: proxyConfig,
-      });
+
       //const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
       const response = await instance.get(GOOGLE_BOOKS_API_URL, { params });
 
