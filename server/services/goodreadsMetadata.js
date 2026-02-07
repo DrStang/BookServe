@@ -302,4 +302,4 @@ class GoodreadsMetadata {
     }
 }
 
-module.exports = { GoodreadsMetadata };
+module.exports = new GoodreadsMetadata();
