@@ -290,7 +290,7 @@ class GoodreadsMetadata {
             author,
             average_rating,
             ratings_count,
-            cover_image_url,*
+            cover_image_url,
             description,
             categories,
             published_date,
