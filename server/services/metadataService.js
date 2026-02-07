@@ -35,6 +35,10 @@ class MetadataService {
                 }),
                 goodreadsMetadata.getMetadata(bookInfo).catch(err => {
                     console.error('Goodreads Metadata fetch error:', err);
+                    console.log("[GR META] categories type:", typeof categories, "isArray:", Array.isArray(categories));
+                    console.log("[GR META] categories[0] type:", Array.isArray(categories) ? typeof categories[0] : "n/a");
+                    console.log("[GR META] categories sample:", categories?.slice?.(0, 5));
+                    
                 }),
             ]);
 
@@ -88,6 +92,9 @@ class MetadataService {
 
         // For cover images, prefer Google Books (usually higher quality)
         setValue('cover_image_url', goodreadsMeta, googleData, openLibraryData);
+        console.log("[MERGE] categories type:", typeof merged.categories, "isArray:", Array.isArray(merged.categories));
+        console.log("[MERGE] categories[0] type:", Array.isArray(merged.categories) ? typeof merged.categories[0] : "n/a");
+        console.log("[MERGE] categories sample:", merged.categories?.slice?.(0, 5));
 
         // Store service IDs
         if (googleData?.google_books_id) {
