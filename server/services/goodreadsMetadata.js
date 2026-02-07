@@ -70,6 +70,7 @@ class GoodreadsMetadata {
         if (this.browser) return; // already initialized
 
         this.browser = await chromium.launch({
+            executablePath: "/snap/bin/chromium",
             headless: this.headless,
             args: ["--disable-blink-features=AutomationControlled", "--no-sandbox"],
         });
@@ -113,7 +114,7 @@ class GoodreadsMetadata {
         const { isbn, title, author } = bookInfo;
 
         await this.init();
-        
+
         if (isbn) {
             const result = await this.fetchByIsbn(isbn);
             if (result) return result;
