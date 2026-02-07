@@ -1,4 +1,4 @@
-const axios = require('axios');
+import axios = require('axios');
 import { HttpsProxyAgent } from "https-proxy-agent";
 
 // Google Books API base URL
