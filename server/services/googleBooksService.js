@@ -65,12 +65,8 @@ class GoogleBooksService {
 
       return null;
     } catch (error) {
-       const status = error?.response?.status;
-      const data = error?.response?.data;
-      console.error("Google Books error:", status, JSON.stringify(data));
-      throw error;
-        //console.error('Google Books ISBN search error:', error.message);
-      //return null;
+      console.error('Google Books ISBN search error:', error.message);
+      return null;
     }
   }
 
@@ -102,12 +98,9 @@ class GoogleBooksService {
 
       return null;
     } catch (error) {
-      const status = error?.response?.status;
-      const data = error?.response?.data;
-      console.error("Google Books error:", status, JSON.stringify(data));
-      throw error;
-        //console.error('Google Books title/author search error:', error.message);
-      //return null;
+
+      console.error('Google Books title/author search error:', error.message);
+      return null;
     }
   }
 
