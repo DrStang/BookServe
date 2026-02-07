@@ -4,9 +4,12 @@ const axios = require('axios');
 const GOOGLE_BOOKS_API_URL = 'https://www.googleapis.com/books/v1/volumes';
 const API_KEY = process.env.GOOGLE_BOOKS_API_KEY || ''; // Optional, but increases rate limits
 const proxyConfig = {
-  protocol: 'http',
-  host: '155.138.227.76',
-  port: '3128',
+  host: 'brd.superproxy.io',
+  port: 33335,
+  auth: {
+    username:'brd-customer-hl_5a8bb918-zone-isp_proxy1',
+    password:'u5ebns6d36n6',
+  },  
 };  
 
 class GoogleBooksService {
@@ -25,12 +28,12 @@ class GoogleBooksService {
         params.key = API_KEY;
       }
       
-      //const instance = axios.create({
-      //  proxy: proxyConfig,
-      //});
+      const instance = axios.create({
+        proxy: proxyConfig,
+      });
       
-      const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
-      //const response = await instance.get(GOOGLE_BOOKS_API_URL, { params });
+      //const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
+      const response = await instance.get(GOOGLE_BOOKS_API_URL, { params });
 
       return response.data.items ? response.data.items.map(this.formatBookData) : [];
     } catch (error) {
@@ -51,11 +54,11 @@ class GoogleBooksService {
       if (API_KEY) {
         params.key = API_KEY;
       }
-     // const instance = axios.create({
-     //   proxy: proxyConfig,
-     // });
-      const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
-     // const response = await instance.get(GOOGLE_BOOKS_API_URL, { params });
+     const instance = axios.create({
+       proxy: proxyConfig,
+     });
+      //const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
+     const response = await instance.get(GOOGLE_BOOKS_API_URL, { params });
 
       if (response.data.items && response.data.items.length > 0) {
         return this.formatBookData(response.data.items[0]);
@@ -86,11 +89,11 @@ class GoogleBooksService {
       if (API_KEY) {
         params.key = API_KEY;
       }
-      //const instance = axios.create({
-       // proxy: proxyConfig,
-      //});
-      const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
-      //const response = await instance.get(GOOGLE_BOOKS_API_URL, { params });
+      const instance = axios.create({
+       proxy: proxyConfig,
+      });
+      //const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
+      const response = await instance.get(GOOGLE_BOOKS_API_URL, { params });
 
       if (response.data.items && response.data.items.length > 0) {
         return this.formatBookData(response.data.items[0]);
