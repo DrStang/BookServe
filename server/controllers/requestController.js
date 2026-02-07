@@ -83,6 +83,45 @@ function normalizeText(text) {
         .trim();
 }
 
+function isExactTitleMatch(searchTitle, itemTitle) {
+    if (!searchTitle || !itemTitle) return false;
+
+    const escaped = searchTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    const regex = new RegExp(`\\b${escaped}\\b`);
+    return regex.test(itemTitle);
+}
+
+function containsWholeWord(text, word) {
+    if (!text || !word) return false;
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b${escaped}\\b`);
+    return regex.test(text);
+}
+
+function calculateStrictWordMatch(titleWords, itemTitle) {
+    if (!titleWords.length) return { ratio: 0, matched: [], unmatched: [] };
+
+    const significantWords = titleWords.filter(w => w.length >=3);
+    const wordsToCheck = significantWords.length > 0 ? significantWords : titleWords;
+
+    const matched = [];
+    const unmatched = [];
+
+    for (const word of wordsToCheck) {
+        if (containsWholeWord(itemTitle, word)) {
+            matched.push(word);
+        } else {
+            unmatched.push(word);
+        }
+    }
+    return {
+        ratio: matched.length / wordsToCheck.length,
+        matched,
+        unmatched
+    };
+}
+
 /**
  * Calculate word match ratio between search title and result
  */
@@ -232,6 +271,9 @@ function scoreSearchResults(items, originalTitle, originalAuthor, originalIsbn) 
     const authorLastName = normalizeText(getLastName(originalAuthor));
     const authorFirstName = normalizeText(getFirstName(originalAuthor));
 
+    // Pre-compute title words for word-boundary matching
+    const titleWords = normalizedTitle.split(' ').filter(w => w.length >= 2);
+
     return items.map(item => {
         const itemTitle = item.title?.[0] || '';
         const normalizedItemTitle = normalizeText(itemTitle);
@@ -248,32 +290,40 @@ function scoreSearchResults(items, originalTitle, originalAuthor, originalIsbn) 
 
         let relevanceScore = 0;
         let matchDetails = [];
+        let titleScore = 0;
+        let authorScore = 0;
 
-        // ========== TITLE MATCHING ==========
+        // ========== TITLE MATCHING (stricter word-boundary checks) ==========
 
-        // Exact title match (highest priority)
-        if (normalizedItemTitle.includes(normalizedTitle)) {
-            relevanceScore += 100;
+        // Check for EXACT title match using word boundaries
+        // This prevents "the vigil" from matching "the vigilante"
+        if (isExactTitleMatch(normalizedTitle, normalizedItemTitle)) {
+            titleScore = 100;
             matchDetails.push('exact_title');
         }
-        // Simplified title match (without series info, etc.)
-        else if (simplifiedTitle && normalizedItemTitle.includes(simplifiedTitle)) {
-            relevanceScore += 80;
+        // Simplified title with word-boundary check
+        else if (simplifiedTitle && isExactTitleMatch(simplifiedTitle, normalizedItemTitle)) {
+            titleScore = 80;
             matchDetails.push('simplified_title');
         }
-        // Word-based matching
+        // Word-based matching (strict: ALL significant words must match as whole words)
         else {
-            const wordRatio = calculateWordMatchRatio(originalTitle, itemTitle);
-            if (wordRatio >= 0.8) {
-                relevanceScore += 60;
+            const wordMatchResult = calculateStrictWordMatch(titleWords, normalizedItemTitle);
+            if (wordMatchResult.ratio >= 1.0) {
+                // All words matched as whole words
+                titleScore = 70;
+                matchDetails.push('all_words_match');
+            } else if (wordMatchResult.ratio >= 0.8) {
+                titleScore = 50;
                 matchDetails.push('high_word_match');
-            } else if (wordRatio >= 0.6) {
-                relevanceScore += 40;
+            } else if (wordMatchResult.ratio >= 0.6) {
+                titleScore = 30;
                 matchDetails.push('medium_word_match');
-            } else if (wordRatio >= 0.4) {
-                relevanceScore += 20;
+            } else if (wordMatchResult.ratio >= 0.4) {
+                titleScore = 15;
                 matchDetails.push('low_word_match');
             }
+            // else titleScore stays 0 - very poor match
         }
 
         // ========== AUTHOR MATCHING ==========
@@ -281,27 +331,36 @@ function scoreSearchResults(items, originalTitle, originalAuthor, originalIsbn) 
         if (normalizedAuthor) {
             // Full author name match
             if (normalizedItemTitle.includes(normalizedAuthor)) {
-                relevanceScore += 40;
+                authorScore = 40;
                 matchDetails.push('full_author');
             }
-            // Last name + first initial/name
-            else if (authorLastName && normalizedItemTitle.includes(authorLastName)) {
-                if (authorFirstName && normalizedItemTitle.includes(authorFirstName)) {
-                    relevanceScore += 35;
+            // Last name + first name
+            else if (authorLastName && containsWholeWord(normalizedItemTitle, authorLastName)) {
+                if (authorFirstName && containsWholeWord(normalizedItemTitle, authorFirstName)) {
+                    authorScore = 35;
                     matchDetails.push('author_first_last');
                 } else {
-                    relevanceScore += 25;
+                    authorScore = 25;
                     matchDetails.push('author_lastname');
                 }
             }
+
+            // PENALTY: If we have an author to match against but found NO author match,
+            // apply a significant penalty. This is the key fix for wrong-author downloads.
+            if (authorScore === 0) {
+                titleScore = Math.floor(titleScore * 0.4); // Slash title score by 60%
+                matchDetails.push('no_author_match_penalty');
+            }
         }
 
-        // ========== ISBN MATCHING (DEFINITIVE) ==========
+        relevanceScore = titleScore + authorScore;
+
+        // ========== ISBN MATCHING (DEFINITIVE - overrides everything) ==========
 
         if (originalIsbn) {
             const cleanIsbn = originalIsbn.replace(/[^0-9X]/gi, '');
             if (normalizedItemTitle.includes(cleanIsbn) || itemTitle.includes(originalIsbn)) {
-                relevanceScore += 150; // ISBN match is very strong signal
+                relevanceScore = 200; // ISBN match is definitive, override other scoring
                 matchDetails.push('isbn_match');
             }
         }
@@ -350,8 +409,6 @@ function scoreSearchResults(items, originalTitle, originalAuthor, originalIsbn) 
         // ========== SIZE-BASED HEURISTICS ==========
 
         if (size) {
-            // Typical ebook is 0.5MB - 10MB
-            // Very small files might be corrupt, very large might be collections
             if (size < 100000) { // Less than 100KB
                 relevanceScore -= 20;
                 matchDetails.push('too_small');
@@ -370,6 +427,8 @@ function scoreSearchResults(items, originalTitle, originalAuthor, originalIsbn) 
             guid: item.guid?.[0]?._ || item.guid?.[0] || link,
             size: size,
             relevanceScore: Math.max(0, relevanceScore),
+            titleScore: titleScore,
+            authorScore: authorScore,
             matchDetails: matchDetails,
             format: format,
             isEpub: format === 'epub',
@@ -377,8 +436,9 @@ function scoreSearchResults(items, originalTitle, originalAuthor, originalIsbn) 
             isAudiobook: isAudiobook(itemTitle),
             isBundle: isBundle(itemTitle)
         };
-    }).filter(item => item.link && !item.isAudiobook); // Filter out items without links and audiobooks
+    }).filter(item => item.link && !item.isAudiobook);
 }
+
 
 /**
  * Main search function with multiple strategies
@@ -394,7 +454,7 @@ async function searchNZBHydra(title, author, isbn = null, requestId = null) {
         }
 
         const strategiesAttempted = [];
-        const minScoreThreshold = 40; // Minimum score to consider a result valid
+        const minScoreThreshold = 70; // Minimum score to consider a result valid
 
         // ========== STRATEGY 0: ISBN SEARCH (Most reliable) ==========
         if (isbn) {
