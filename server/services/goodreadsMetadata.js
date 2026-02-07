@@ -112,6 +112,8 @@ class GoodreadsMetadata {
     async getMetadata(bookInfo) {
         const { isbn, title, author } = bookInfo;
 
+        await this.init();
+        
         if (isbn) {
             const result = await this.fetchByIsbn(isbn);
             if (result) return result;
