@@ -825,7 +825,7 @@ async function getAABook(isbn, title, author) {
         const md5 = await scrapeAnna(isbn, title, author);
         if (!md5) return null;
     
-        const API = process.env.ANNA_API || 'CdSzk5n7WFSrbD5AbG353s7HJqpb4';
+        const API = process.env.ANNA_API';
         const url = `https://annas-archive.li/dyn/api/fast_download.json?md5=${md5}&key=${API}`;
     
     
