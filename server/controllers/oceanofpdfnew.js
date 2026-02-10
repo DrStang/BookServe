@@ -18,31 +18,31 @@ async function searchOceanOfPDF(title, author) {
     params.set('s', `${title} ${author}`);
     const url = `https://oceanofpdf.com/?${params.toString()}`;
     console.log(url);
-    const res = await axios.get(url, {
-      headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36",
-          Accept: "text/html,*/*",
-          "Accept-Language": "en-US,en;q=0.9",
-      },
-      timeout: 30000,
-    });
+      //const res = await axios.get(url, {
+      //headers: {
+      //    "User-Agent":
+      //      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36",
+      //    Accept: "text/html,*/*",
+      //    "Accept-Language": "en-US,en;q=0.9",
+      //},
+     // timeout: 30000,
+    //});
 
-    const $ = cheerio.load(res.data);
+    //const $ = cheerio.load(res.data);
 
-    const href = $("a[href*='pdf-epub']").first().attr('href');
+    //const href = $("a[href*='pdf-epub']").first().attr('href');
         
     // Parse and extract relevant links
-    //const linkSelector = 'a.entry-image-link';
+    const linkSelector = 'a.entry-image-link';
 
-    //const linkLocator = page.locator(linkSelector);
-    //if (await linkLocator.count() === 0) {
-    //  console.error("No search results found");
-    //  await page.screenshot({ path: 'debug.png' });
-    //  return null;
-    //}
+    const linkLocator = page.locator(linkSelector);
+    if (await linkLocator.count() === 0) {
+      console.error("No search results found");
+      await page.screenshot({ path: 'debug.png' });
+      return null;
+    }
 
-    //const href = await linkLocator.first().getAttribute('href');
+    const href = await linkLocator.first().getAttribute('href');
 
     if (href) {
       console.log("Found URL:", href);
