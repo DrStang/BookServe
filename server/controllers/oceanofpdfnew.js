@@ -66,7 +66,7 @@ async function getBook(title, author) {
     return null;
   }
   console.log(`Found ${bookUrl}`);
-  try {
+ try {
     const { data } = await axios.get(bookUrl, {
         headers: {
             "User-Agent":
@@ -96,7 +96,7 @@ async function getBook(title, author) {
     console.log("Target URL:", actionUrl);
     console.log("Form Data:", formData);
     
-    const res = await axios.post(actionUrl, formData, {
+      const res = await axios.post(actionUrl, formData, {
       headers: {
         "User-Agent":
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36",
@@ -105,29 +105,44 @@ async function getBook(title, author) {
       },
       timeout: 30000,
         
-    });
+    }); */}
+
+     await page.goto(bookUrl);
+
+    // 2. Listen for the download event BEFORE clicking/submitting
+    const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
+
+    // 3. Submit the form using the actual browser engine
+    // This ensures the server sees a "real" submit and sends the VM script
+    await page.locator('input[name="filename"]').evaluate(el => el.closest('form').submit());
+
+    try {
+        console.log("Form submitted. Waiting for the 'VM' script to fire...");
+        const download = await downloadPromise;
+        
+        // SUCCESS!
+        const finalUrl = download.url();
+        console.log("Captured Download URL:", finalUrl);
+        
+        await download.saveAs('./' + download.suggestedFilename());
+        console.log("File saved!");
+
+    } catch (err) {
+        console.error("Download didn't start. Let's look for the link in the page content...");
+        // If the download event doesn't fire, we check for the link in the HTML
+        const html = await page.content();
+        const match = html.match(/https?:\/\/[^'"]+?expires=[^'"]+/);
+        if (match) console.log("Found URL via Regex in Playwright:", match[0]);
+    }
+
+    await browser.close();
+}
+      
    // await page.goto('https://oceanofpdf.com');
    // await page.setContent(res.data);
    // console.log("HTML loaded into Playwright. Waiting for download event...");
 
-    await page.route('**/Fetching_Resource.php', route => {
-    route.fulfill({
-      status: 200,
-      contentType: 'text/html',
-      body: res.data // The res.data you already have
-    });
-  });
-
-  // 2. Go to the URL. Playwright will execute all injected VM scripts automatically.
-  await page.goto('https://oceanofpdf.com');
-
-    // 3. Instead of waiting for a download event (which might not trigger if it's just a redirect),
-    // wait for the URL of the page itself to change to the fs5.site.com link.
-    await page.waitForURL('**fs4.oceanofpdf.com**', { timeout: 15000 });
-    
-    const targetUrl = page.url();
-    console.log("Found hidden download URL:", targetUrl);
-
+  
     {/*await page.goto(bookUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
 
     const pagePromise = context.waitForEvent('page');
@@ -150,7 +165,7 @@ async function getBook(title, author) {
     const regex = /https?:\/\/[^'"]+?expires=[^'"]+/;
     const match = res.data.match(regex);
     console.log(match);
-    const targetUrl = match ? match[1] : null;*/}
+    const targetUrl = match ? match[1] : null;
     
 
     if (!targetUrl) {
@@ -183,7 +198,7 @@ async function getBook(title, author) {
   } finally {
     await browser.close();
   }
-}
+}*/}
 
 function getFilename(response, url, maxLength = 40) {
   let rawName = '';
