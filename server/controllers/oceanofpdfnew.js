@@ -6,7 +6,9 @@ import path from 'path';
 import * as cheerio from 'cheerio';
 
 const browser = await chromium.launch();
-const context = await browser.newContext();
+const context = await browser.newContext({
+    userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36"
+});
 const page = await context.newPage();
 
 async function searchOceanOfPDF(title, author) {
@@ -65,7 +67,68 @@ async function getBook(title, author) {
   }
   console.log(`Found ${bookUrl}`);
   try {
-    await page.goto(bookUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
+    const { data } = await axios.get(bookUrl, {
+        headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36",
+            Accept: "text/html,*/*",
+            "Accept-Language": "en-US,en;q=0.9",
+        },
+        timeout: 30000,
+    });
+
+    const $ = cheerio.load(data);
+    
+    const $form = $('input[name="filename"]').closest('form');
+
+// 2. Grab the URL
+    const actionUrl = $form.attr('action');
+
+// 3. Grab the data
+    const formData = {};
+    $form.find('input').each((i, el) => {
+      const name = $(el).attr('name');
+      const value = $(el).attr('value');
+      if (name) formData[name] = value;
+    });
+
+// 4. Log correctly
+    console.log("Target URL:", actionUrl);
+    console.log("Form Data:", formData);
+    
+    const res = await axios.post(actionUrl, formData, {
+      headers: {
+        "User-Agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36",
+        Accept: "text/html, */*",
+        "Accept-Language": "en-US, en;q=0.9",
+      },
+      timeout: 30000,
+        
+    });
+   // await page.goto('https://oceanofpdf.com');
+   // await page.setContent(res.data);
+   // console.log("HTML loaded into Playwright. Waiting for download event...");
+
+    await page.route('**/Fetching_Resource.php', route => {
+    route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: res.data // The res.data you already have
+    });
+  });
+
+  // 2. Go to the URL. Playwright will execute all injected VM scripts automatically.
+  await page.goto('https://oceanofpdf.com');
+
+    // 3. Instead of waiting for a download event (which might not trigger if it's just a redirect),
+    // wait for the URL of the page itself to change to the fs5.site.com link.
+    await page.waitForURL('**fs4.oceanofpdf.com**', { timeout: 15000 });
+    
+    const targetUrl = page.url();
+    console.log("Found hidden download URL:", targetUrl);
+
+    {/*await page.goto(bookUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
 
     const pagePromise = context.waitForEvent('page');
 
@@ -75,14 +138,20 @@ async function getBook(title, author) {
     await newTab.waitForLoadState();
 
     // Target the specific script tag using a text selector
-    const scriptHandle = newTab.locator('script:has-text("location.href")');
+    
+    const scriptHandle = newPage.locator('script:has-text("location.href")');
 
     // Get the text content from that handle
     const scriptContent = await scriptHandle.textContent();
 
+    const html = res.data;
+
     // Run your regex on the string
-    const match = scriptContent.match(/location\.href\s*=\s*'(.*?)'/);
-    const targetUrl = match ? match[1] : null;
+    const regex = /https?:\/\/[^'"]+?expires=[^'"]+/;
+    const match = res.data.match(regex);
+    console.log(match);
+    const targetUrl = match ? match[1] : null;*/}
+    
 
     if (!targetUrl) {
       console.log('No target URL found');
@@ -105,6 +174,8 @@ async function getBook(title, author) {
     await finished(writer);
 
     return filePath;
+
+    
 
   } catch (error) {
     console.error('Error fetching book details:', error.message);
@@ -135,4 +206,4 @@ function getFilename(response, url, maxLength = 40) {
   return `${shortenedBase}${ext}`;
 }
 
-getBook('It', 'Stephen King');
+getBook('Cujo', 'Stephen King');
