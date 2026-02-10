@@ -4,8 +4,7 @@ const { HttpsProxyAgent } = require("https-proxy-agent");
 // Google Books API base URL
 const GOOGLE_BOOKS_API_URL = 'https://www.googleapis.com/books/v1/volumes';
 const API_KEY = process.env.GOOGLE_BOOKS_API_KEY || ''; // Optional, but increases rate limits
-const proxyUrl =
-    "http://brd-customer-hl_5a8bb918-zone-isp_proxy1:u5ebns6d36n6@brd.superproxy.io:33335";
+//const proxyUrl =
 
 const agent = new HttpsProxyAgent(proxyUrl);
 
