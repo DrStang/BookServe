@@ -18,6 +18,7 @@ async function searchOceanOfPDF(title, author) {
     params.set('s', `${title} ${author}`);
     const url = `https://oceanofpdf.com/?${params.toString()}`;
     console.log(url);
+    await page.goto(url);
       //const res = await axios.get(url, {
       //headers: {
       //    "User-Agent":
@@ -71,10 +72,10 @@ async function getBook(title, author) {
   
     await page.goto(bookUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
 
-    const pagePromise = context.waitForEvent('page');
+    
 
     await page.click('input[type="image"][alt="Submit"]');
-
+    const pagePromise = context.waitForEvent('page');
     const newTab = await pagePromise;
     await newTab.waitForLoadState();
 
