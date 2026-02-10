@@ -70,7 +70,7 @@ async function getBook(title, author) {
      await page.goto(bookUrl);
 
     // 2. Listen for the download event BEFORE clicking/submitting
-    await page.locator('form').evaluate(form => form.removeAttribute('target'));    
+    await page.locator('form').nth(2).evaluate(form => form.removeAttribute('target'));    
     // 3. Submit the form using the actual browser engine
     // This ensures the server sees a "real" submit and sends the VM script
     const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
