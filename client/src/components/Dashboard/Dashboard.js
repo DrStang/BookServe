@@ -55,6 +55,8 @@ import {
   MenuBook as ReadIcon,
   Download as DownloadIcon,
   AutoAwesome as AIIcon,
+  CollectionsBookmark as CollectionsIcon,
+  SearchOutlined as FullTextSearchIcon,
   Psychology as InsightsIcon,
   Chat as ChatIcon,
   AdminPanelSettings as AdminIcon,
@@ -91,11 +93,6 @@ const Dashboard = ({ onLogout }) => {
   const [selectedYear, setSelectedYear] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshingMetadata, setRefreshingMetadata] = useState(false);
-  const [allBooks, setAllBooks] = useState([]);
-  const [authorCounts, setAuthorCounts] = useState([]);
-  const [genreCounts, setGenreCounts] = useState([]);
-  const [seriesCounts, setSeriesCounts] = useState([]);
-  const [yearCounts, setYearCounts] = useState([]);
   const [authorFilterOpen, setAuthorFilterOpen] = useState(true);
   const [genreFilterOpen, setGenreFilterOpen] = useState(false);
   const [seriesFilterOpen, setSeriesFilterOpen] = useState(false);
@@ -161,7 +158,7 @@ const Dashboard = ({ onLogout }) => {
   }, [selectedAuthor, selectedGenre, selectedSeries, selectedYear, searchQuery, sortBy, quickFilter]);
 
 
-
+  
   const loadBooks = async () => {
     try {
       setLoading(true);
@@ -190,7 +187,7 @@ const Dashboard = ({ onLogout }) => {
       } else if (quickFilter === 'recently_read') {
         bookIds = recentlyReadBooks.map(b => b.book_id);
       } else if (quickFilter === 'recently_added') {
-        // Backend doesn't support date range filtering yet
+        // Will filter client-side for now
       }
 
       // Convert sortBy format
@@ -201,13 +198,26 @@ const Dashboard = ({ onLogout }) => {
 
       if (bookIds && bookIds.length > 0) {
         const response = await booksAPI.getAll(1000, 0, sortField, sortOrder, filters);
-        const filtered = response.data.books.filter(b => bookIds.includes(b.id));
-        setBooks(filtered.slice(offset, offset + limit));
-        setTotalBooks(filtered.length);
+        const filteredBooks = response.data.books.filter(book => bookIds.includes(book.id));
+        setBooks(filteredBooks.slice(offset, offset + limit));
+        setTotalBooks(filteredBooks.length);
+      } else if (quickFilter === 'recently_added') {
+        const response = await booksAPI.getAll(1000, 0, 'added_at', 'DESC', filters);
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const filteredBooks = response.data.books.filter(book => new Date(book.added_at) >= thirtyDaysAgo);
+        setBooks(filteredBooks.slice(offset, offset + limit));
+        setTotalBooks(filteredBooks.length);
       } else {
-        const response = await booksAPI.getAll(limit, offset, sortField, sortOrder, filters);
-        setBooks(response.data.books);
-        setTotalBooks(response.data.total);
+        if (searchQuery.trim()) {
+          const response = await booksAPI.search(searchQuery);
+          setBooks(response.data.books.slice(offset, offset + limit));
+          setTotalBooks(response.data.count);
+        } else {
+          const response = await booksAPI.getAll(limit, offset, sortField, sortOrder, filters);
+          setBooks(response.data.books);
+          setTotalBooks(response.data.total);
+        }
       }
     } catch (error) {
       console.error('Error loading books:', error);
@@ -216,9 +226,24 @@ const Dashboard = ({ onLogout }) => {
     }
   };
 
+  // Load all books for filter counts (in background)
+  const [allBooksForFilters, setAllBooksForFilters] = useState([]);
+  const loadAllBooksForFilters = async () => {
+    try {
+      const response = await booksAPI.getAll(10000, 0);
+      setAllBooksForFilters(response.data.books);
+    } catch (error) {
+      console.error('Error loading books for filters:', error);
+    }
+  };
+
   const loadReadingProgress = async () => {
     try {
       const response = await progressAPI.getAllProgress();
+      if (!response?.data?.progress || !Array.isArray(response.data.progress)) {
+        setReadingProgress({});
+        return;
+      }
       const progressMap = {};
       response.data.progress.forEach(p => {
         progressMap[p.book_id] = p;
@@ -226,16 +251,14 @@ const Dashboard = ({ onLogout }) => {
       setReadingProgress(progressMap);
     } catch (error) {
       console.error('Error loading reading progress:', error);
+      setReadingProgress({});
     }
   };
 
   const loadContinueReading = async () => {
     try {
-      const response = await progressAPI.getAllProgress();
-      const inProgress = response.data.progress
-          .filter(p => p.progress > 0 && p.progress < 100)
-          .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-      setContinueReadingBooks(inProgress);
+      const response = await progressAPI.getContinueReading(20);
+      setContinueReadingBooks(response.data.books);
     } catch (error) {
       console.error('Error loading continue reading:', error);
     }
@@ -243,88 +266,71 @@ const Dashboard = ({ onLogout }) => {
 
   const loadRecentlyRead = async () => {
     try {
-      const response = await progressAPI.getAllProgress();
-      const recent = response.data.progress
-          .filter(p => p.progress === 100)
-          .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
-          .slice(0, 10);
-      setRecentlyReadBooks(recent);
+      const response = await progressAPI.getRecentlyRead(20);
+      setRecentlyReadBooks(response.data.books);
     } catch (error) {
       console.error('Error loading recently read:', error);
     }
   };
 
-  const loadAllBooksForFilters = async () => {
-    try {
-      const response = await booksAPI.getAll(10000, 0, 'title', 'ASC', {});
-      const allBooksData = response.data.books;
-      setAllBooks(allBooksData);
+  // Calculate author counts
+  const authorCounts = useMemo(() => {
+    const counts = {};
+    allBooksForFilters.forEach(book => {
+      const author = book.author || 'Unknown Author';
+      counts[author] = (counts[author] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([author, count]) => ({ author, count }));
+  }, [allBooksForFilters]);
 
-      // Calculate author counts
-      const authors = {};
-      allBooksData.forEach(book => {
-        if (book.author) {
-          authors[book.author] = (authors[book.author] || 0) + 1;
-        }
-      });
-      setAuthorCounts(
-          Object.entries(authors)
-              .map(([author, count]) => ({ author, count }))
-              .sort((a, b) => b.count - a.count)
-      );
-
-      // Calculate genre counts
-      const genres = {};
-      allBooksData.forEach(book => {
-        if (book.categories) {
-          const cats = typeof book.categories === 'string'
-              ? book.categories.split(',').map(c => c.trim())
-              : Array.isArray(book.categories) ? book.categories : [];
-          cats.forEach(cat => {
-            if (cat && cat !== '[object Object]') {
-              genres[cat] = (genres[cat] || 0) + 1;
-            }
-          });
-        }
-      });
-      setGenreCounts(
-          Object.entries(genres)
-              .map(([genre, count]) => ({ genre, count }))
-              .sort((a, b) => b.count - a.count)
-      );
-
-      // Calculate series counts
-      const series = {};
-      allBooksData.forEach(book => {
-        if (book.series) {
-          series[book.series] = (series[book.series] || 0) + 1;
-        }
-      });
-      setSeriesCounts(
-          Object.entries(series)
-              .map(([series, count]) => ({ series, count }))
-              .sort((a, b) => b.count - a.count)
-      );
-
-      // Calculate year counts
-      const years = {};
-      allBooksData.forEach(book => {
-        if (book.published_date) {
-          const year = new Date(book.published_date).getFullYear();
-          if (!isNaN(year)) {
-            years[year] = (years[year] || 0) + 1;
+  // Calculate genre counts
+  const genreCounts = useMemo(() => {
+    const counts = {};
+    allBooksForFilters.forEach(book => {
+      if (book.categories) {
+        const genres = book.categories.split(',').map(g => g.trim());
+        genres.forEach(genre => {
+          if (genre) {
+            counts[genre] = (counts[genre] || 0) + 1;
           }
+        });
+      }
+    });
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([genre, count]) => ({ genre, count }));
+  }, [allBooksForFilters]);
+
+  // Calculate series counts
+  const seriesCounts = useMemo(() => {
+    const counts = {};
+    allBooksForFilters.forEach(book => {
+      if (book.series) {
+        counts[book.series] = (counts[book.series] || 0) + 1;
+      }
+    });
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([series, count]) => ({ series, count }));
+  }, [allBooksForFilters]);
+
+  // Calculate year counts
+  const yearCounts = useMemo(() => {
+    const counts = {};
+    allBooksForFilters.forEach(book => {
+      if (book.published_date) {
+        const year = book.published_date.split('-')[0];
+        if (year && year.length === 4) {
+          counts[year] = (counts[year] || 0) + 1;
         }
-      });
-      setYearCounts(
-          Object.entries(years)
-              .map(([year, count]) => ({ year: parseInt(year), count }))
-              .sort((a, b) => b.year - a.year)
-      );
-    } catch (error) {
-      console.error('Error loading all books for filters:', error);
-    }
-  };
+      }
+    });
+    return Object.entries(counts)
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([year, count]) => ({ year, count }));
+  }, [allBooksForFilters]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -343,14 +349,16 @@ const Dashboard = ({ onLogout }) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleRefreshCovers = async () => {
+  const handleRefreshAllMetadata = async () => {
     try {
       setRefreshingMetadata(true);
-      await metadataAPI.refreshAll();
-      loadBooks();
+      await metadataAPI.refreshAllMetadata(true);
+      setTimeout(() => {
+        loadBooks();
+        setRefreshingMetadata(false);
+      }, 2000);
     } catch (error) {
       console.error('Error refreshing metadata:', error);
-    } finally {
       setRefreshingMetadata(false);
     }
   };
@@ -382,7 +390,7 @@ const Dashboard = ({ onLogout }) => {
 
     const files = Array.from(e.dataTransfer.files);
     const bookFiles = files.filter(f =>
-        ['.epub', '.pdf', '.mobi'].some(ext => f.name.toLowerCase().endsWith(ext))
+      ['.epub', '.pdf', '.mobi'].some(ext => f.name.toLowerCase().endsWith(ext))
     );
 
     if (bookFiles.length === 0) {
@@ -413,1181 +421,1210 @@ const Dashboard = ({ onLogout }) => {
   // Filter Sidebar Content (shared between mobile & desktop drawers)
   // ==========================================
   const filterContent = (
-      <Box sx={{ overflow: 'auto', p: 2 }}>
-        {/* Filter Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <FilterIcon sx={{ mr: 1, color: '#e50914' }} />
-            <Typography variant="h6">Filters</Typography>
+    <Box sx={{ overflow: 'auto', p: 2 }}>
+      {/* Filter Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <FilterIcon sx={{ mr: 1, color: '#e50914' }} />
+          <Typography variant="h6">Filters</Typography>
+        </Box>
+        {/* Close button only on mobile */}
+        {isMobile && (
+          <IconButton onClick={() => setMobileFilterOpen(false)} sx={{ color: 'rgba(255,255,255,0.7)' }}>
+            <CloseIcon />
+          </IconButton>
+        )}
+      </Box>
+
+      {/* Active Filters */}
+      {(selectedAuthor || selectedGenre || selectedSeries || selectedYear) && (
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+            Active Filters:
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {selectedAuthor && (
+              <Chip
+                label={`Author: ${selectedAuthor}`}
+                onDelete={() => setSelectedAuthor(null)}
+                size="small"
+                sx={{ 
+                  backgroundColor: '#e50914',
+                  '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' }
+                }}
+              />
+            )}
+            {selectedGenre && (
+              <Chip
+                label={`Genre: ${selectedGenre}`}
+                onDelete={() => setSelectedGenre(null)}
+                size="small"
+                sx={{ 
+                  backgroundColor: '#e50914',
+                  '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' }
+                }}
+              />
+            )}
+            {selectedSeries && (
+              <Chip
+                label={`Series: ${selectedSeries}`}
+                onDelete={() => setSelectedSeries(null)}
+                size="small"
+                sx={{ 
+                  backgroundColor: '#e50914',
+                  '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' }
+                }}
+              />
+            )}
+            {selectedYear && (
+              <Chip
+                label={`Year: ${selectedYear}`}
+                onDelete={() => setSelectedYear(null)}
+                size="small"
+                sx={{ 
+                  backgroundColor: '#e50914',
+                  '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' }
+                }}
+              />
+            )}
           </Box>
-          {/* Close button only on mobile */}
+          {/* Clear All on mobile for convenience */}
           {isMobile && (
-              <IconButton onClick={() => setMobileFilterOpen(false)} sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                <CloseIcon />
-              </IconButton>
+            <Button
+              size="small"
+              onClick={() => {
+                setSelectedAuthor(null);
+                setSelectedGenre(null);
+                setSelectedSeries(null);
+                setSelectedYear(null);
+              }}
+              sx={{ mt: 1, color: '#e50914', fontSize: '0.75rem' }}
+            >
+              Clear All Filters
+            </Button>
           )}
         </Box>
+      )}
 
-        {/* Active Filters */}
-        {(selectedAuthor || selectedGenre || selectedSeries || selectedYear) && (
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                Active Filters:
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {selectedAuthor && (
-                    <Chip
-                        label={`Author: ${selectedAuthor}`}
-                        onDelete={() => setSelectedAuthor(null)}
-                        size="small"
-                        sx={{
-                          backgroundColor: '#e50914',
-                          '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' }
-                        }}
-                    />
-                )}
-                {selectedGenre && (
-                    <Chip
-                        label={`Genre: ${selectedGenre}`}
-                        onDelete={() => setSelectedGenre(null)}
-                        size="small"
-                        sx={{
-                          backgroundColor: '#e50914',
-                          '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' }
-                        }}
-                    />
-                )}
-                {selectedSeries && (
-                    <Chip
-                        label={`Series: ${selectedSeries}`}
-                        onDelete={() => setSelectedSeries(null)}
-                        size="small"
-                        sx={{
-                          backgroundColor: '#e50914',
-                          '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' }
-                        }}
-                    />
-                )}
-                {selectedYear && (
-                    <Chip
-                        label={`Year: ${selectedYear}`}
-                        onDelete={() => setSelectedYear(null)}
-                        size="small"
-                        sx={{
-                          backgroundColor: '#e50914',
-                          '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' }
-                        }}
-                    />
-                )}
-              </Box>
-              {/* Clear All on mobile for convenience */}
-              {isMobile && (
-                  <Button
-                      size="small"
-                      onClick={() => {
-                        setSelectedAuthor(null);
-                        setSelectedGenre(null);
-                        setSelectedSeries(null);
-                        setSelectedYear(null);
-                      }}
-                      sx={{ mt: 1, color: '#e50914', fontSize: '0.75rem' }}
-                  >
-                    Clear All Filters
-                  </Button>
-              )}
-            </Box>
-        )}
+      <Divider sx={{ my: 2, borderColor: '#333' }} />
 
-        <Divider sx={{ my: 2, borderColor: '#333' }} />
+      {/* Author Filter */}
+      <Box>
+        <ListItemButton onClick={() => setAuthorFilterOpen(!authorFilterOpen)} sx={{ px: 0 }}>
+          <ListItemText 
+            primary="Author" 
+            primaryTypographyProps={{ fontWeight: 600 }}
+          />
+          {authorFilterOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+        </ListItemButton>
 
-        {/* Author Filter */}
-        <Box>
-          <ListItemButton onClick={() => setAuthorFilterOpen(!authorFilterOpen)} sx={{ px: 0 }}>
-            <ListItemText
-                primary="Author"
+        <Collapse in={authorFilterOpen} timeout="auto" unmountOnExit>
+          <List sx={{ maxHeight: '300px', overflow: 'auto', pt: 0 }}>
+            {authorCounts.map(({ author, count }) => (
+              <ListItem key={author} disablePadding>
+                <ListItemButton
+                  selected={selectedAuthor === author}
+                  onClick={() => {
+                    setSelectedAuthor(selectedAuthor === author ? null : author);
+                    if (isMobile) setMobileFilterOpen(false);
+                  }}
+                  sx={{
+                    py: 0.5,
+                    px: 2,
+                    // Larger touch target on mobile
+                    ...(isMobile && { py: 1 }),
+                    '&.Mui-selected': {
+                      backgroundColor: 'rgba(229, 9, 20, 0.2)',
+                      '&:hover': {
+                        backgroundColor: 'rgba(229, 9, 20, 0.3)',
+                      },
+                    },
+                  }}
+                >
+                  <ListItemText 
+                    primary={author}
+                    primaryTypographyProps={{
+                      fontSize: '0.875rem',
+                      noWrap: true,
+                    }}
+                  />
+                  <Chip
+                    label={count}
+                    size="small"
+                    sx={{
+                      height: '20px',
+                      minWidth: '28px',
+                      fontSize: '0.75rem',
+                      backgroundColor: selectedAuthor === author ? '#e50914' : '#333',
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+        </Collapse>
+      </Box>
+
+      <Divider sx={{ my: 2, borderColor: '#333' }} />
+
+      {/* Genre Filter */}
+      {genreCounts.length > 0 && (
+        <>
+          <Box>
+            <ListItemButton onClick={() => setGenreFilterOpen(!genreFilterOpen)} sx={{ px: 0 }}>
+              <ListItemText 
+                primary="Genre" 
                 primaryTypographyProps={{ fontWeight: 600 }}
-            />
-            {authorFilterOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-          </ListItemButton>
+              />
+              {genreFilterOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            </ListItemButton>
 
-          <Collapse in={authorFilterOpen} timeout="auto" unmountOnExit>
-            <List sx={{ maxHeight: '300px', overflow: 'auto', pt: 0 }}>
-              {authorCounts.map(({ author, count }) => (
-                  <ListItem key={author} disablePadding>
+            <Collapse in={genreFilterOpen} timeout="auto" unmountOnExit>
+              <List sx={{ maxHeight: '300px', overflow: 'auto', pt: 0 }}>
+                {genreCounts.map(({ genre, count }) => (
+                  <ListItem key={genre} disablePadding>
                     <ListItemButton
-                        selected={selectedAuthor === author}
-                        onClick={() => {
-                          setSelectedAuthor(selectedAuthor === author ? null : author);
-                          if (isMobile) setMobileFilterOpen(false);
-                        }}
-                        sx={{
-                          py: 0.5,
-                          px: 2,
-                          // Larger touch target on mobile
-                          ...(isMobile && { py: 1 }),
-                          '&.Mui-selected': {
-                            backgroundColor: 'rgba(229, 9, 20, 0.2)',
-                            '&:hover': {
-                              backgroundColor: 'rgba(229, 9, 20, 0.3)',
-                            },
+                      selected={selectedGenre === genre}
+                      onClick={() => {
+                        setSelectedGenre(selectedGenre === genre ? null : genre);
+                        if (isMobile) setMobileFilterOpen(false);
+                      }}
+                      sx={{
+                        py: 0.5,
+                        px: 2,
+                        ...(isMobile && { py: 1 }),
+                        '&.Mui-selected': {
+                          backgroundColor: 'rgba(229, 9, 20, 0.2)',
+                          '&:hover': {
+                            backgroundColor: 'rgba(229, 9, 20, 0.3)',
                           },
-                        }}
+                        },
+                      }}
                     >
-                      <ListItemText
-                          primary={author}
-                          primaryTypographyProps={{
-                            fontSize: '0.875rem',
-                            noWrap: true,
-                          }}
+                      <ListItemText 
+                        primary={genre}
+                        primaryTypographyProps={{
+                          fontSize: '0.875rem',
+                          noWrap: true,
+                        }}
                       />
                       <Chip
-                          label={count}
-                          size="small"
-                          sx={{
-                            height: '20px',
-                            minWidth: '28px',
-                            fontSize: '0.75rem',
-                            backgroundColor: selectedAuthor === author ? '#e50914' : '#333',
-                          }}
+                        label={count}
+                        size="small"
+                        sx={{
+                          height: '20px',
+                          minWidth: '28px',
+                          fontSize: '0.75rem',
+                          backgroundColor: selectedGenre === genre ? '#e50914' : '#333',
+                        }}
                       />
                     </ListItemButton>
                   </ListItem>
+                ))}
+              </List>
+            </Collapse>
+          </Box>
+          <Divider sx={{ my: 2, borderColor: '#333' }} />
+        </>
+      )}
+
+      {/* Series Filter */}
+      {seriesCounts.length > 0 && (
+        <>
+          <Box>
+            <ListItemButton onClick={() => setSeriesFilterOpen(!seriesFilterOpen)} sx={{ px: 0 }}>
+              <ListItemText 
+                primary="Series" 
+                primaryTypographyProps={{ fontWeight: 600 }}
+              />
+              {seriesFilterOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            </ListItemButton>
+
+            <Collapse in={seriesFilterOpen} timeout="auto" unmountOnExit>
+              <List sx={{ maxHeight: '300px', overflow: 'auto', pt: 0 }}>
+                {seriesCounts.map(({ series, count }) => (
+                  <ListItem key={series} disablePadding>
+                    <ListItemButton
+                      selected={selectedSeries === series}
+                      onClick={() => {
+                        setSelectedSeries(selectedSeries === series ? null : series);
+                        if (isMobile) setMobileFilterOpen(false);
+                      }}
+                      sx={{
+                        py: 0.5,
+                        px: 2,
+                        ...(isMobile && { py: 1 }),
+                        '&.Mui-selected': {
+                          backgroundColor: 'rgba(229, 9, 20, 0.2)',
+                          '&:hover': {
+                            backgroundColor: 'rgba(229, 9, 20, 0.3)',
+                          },
+                        },
+                      }}
+                    >
+                      <ListItemText 
+                        primary={series}
+                        primaryTypographyProps={{
+                          fontSize: '0.875rem',
+                          noWrap: true,
+                        }}
+                      />
+                      <Chip
+                        label={count}
+                        size="small"
+                        sx={{
+                          height: '20px',
+                          minWidth: '28px',
+                          fontSize: '0.75rem',
+                          backgroundColor: selectedSeries === series ? '#e50914' : '#333',
+                        }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                ))}
+              </List>
+            </Collapse>
+          </Box>
+          <Divider sx={{ my: 2, borderColor: '#333' }} />
+        </>
+      )}
+
+      {/* Year Filter */}
+      {yearCounts.length > 0 && (
+        <Box>
+          <ListItemButton onClick={() => setYearFilterOpen(!yearFilterOpen)} sx={{ px: 0 }}>
+            <ListItemText 
+              primary="Year Published" 
+              primaryTypographyProps={{ fontWeight: 600 }}
+            />
+            {yearFilterOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+          </ListItemButton>
+
+          <Collapse in={yearFilterOpen} timeout="auto" unmountOnExit>
+            <List sx={{ maxHeight: '300px', overflow: 'auto', pt: 0 }}>
+              {yearCounts.map(({ year, count }) => (
+                <ListItem key={year} disablePadding>
+                  <ListItemButton
+                    selected={selectedYear === year}
+                    onClick={() => {
+                      setSelectedYear(selectedYear === year ? null : year);
+                      if (isMobile) setMobileFilterOpen(false);
+                    }}
+                    sx={{
+                      py: 0.5,
+                      px: 2,
+                      ...(isMobile && { py: 1 }),
+                      '&.Mui-selected': {
+                        backgroundColor: 'rgba(229, 9, 20, 0.2)',
+                        '&:hover': {
+                          backgroundColor: 'rgba(229, 9, 20, 0.3)',
+                        },
+                      },
+                    }}
+                  >
+                    <ListItemText 
+                      primary={year}
+                      primaryTypographyProps={{
+                        fontSize: '0.875rem',
+                      }}
+                    />
+                    <Chip
+                      label={count}
+                      size="small"
+                      sx={{
+                        height: '20px',
+                        minWidth: '28px',
+                        fontSize: '0.75rem',
+                        backgroundColor: selectedYear === year ? '#e50914' : '#333',
+                      }}
+                    />
+                  </ListItemButton>
+                </ListItem>
               ))}
             </List>
           </Collapse>
         </Box>
-
-        <Divider sx={{ my: 2, borderColor: '#333' }} />
-
-        {/* Genre Filter */}
-        {genreCounts.length > 0 && (
-            <>
-              <Box>
-                <ListItemButton onClick={() => setGenreFilterOpen(!genreFilterOpen)} sx={{ px: 0 }}>
-                  <ListItemText
-                      primary="Genre"
-                      primaryTypographyProps={{ fontWeight: 600 }}
-                  />
-                  {genreFilterOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                </ListItemButton>
-
-                <Collapse in={genreFilterOpen} timeout="auto" unmountOnExit>
-                  <List sx={{ maxHeight: '300px', overflow: 'auto', pt: 0 }}>
-                    {genreCounts.map(({ genre, count }) => (
-                        <ListItem key={genre} disablePadding>
-                          <ListItemButton
-                              selected={selectedGenre === genre}
-                              onClick={() => {
-                                setSelectedGenre(selectedGenre === genre ? null : genre);
-                                if (isMobile) setMobileFilterOpen(false);
-                              }}
-                              sx={{
-                                py: 0.5,
-                                px: 2,
-                                ...(isMobile && { py: 1 }),
-                                '&.Mui-selected': {
-                                  backgroundColor: 'rgba(229, 9, 20, 0.2)',
-                                  '&:hover': {
-                                    backgroundColor: 'rgba(229, 9, 20, 0.3)',
-                                  },
-                                },
-                              }}
-                          >
-                            <ListItemText
-                                primary={genre}
-                                primaryTypographyProps={{
-                                  fontSize: '0.875rem',
-                                  noWrap: true,
-                                }}
-                            />
-                            <Chip
-                                label={count}
-                                size="small"
-                                sx={{
-                                  height: '20px',
-                                  minWidth: '28px',
-                                  fontSize: '0.75rem',
-                                  backgroundColor: selectedGenre === genre ? '#e50914' : '#333',
-                                }}
-                            />
-                          </ListItemButton>
-                        </ListItem>
-                    ))}
-                  </List>
-                </Collapse>
-              </Box>
-              <Divider sx={{ my: 2, borderColor: '#333' }} />
-            </>
-        )}
-
-        {/* Series Filter */}
-        {seriesCounts.length > 0 && (
-            <>
-              <Box>
-                <ListItemButton onClick={() => setSeriesFilterOpen(!seriesFilterOpen)} sx={{ px: 0 }}>
-                  <ListItemText
-                      primary="Series"
-                      primaryTypographyProps={{ fontWeight: 600 }}
-                  />
-                  {seriesFilterOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                </ListItemButton>
-
-                <Collapse in={seriesFilterOpen} timeout="auto" unmountOnExit>
-                  <List sx={{ maxHeight: '300px', overflow: 'auto', pt: 0 }}>
-                    {seriesCounts.map(({ series, count }) => (
-                        <ListItem key={series} disablePadding>
-                          <ListItemButton
-                              selected={selectedSeries === series}
-                              onClick={() => {
-                                setSelectedSeries(selectedSeries === series ? null : series);
-                                if (isMobile) setMobileFilterOpen(false);
-                              }}
-                              sx={{
-                                py: 0.5,
-                                px: 2,
-                                ...(isMobile && { py: 1 }),
-                                '&.Mui-selected': {
-                                  backgroundColor: 'rgba(229, 9, 20, 0.2)',
-                                  '&:hover': {
-                                    backgroundColor: 'rgba(229, 9, 20, 0.3)',
-                                  },
-                                },
-                              }}
-                          >
-                            <ListItemText
-                                primary={series}
-                                primaryTypographyProps={{
-                                  fontSize: '0.875rem',
-                                  noWrap: true,
-                                }}
-                            />
-                            <Chip
-                                label={count}
-                                size="small"
-                                sx={{
-                                  height: '20px',
-                                  minWidth: '28px',
-                                  fontSize: '0.75rem',
-                                  backgroundColor: selectedSeries === series ? '#e50914' : '#333',
-                                }}
-                            />
-                          </ListItemButton>
-                        </ListItem>
-                    ))}
-                  </List>
-                </Collapse>
-              </Box>
-              <Divider sx={{ my: 2, borderColor: '#333' }} />
-            </>
-        )}
-
-        {/* Year Filter */}
-        {yearCounts.length > 0 && (
-            <Box>
-              <ListItemButton onClick={() => setYearFilterOpen(!yearFilterOpen)} sx={{ px: 0 }}>
-                <ListItemText
-                    primary="Year Published"
-                    primaryTypographyProps={{ fontWeight: 600 }}
-                />
-                {yearFilterOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-              </ListItemButton>
-
-              <Collapse in={yearFilterOpen} timeout="auto" unmountOnExit>
-                <List sx={{ maxHeight: '300px', overflow: 'auto', pt: 0 }}>
-                  {yearCounts.map(({ year, count }) => (
-                      <ListItem key={year} disablePadding>
-                        <ListItemButton
-                            selected={selectedYear === year}
-                            onClick={() => {
-                              setSelectedYear(selectedYear === year ? null : year);
-                              if (isMobile) setMobileFilterOpen(false);
-                            }}
-                            sx={{
-                              py: 0.5,
-                              px: 2,
-                              ...(isMobile && { py: 1 }),
-                              '&.Mui-selected': {
-                                backgroundColor: 'rgba(229, 9, 20, 0.2)',
-                                '&:hover': {
-                                  backgroundColor: 'rgba(229, 9, 20, 0.3)',
-                                },
-                              },
-                            }}
-                        >
-                          <ListItemText
-                              primary={year}
-                              primaryTypographyProps={{
-                                fontSize: '0.875rem',
-                              }}
-                          />
-                          <Chip
-                              label={count}
-                              size="small"
-                              sx={{
-                                height: '20px',
-                                minWidth: '28px',
-                                fontSize: '0.75rem',
-                                backgroundColor: selectedYear === year ? '#e50914' : '#333',
-                              }}
-                          />
-                        </ListItemButton>
-                      </ListItem>
-                  ))}
-                </List>
-              </Collapse>
-            </Box>
-        )}
-      </Box>
+      )}
+    </Box>
   );
 
   return (
-      <Box
-          sx={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0f0f0f' }}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-      >
-        {/* Drag & Drop Overlay */}
-        {isDragging && (
-            <Box
-                sx={{
-                  position: 'fixed',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  backgroundColor: 'rgba(229, 9, 20, 0.15)',
-                  zIndex: 9999,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: '3px dashed #e50914',
-                  pointerEvents: 'none',
-                }}
-            >
-              <Box sx={{ textAlign: 'center' }}>
-                <LibraryIcon sx={{ fontSize: isSmall ? 60 : 100, mb: 2 }} />
-                <Typography variant={isSmall ? 'h5' : 'h3'} gutterBottom>
-                  Drop Books Here
-                </Typography>
-                <Typography variant={isSmall ? 'body2' : 'h6'}>
-                  Supports EPUB, PDF, and MOBI files
-                </Typography>
-              </Box>
-            </Box>
-        )}
+    <Box
+      sx={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0f0f0f' }}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* Drag & Drop Overlay */}
+      {isDragging && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(229, 9, 20, 0.15)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '3px dashed #e50914',
+            pointerEvents: 'none',
+          }}
+        >
+          <Box sx={{ textAlign: 'center' }}>
+            <LibraryIcon sx={{ fontSize: isSmall ? 60 : 100, mb: 2 }} />
+            <Typography variant={isSmall ? 'h5' : 'h3'} gutterBottom>
+              Drop Books Here
+            </Typography>
+            <Typography variant={isSmall ? 'body2' : 'h6'}>
+              Supports EPUB, PDF, and MOBI files
+            </Typography>
+          </Box>
+        </Box>
+      )}
 
-        {/* Upload Progress Snackbar */}
-        {uploadProgress && (
-            <Box
-                sx={{
-                  position: 'fixed',
-                  bottom: isMobile ? 80 : 20,
-                  right: 20,
-                  left: isMobile ? 20 : 'auto',
-                  backgroundColor: '#1a1a1a',
-                  padding: 2,
-                  borderRadius: 1,
-                  zIndex: 10000,
-                  minWidth: isMobile ? 'auto' : 300,
-                  boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
-                }}
-            >
-              <Typography variant="body1">{uploadProgress}</Typography>
-            </Box>
-        )}
+      {/* Upload Progress Snackbar */}
+      {uploadProgress && (
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: isMobile ? 80 : 20,
+            right: 20,
+            left: isMobile ? 20 : 'auto',
+            backgroundColor: '#1a1a1a',
+            padding: 2,
+            borderRadius: 1,
+            zIndex: 10000,
+            minWidth: isMobile ? 'auto' : 300,
+            boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+          }}
+        >
+          <Typography variant="body1">{uploadProgress}</Typography>
+        </Box>
+      )}
 
-        {/* Upload Error Snackbar */}
-        {uploadError && (
-            <Box
-                sx={{
-                  position: 'fixed',
-                  bottom: isMobile ? 80 : 20,
-                  right: 20,
-                  left: isMobile ? 20 : 'auto',
-                  backgroundColor: '#e50914',
-                  padding: 2,
-                  borderRadius: 1,
-                  zIndex: 10000,
-                  minWidth: isMobile ? 'auto' : 300,
-                  boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
-                }}
-            >
-              <Typography variant="body1">{uploadError}</Typography>
-            </Box>
-        )}
+      {/* Upload Error Snackbar */}
+      {uploadError && (
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: isMobile ? 80 : 20,
+            right: 20,
+            left: isMobile ? 20 : 'auto',
+            backgroundColor: '#e50914',
+            padding: 2,
+            borderRadius: 1,
+            zIndex: 10000,
+            minWidth: isMobile ? 'auto' : 300,
+            boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+          }}
+        >
+          <Typography variant="body1">{uploadError}</Typography>
+        </Box>
+      )}
 
-        {/* ==========================================
+      {/* ==========================================
           FILTER SIDEBAR - Desktop: permanent, Mobile: swipeable overlay
          ========================================== */}
-        {isMobile ? (
-            <SwipeableDrawer
-                anchor="left"
-                open={mobileFilterOpen}
-                onClose={() => setMobileFilterOpen(false)}
-                onOpen={() => setMobileFilterOpen(true)}
-                disableSwipeToOpen={false}
-                swipeAreaWidth={20}
-                sx={{
-                  '& .MuiDrawer-paper': {
-                    width: DRAWER_WIDTH,
-                    boxSizing: 'border-box',
-                    backgroundColor: '#1a1a1a',
-                    borderRight: '1px solid #333',
-                  },
-                }}
-            >
-              {filterContent}
-            </SwipeableDrawer>
-        ) : (
-            <Drawer
-                variant="permanent"
-                sx={{
-                  width: DRAWER_WIDTH,
-                  flexShrink: 0,
-                  '& .MuiDrawer-paper': {
-                    width: DRAWER_WIDTH,
-                    boxSizing: 'border-box',
-                    backgroundColor: '#1a1a1a',
-                    borderRight: '1px solid #333',
-                    marginTop: '64px',
-                  },
-                }}
-            >
-              {filterContent}
-            </Drawer>
-        )}
-
-        {/* Main Content */}
-        <Box
-            component="main"
-            sx={{
-              flexGrow: 1,
-              width: isMobile ? '100%' : `calc(100% - ${DRAWER_WIDTH}px)`,
-              // Add bottom padding on mobile for bottom nav
-              pb: isMobile ? '80px' : 0,
-            }}
+      {isMobile ? (
+        <SwipeableDrawer
+          anchor="left"
+          open={mobileFilterOpen}
+          onClose={() => setMobileFilterOpen(false)}
+          onOpen={() => setMobileFilterOpen(true)}
+          disableSwipeToOpen={false}
+          swipeAreaWidth={20}
+          sx={{
+            '& .MuiDrawer-paper': {
+              width: DRAWER_WIDTH,
+              boxSizing: 'border-box',
+              backgroundColor: '#1a1a1a',
+              borderRight: '1px solid #333',
+            },
+          }}
         >
-          {/* ==========================================
+          {filterContent}
+        </SwipeableDrawer>
+      ) : (
+        <Drawer
+          variant="permanent"
+          sx={{
+            width: DRAWER_WIDTH,
+            flexShrink: 0,
+            '& .MuiDrawer-paper': {
+              width: DRAWER_WIDTH,
+              boxSizing: 'border-box',
+              backgroundColor: '#1a1a1a',
+              borderRight: '1px solid #333',
+              marginTop: '64px',
+            },
+          }}
+        >
+          {filterContent}
+        </Drawer>
+      )}
+
+      {/* Main Content */}
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          width: isMobile ? '100%' : `calc(100% - ${DRAWER_WIDTH}px)`,
+          // Add bottom padding on mobile for bottom nav
+          pb: isMobile ? '80px' : 0,
+        }}
+      >
+        {/* ==========================================
             APP BAR - Responsive
            ========================================== */}
-          <AppBar
-              position="fixed"
-              sx={{
-                backgroundColor: '#1a1a1a',
-                zIndex: (theme) => theme.zIndex.drawer + 1,
-              }}
-          >
-            <Toolbar sx={{ minHeight: { xs: 56, sm: 64 } }}>
-              {/* Mobile: Filter toggle button */}
-              {isMobile && (
-                  <IconButton
-                      edge="start"
-                      color="inherit"
-                      onClick={() => setMobileFilterOpen(true)}
-                      sx={{ mr: 1 }}
-                  >
-                    <Badge
-                        badgeContent={activeFilterCount}
-                        color="error"
-                        sx={{ '& .MuiBadge-badge': { fontSize: '0.65rem', height: 16, minWidth: 16 } }}
-                    >
-                      <FilterIcon />
-                    </Badge>
-                  </IconButton>
-              )}
-
-              <LibraryIcon sx={{ mr: 1, display: { xs: 'none', sm: 'block' } }} />
-              <Typography
-                  variant="h6"
-                  component="div"
-                  sx={{
-                    flexGrow: 1,
-                    fontSize: { xs: '1rem', sm: '1.25rem' },
-                  }}
+        <AppBar 
+          position="fixed" 
+          sx={{ 
+            backgroundColor: '#1a1a1a', 
+            zIndex: (theme) => theme.zIndex.drawer + 1,
+          }}
+        >
+          <Toolbar sx={{ minHeight: { xs: 56, sm: 64 } }}>
+            {/* Mobile: Filter toggle button */}
+            {isMobile && (
+              <IconButton
+                edge="start"
+                color="inherit"
+                onClick={() => setMobileFilterOpen(true)}
+                sx={{ mr: 1 }}
               >
-                BookServe
-              </Typography>
-
-              {/* Desktop nav buttons - hidden on mobile (use bottom nav instead) */}
-              <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center' }}>
-                <AdminNavButton />
-                <Button
-                    color="inherit"
-                    startIcon={<AddIcon />}
-                    onClick={() => navigate('/request')}
-                    sx={{ mr: 2 }}
+                <Badge 
+                  badgeContent={activeFilterCount} 
+                  color="error"
+                  sx={{ '& .MuiBadge-badge': { fontSize: '0.65rem', height: 16, minWidth: 16 } }}
                 >
-                  Request Book
-                </Button>
-                <Button
-                    color="inherit"
-                    onClick={() => navigate('/reading-list')}
-                    sx={{ mr: 2 }}
-                >
-                  Reading List
-                </Button>
-                <Button
-                    color="inherit"
-                    onClick={() => navigate('/my-requests')}
-                    sx={{ mr: 2 }}
-                >
-                  My Requests
-                </Button>
-                <Button
-                    color="inherit"
-                    startIcon={<EmojiEvents />}
-                    onClick={() => navigate('/bestsellers')}
-                    sx={{ mr: 2 }}
-                >
-                  NYT Bestsellers
-                </Button>
-                <Button
-                    color="inherit"
-                    startIcon={<AIIcon />}
-                    onClick={() => navigate('/ai/recommendations')}
-                    sx={{
-                      mr: 2,
-                      borderLeft: '1px solid rgba(255,255,255,0.1)',
-                      pl: 2,
-                      ml: 1
-                    }}
-                >
-                  AI Features
-                </Button>
-              </Box>
-
-              {/* Tablet: Show compact icons for key actions */}
-              <Box sx={{ display: { xs: 'none', sm: 'flex', md: 'none' }, alignItems: 'center', gap: 0.5 }}>
-                <AdminNavButton />
-                <IconButton color="inherit" onClick={() => navigate('/request')}>
-                  <AddIcon />
-                </IconButton>
-                <IconButton color="inherit" onClick={() => navigate('/reading-list')}>
-                  <ReadIcon />
-                </IconButton>
-                <IconButton color="inherit" onClick={() => navigate('/ai/recommendations')}>
-                  <AIIcon />
-                </IconButton>
-              </Box>
-
-              <UserMenu onLogout={onLogout} />
-            </Toolbar>
-          </AppBar>
-
-          <Container
-              maxWidth="xl"
-              sx={{
-                mt: { xs: 8, sm: 10 },
-                pb: 4,
-                px: { xs: 1.5, sm: 2, md: 3 },
-              }}
-          >
-            {/* Search Bar */}
-            <Box component="form" onSubmit={handleSearch} sx={{ mb: { xs: 2, sm: 4 } }}>
-              <TextField
-                  fullWidth
-                  variant="outlined"
-                  placeholder={isSmall ? "Search books..." : "Search books by title, author, or ISBN..."}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  size={isSmall ? 'small' : 'medium'}
-                  InputProps={{
-                    startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchIcon />
-                        </InputAdornment>
-                    ),
-                    endAdornment: (
-                        <InputAdornment position="end">
-                          <Button
-                              variant="outlined"
-                              size="small"
-                              onClick={() => setAdvancedSearchOpen(true)}
-                              sx={{
-                                borderColor: '#e50914',
-                                color: '#e50914',
-                                fontSize: { xs: '0.7rem', sm: '0.8125rem' },
-                                px: { xs: 1, sm: 2 },
-                                minWidth: { xs: 'auto', sm: 64 },
-                                '&:hover': {
-                                  borderColor: '#b20710',
-                                  backgroundColor: 'rgba(229, 9, 20, 0.1)',
-                                },
-                              }}
-                          >
-                            {isSmall ? 'Adv.' : 'Advanced Search'}
-                          </Button>
-                        </InputAdornment>
-                    ),
-                  }}
-                  sx={{
-                    backgroundColor: '#1a1a1a',
-                    '& .MuiOutlinedInput-root': {
-                      '& fieldset': {
-                        borderColor: '#333',
-                      },
-                      '&:hover fieldset': {
-                        borderColor: '#e50914',
-                      },
-                    },
-                  }}
-              />
-            </Box>
-
-            {/* Quick Filters - horizontally scrollable on mobile */}
-            <Box
-                sx={{
-                  mb: { xs: 2, sm: 3 },
-                  display: 'flex',
-                  gap: 1,
-                  flexWrap: { xs: 'nowrap', sm: 'wrap' },
-                  overflowX: { xs: 'auto', sm: 'visible' },
-                  WebkitOverflowScrolling: 'touch',
-                  scrollbarWidth: 'none',
-                  '&::-webkit-scrollbar': { display: 'none' },
-                  pb: { xs: 0.5, sm: 0 },
-                }}
-            >
-              <Chip
-                  label="All Books"
-                  onClick={() => setQuickFilter('all')}
-                  color={quickFilter === 'all' ? 'primary' : 'default'}
-                  sx={{
-                    backgroundColor: quickFilter === 'all' ? '#e50914' : '#1a1a1a',
-                    flexShrink: 0,
-                    '&:hover': {
-                      backgroundColor: quickFilter === 'all' ? '#b20710' : '#333',
-                    },
-                  }}
-              />
-              {continueReadingBooks.length > 0 && (
-                  <Chip
-                      label={`Continue Reading (${continueReadingBooks.length})`}
-                      onClick={() => setQuickFilter('continue_reading')}
-                      color={quickFilter === 'continue_reading' ? 'primary' : 'default'}
-                      sx={{
-                        backgroundColor: quickFilter === 'continue_reading' ? '#e50914' : '#1a1a1a',
-                        flexShrink: 0,
-                        '&:hover': {
-                          backgroundColor: quickFilter === 'continue_reading' ? '#b20710' : '#333',
-                        },
-                      }}
-                  />
-              )}
-              {recentlyReadBooks.length > 0 && (
-                  <Chip
-                      label={`Recently Read (${recentlyReadBooks.length})`}
-                      onClick={() => setQuickFilter('recently_read')}
-                      color={quickFilter === 'recently_read' ? 'primary' : 'default'}
-                      sx={{
-                        backgroundColor: quickFilter === 'recently_read' ? '#e50914' : '#1a1a1a',
-                        flexShrink: 0,
-                        '&:hover': {
-                          backgroundColor: quickFilter === 'recently_read' ? '#b20710' : '#333',
-                        },
-                      }}
-                  />
-              )}
-              <Chip
-                  label="Recently Added"
-                  onClick={() => setQuickFilter('recently_added')}
-                  color={quickFilter === 'recently_added' ? 'primary' : 'default'}
-                  sx={{
-                    backgroundColor: quickFilter === 'recently_added' ? '#e50914' : '#1a1a1a',
-                    flexShrink: 0,
-                    '&:hover': {
-                      backgroundColor: quickFilter === 'recently_added' ? '#b20710' : '#333',
-                    },
-                  }}
-              />
-            </Box>
-
-            {/* Active mobile filter chips (shown inline when filters are active on mobile) */}
-            {isMobile && activeFilterCount > 0 && (
-                <Box sx={{ mb: 2, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                  {selectedAuthor && (
-                      <Chip
-                          label={`${selectedAuthor}`}
-                          onDelete={() => setSelectedAuthor(null)}
-                          size="small"
-                          sx={{ backgroundColor: '#e50914', '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' } }}
-                      />
-                  )}
-                  {selectedGenre && (
-                      <Chip
-                          label={`${selectedGenre}`}
-                          onDelete={() => setSelectedGenre(null)}
-                          size="small"
-                          sx={{ backgroundColor: '#e50914', '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' } }}
-                      />
-                  )}
-                  {selectedSeries && (
-                      <Chip
-                          label={`${selectedSeries}`}
-                          onDelete={() => setSelectedSeries(null)}
-                          size="small"
-                          sx={{ backgroundColor: '#e50914', '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' } }}
-                      />
-                  )}
-                  {selectedYear && (
-                      <Chip
-                          label={`${selectedYear}`}
-                          onDelete={() => setSelectedYear(null)}
-                          size="small"
-                          sx={{ backgroundColor: '#e50914', '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' } }}
-                      />
-                  )}
-                </Box>
+                  <FilterIcon />
+                </Badge>
+              </IconButton>
             )}
 
-            {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-                  <LinearProgress sx={{ width: '50%' }} />
-                </Box>
-            ) : books.length === 0 ? (
-                <Box sx={{ textAlign: 'center', mt: 8 }}>
-                  <LibraryIcon sx={{ fontSize: isSmall ? 60 : 100, color: 'rgba(255,255,255,0.1)', mb: 2 }} />
-                  <Typography variant={isSmall ? 'h6' : 'h5'} color="text.secondary" gutterBottom>
-                    {selectedAuthor || selectedGenre || selectedSeries || selectedYear || searchQuery
-                        ? 'No books match your filters' : 'No books found'}
-                  </Typography>
-                  <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                    {selectedAuthor || selectedGenre || selectedSeries || selectedYear || searchQuery
-                        ? 'Try adjusting your filters or search term'
-                        : 'Start building your library by requesting books!'}
-                  </Typography>
-                  {(selectedAuthor || selectedGenre || selectedSeries || selectedYear || searchQuery) && (
-                      <Button
-                          variant="outlined"
-                          onClick={() => {
-                            setSelectedAuthor(null);
-                            setSelectedGenre(null);
-                            setSelectedSeries(null);
-                            setSelectedYear(null);
-                            setSearchQuery('');
-                          }}
-                          sx={{ mr: 2 }}
-                      >
-                        Clear Filters
-                      </Button>
+            <LibraryIcon sx={{ mr: 1, display: { xs: 'none', sm: 'block' } }} />
+            <Typography 
+              variant="h6" 
+              component="div" 
+              sx={{ 
+                flexGrow: 1,
+                fontSize: { xs: '1rem', sm: '1.25rem' },
+              }}
+            >
+              BookServe
+            </Typography>
+
+            {/* Desktop nav buttons - hidden on mobile (use bottom nav instead) */}
+            <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center' }}>
+              <AdminNavButton />
+              <Button
+                color="inherit"
+                startIcon={<CollectionsIcon />}
+                onClick={() => navigate('/collections')}
+                sx={{ mr: 2 }}
+              >
+                Collections
+              </Button>
+              <Button
+                color="inherit"
+                startIcon={<AddIcon />}
+                onClick={() => navigate('/request')}
+                sx={{ mr: 2 }}
+              >
+                Request Book
+              </Button>
+              <Button
+                color="inherit"
+                onClick={() => navigate('/reading-list')}
+                sx={{ mr: 2 }}
+              >
+                Reading List
+              </Button>
+              <Button
+                color="inherit"
+                onClick={() => navigate('/my-requests')}
+                sx={{ mr: 2 }}
+              >
+                My Requests
+              </Button>
+              <Button
+                color="inherit"
+                startIcon={<EmojiEvents />}
+                onClick={() => navigate('/bestsellers')}
+                sx={{ mr: 2 }}
+              >
+                NYT Bestsellers
+              </Button>    
+              <Button
+                color="inherit"
+                startIcon={<AIIcon />}
+                onClick={() => navigate('/ai/recommendations')}
+                sx={{
+                  mr: 2,
+                  borderLeft: '1px solid rgba(255,255,255,0.1)',
+                  pl: 2,
+                  ml: 1
+                }}
+              >
+                AI Features
+              </Button>
+            </Box>
+
+            {/* Tablet: Show compact icons for key actions */}
+            <Box sx={{ display: { xs: 'none', sm: 'flex', md: 'none' }, alignItems: 'center', gap: 0.5 }}>
+              <AdminNavButton />
+              <IconButton color="inherit" onClick={() => navigate('/collections')} title="Collections">
+                <CollectionsIcon />
+              </IconButton>
+              <IconButton color="inherit" onClick={() => navigate('/request')}>
+                <AddIcon />
+              </IconButton>
+              <IconButton color="inherit" onClick={() => navigate('/reading-list')}>
+                <ReadIcon />
+              </IconButton>
+              <IconButton color="inherit" onClick={() => navigate('/ai/recommendations')}>
+                <AIIcon />
+              </IconButton>
+            </Box>
+
+            <UserMenu onLogout={onLogout} />
+          </Toolbar>
+        </AppBar>
+
+        <Container 
+          maxWidth="xl" 
+          sx={{ 
+            mt: { xs: 8, sm: 10 }, 
+            pb: 4,
+            px: { xs: 1.5, sm: 2, md: 3 },
+          }}
+        >
+          {/* Search Bar */}
+          <Box component="form" onSubmit={handleSearch} sx={{ mb: { xs: 2, sm: 4 } }}>
+            <TextField
+              fullWidth
+              variant="outlined"
+              placeholder={isSmall ? "Search books..." : "Search books by title, author, or ISBN..."}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              size={isSmall ? 'small' : 'medium'}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => setAdvancedSearchOpen(true)}
+                      sx={{
+                        borderColor: '#e50914',
+                        color: '#e50914',
+                        fontSize: { xs: '0.7rem', sm: '0.8125rem' },
+                        px: { xs: 1, sm: 2 },
+                        minWidth: { xs: 'auto', sm: 64 },
+                        '&:hover': {
+                          borderColor: '#b20710',
+                          backgroundColor: 'rgba(229, 9, 20, 0.1)',
+                        },
+                      }}
+                    >
+                      {isSmall ? 'Adv.' : 'Advanced Search'}
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={!isSmall ? <FullTextSearchIcon /> : undefined}
+                      onClick={() => navigate('/search')}
+                      sx={{
+                        borderColor: '#e50914',
+                        color: '#e50914',
+                        fontSize: { xs: '0.7rem', sm: '0.8125rem' },
+                        px: { xs: 1, sm: 2 },
+                        ml: 0.5,
+                        minWidth: { xs: 'auto', sm: 64 },
+                        '&:hover': {
+                          borderColor: '#b20710',
+                          backgroundColor: 'rgba(229, 9, 20, 0.1)',
+                        },
+                      }}
+                    >
+                      {isSmall ? <FullTextSearchIcon sx={{ fontSize: 18 }} /> : 'Search Inside Books'}
+                    </Button>
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                backgroundColor: '#1a1a1a',
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': {
+                    borderColor: '#333',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: '#e50914',
+                  },
+                },
+              }}
+            />
+          </Box>
+
+          {/* Quick Filters - horizontally scrollable on mobile */}
+          <Box 
+            sx={{ 
+              mb: { xs: 2, sm: 3 }, 
+              display: 'flex', 
+              gap: 1, 
+              flexWrap: { xs: 'nowrap', sm: 'wrap' },
+              overflowX: { xs: 'auto', sm: 'visible' },
+              WebkitOverflowScrolling: 'touch',
+              scrollbarWidth: 'none',
+              '&::-webkit-scrollbar': { display: 'none' },
+              pb: { xs: 0.5, sm: 0 },
+            }}
+          >
+            <Chip
+              label="All Books"
+              onClick={() => setQuickFilter('all')}
+              color={quickFilter === 'all' ? 'primary' : 'default'}
+              sx={{
+                backgroundColor: quickFilter === 'all' ? '#e50914' : '#1a1a1a',
+                flexShrink: 0,
+                '&:hover': {
+                  backgroundColor: quickFilter === 'all' ? '#b20710' : '#333',
+                },
+              }}
+            />
+            <Chip
+              label={`Continue Reading (${continueReadingBooks.length})`}
+              onClick={() => setQuickFilter('continue_reading')}
+              color={quickFilter === 'continue_reading' ? 'primary' : 'default'}
+              sx={{
+                backgroundColor: quickFilter === 'continue_reading' ? '#e50914' : '#1a1a1a',
+                flexShrink: 0,
+                '&:hover': {
+                  backgroundColor: quickFilter === 'continue_reading' ? '#b20710' : '#333',
+                },
+              }}
+            />
+            <Chip
+              label={`Recently Read (${recentlyReadBooks.length})`}
+              onClick={() => setQuickFilter('recently_read')}
+              color={quickFilter === 'recently_read' ? 'primary' : 'default'}
+              sx={{
+                backgroundColor: quickFilter === 'recently_read' ? '#e50914' : '#1a1a1a',
+                flexShrink: 0,
+                '&:hover': {
+                  backgroundColor: quickFilter === 'recently_read' ? '#b20710' : '#333',
+                },
+              }}
+            />
+            <Chip
+              label="Recently Added"
+              onClick={() => setQuickFilter('recently_added')}
+              color={quickFilter === 'recently_added' ? 'primary' : 'default'}
+              sx={{
+                backgroundColor: quickFilter === 'recently_added' ? '#e50914' : '#1a1a1a',
+                flexShrink: 0,
+                '&:hover': {
+                  backgroundColor: quickFilter === 'recently_added' ? '#b20710' : '#333',
+                },
+              }}
+            />
+          </Box>
+
+          {/* Active mobile filter chips (shown inline when filters are active on mobile) */}
+          {isMobile && activeFilterCount > 0 && (
+            <Box sx={{ mb: 2, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+              {selectedAuthor && (
+                <Chip
+                  label={`${selectedAuthor}`}
+                  onDelete={() => setSelectedAuthor(null)}
+                  size="small"
+                  sx={{ backgroundColor: '#e50914', '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' } }}
+                />
+              )}
+              {selectedGenre && (
+                <Chip
+                  label={`${selectedGenre}`}
+                  onDelete={() => setSelectedGenre(null)}
+                  size="small"
+                  sx={{ backgroundColor: '#e50914', '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' } }}
+                />
+              )}
+              {selectedSeries && (
+                <Chip
+                  label={`${selectedSeries}`}
+                  onDelete={() => setSelectedSeries(null)}
+                  size="small"
+                  sx={{ backgroundColor: '#e50914', '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' } }}
+                />
+              )}
+              {selectedYear && (
+                <Chip
+                  label={`${selectedYear}`}
+                  onDelete={() => setSelectedYear(null)}
+                  size="small"
+                  sx={{ backgroundColor: '#e50914', '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' } }}
+                />
+              )}
+            </Box>
+          )}
+
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+              <LinearProgress sx={{ width: '50%' }} />
+            </Box>
+          ) : books.length === 0 ? (
+            <Box sx={{ textAlign: 'center', mt: 8 }}>
+              <LibraryIcon sx={{ fontSize: isSmall ? 60 : 100, color: 'rgba(255,255,255,0.1)', mb: 2 }} />
+              <Typography variant={isSmall ? 'h6' : 'h5'} color="text.secondary" gutterBottom>
+                {selectedAuthor || selectedGenre || selectedSeries || selectedYear || searchQuery
+                  ? 'No books match your filters' : 'No books found'}
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                {selectedAuthor || selectedGenre || selectedSeries || selectedYear || searchQuery 
+                  ? 'Try adjusting your filters or search term' 
+                  : 'Start building your library by requesting books!'}
+              </Typography>
+              {(selectedAuthor || selectedGenre || selectedSeries || selectedYear || searchQuery) && (
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setSelectedAuthor(null);
+                    setSelectedGenre(null);
+                    setSelectedSeries(null);
+                    setSelectedYear(null);
+                    setSearchQuery('');
+                  }}
+                  sx={{ mr: 2 }}
+                >
+                  Clear Filters
+                </Button>
+              )}
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => navigate('/request')}
+              >
+                Request Your First Book
+              </Button>
+            </Box>
+          ) : (
+            <>
+              {/* Library header + controls */}
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                mb: { xs: 2, sm: 3 }, 
+                flexWrap: 'wrap', 
+                gap: { xs: 1, sm: 2 },
+              }}>
+                <Typography variant={isSmall ? 'h6' : 'h5'} gutterBottom sx={{ mb: 0 }}>
+                  {selectedAuthor ? (
+                    <>Books by {selectedAuthor} ({totalBooks})</>
+                  ) : (
+                    <>Your Library ({totalBooks} book{totalBooks !== 1 ? 's' : ''})</>
                   )}
-                  <Button
-                      variant="contained"
-                      startIcon={<AddIcon />}
-                      onClick={() => navigate('/request')}
+                </Typography>
+                
+                <Box sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, alignItems: 'center', flexWrap: 'wrap' }}>
+                  {/* View Mode Toggle */}
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      border: '1px solid #333',
+                      borderRadius: 1,
+                      overflow: 'hidden',
+                    }}
                   >
-                    Request Your First Book
-                  </Button>
-                </Box>
-            ) : (
-                <>
-                  {/* Library header + controls */}
-                  <Box sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    mb: { xs: 2, sm: 3 },
-                    flexWrap: 'wrap',
-                    gap: { xs: 1, sm: 2 },
-                  }}>
-                    <Typography variant={isSmall ? 'h6' : 'h5'} gutterBottom sx={{ mb: 0 }}>
-                      {selectedAuthor ? (
-                          <>Books by {selectedAuthor} ({totalBooks})</>
-                      ) : (
-                          <>Your Library ({totalBooks} book{totalBooks !== 1 ? 's' : ''})</>
-                      )}
-                    </Typography>
-
-                    <Box sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, alignItems: 'center', flexWrap: 'wrap' }}>
-                      {/* View Mode Toggle */}
-                      <Box
-                          sx={{
-                            display: 'flex',
-                            border: '1px solid #333',
-                            borderRadius: 1,
-                            overflow: 'hidden',
-                          }}
-                      >
-                        <IconButton
-                            onClick={() => setViewMode('grid')}
-                            size={isSmall ? 'small' : 'medium'}
-                            sx={{
-                              borderRadius: 0,
-                              color: viewMode === 'grid' ? '#e50914' : 'inherit',
-                              backgroundColor: viewMode === 'grid' ? 'rgba(229, 9, 20, 0.1)' : 'transparent',
-                              '&:hover': {
-                                backgroundColor: viewMode === 'grid' ? 'rgba(229, 9, 20, 0.2)' : 'rgba(255,255,255,0.1)',
-                              },
-                            }}
-                            title="Grid View"
-                        >
-                          <GridViewIcon />
-                        </IconButton>
-                        <IconButton
-                            onClick={() => setViewMode('list')}
-                            size={isSmall ? 'small' : 'medium'}
-                            sx={{
-                              borderRadius: 0,
-                              color: viewMode === 'list' ? '#e50914' : 'inherit',
-                              backgroundColor: viewMode === 'list' ? 'rgba(229, 9, 20, 0.1)' : 'transparent',
-                              '&:hover': {
-                                backgroundColor: viewMode === 'list' ? 'rgba(229, 9, 20, 0.2)' : 'rgba(255,255,255,0.1)',
-                              },
-                            }}
-                            title="List View"
-                        >
-                          <ListViewIcon />
-                        </IconButton>
-                      </Box>
-
-                      {/* Sort */}
-                      <FormControl size="small" sx={{ minWidth: { xs: 100, sm: 150 } }}>
-                        <Select
-                            value={sortBy}
-                            onChange={(e) => setSortBy(e.target.value)}
-                            displayEmpty
-                            startAdornment={
-                              <InputAdornment position="start">
-                                <SortIcon sx={{ fontSize: '1.2rem' }} />
-                              </InputAdornment>
-                            }
-                            sx={{
-                              backgroundColor: '#1a1a1a',
-                              fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                              '& .MuiOutlinedInput-notchedOutline': {
-                                borderColor: '#333',
-                              },
-                            }}
-                        >
-                          <MenuItem value="added_desc">Newest First</MenuItem>
-                          <MenuItem value="added_asc">Oldest First</MenuItem>
-                          <MenuItem value="title_asc">Title A-Z</MenuItem>
-                          <MenuItem value="title_desc">Title Z-A</MenuItem>
-                          <MenuItem value="rating_desc">Highest Rated</MenuItem>
-                          <MenuItem value="published_desc">Published (New)</MenuItem>
-                        </Select>
-                      </FormControl>
-
-                      {/* Refresh & Import - hide on small mobile */}
-                      <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 1 }}>
-                        <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<RefreshIcon />}
-                            onClick={handleRefreshCovers}
-                            disabled={refreshingMetadata}
-                            sx={{
-                              borderColor: '#333',
-                              color: '#fff',
-                              '&:hover': {
-                                borderColor: '#e50914',
-                              },
-                            }}
-                        >
-                          {refreshingMetadata ? 'Refreshing...' : 'Refresh Covers'}
-                        </Button>
-
-                        <Button
-                            variant="outlined"
-                            onClick={() => setGoodreadsImportOpen(true)}
-                            size="small"
-                            sx={{
-                              borderColor: '#e50914',
-                              color: '#e50914',
-                              '&:hover': {
-                                borderColor: '#e50914',
-                                backgroundColor: 'rgba(229, 9, 20, 0.1)',
-                              },
-                            }}
-                        >
-                          Import from Goodreads
-                        </Button>
-                      </Box>
-                    </Box>
+                    <IconButton
+                      onClick={() => setViewMode('grid')}
+                      size={isSmall ? 'small' : 'medium'}
+                      sx={{
+                        borderRadius: 0,
+                        color: viewMode === 'grid' ? '#e50914' : 'inherit',
+                        backgroundColor: viewMode === 'grid' ? 'rgba(229, 9, 20, 0.1)' : 'transparent',
+                        '&:hover': {
+                          backgroundColor: viewMode === 'grid' ? 'rgba(229, 9, 20, 0.2)' : 'rgba(255,255,255,0.1)',
+                        },
+                      }}
+                      title="Grid View"
+                    >
+                      <GridViewIcon />
+                    </IconButton>
+                    <IconButton
+                      onClick={() => setViewMode('list')}
+                      size={isSmall ? 'small' : 'medium'}
+                      sx={{
+                        borderRadius: 0,
+                        color: viewMode === 'list' ? '#e50914' : 'inherit',
+                        backgroundColor: viewMode === 'list' ? 'rgba(229, 9, 20, 0.1)' : 'transparent',
+                        '&:hover': {
+                          backgroundColor: viewMode === 'list' ? 'rgba(229, 9, 20, 0.2)' : 'rgba(255,255,255,0.1)',
+                        },
+                      }}
+                      title="List View"
+                    >
+                      <ListViewIcon />
+                    </IconButton>
                   </Box>
 
-                  {/* Book Display - Grid or List View */}
-                  {viewMode === 'grid' ? (
-                      books.length > 50 ? (
-                          <VirtualizedBookGrid
-                              books={books}
-                              readingProgress={readingProgress}
-                              onUpdate={loadBooks}
-                              onBookClick={(book) => {
+                  {/* Sort */}
+                  <FormControl size="small" sx={{ minWidth: { xs: 100, sm: 150 } }}>
+                    <Select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      displayEmpty
+                      startAdornment={
+                        <InputAdornment position="start">
+                          <SortIcon sx={{ fontSize: '1.2rem' }} />
+                        </InputAdornment>
+                      }
+                      sx={{
+                        backgroundColor: '#1a1a1a',
+                        fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                        '& .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#333',
+                        },
+                      }}
+                    >
+                      <MenuItem value="added_desc">Recently Added</MenuItem>
+                      <MenuItem value="added_asc">Oldest First</MenuItem>
+                      <MenuItem value="title_asc">Title (A-Z)</MenuItem>
+                      <MenuItem value="title_desc">Title (Z-A)</MenuItem>
+                      <MenuItem value="author_asc">Author (A-Z)</MenuItem>
+                      <MenuItem value="author_desc">Author (Z-A)</MenuItem>
+                      <MenuItem value="rating_desc">Rating (High-Low)</MenuItem>
+                      <MenuItem value="rating_asc">Rating (Low-High)</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  {/* Refresh & Import - hide on small mobile */}
+                  <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 1 }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<RefreshIcon />}
+                      onClick={handleRefreshAllMetadata}
+                      disabled={refreshingMetadata}
+                      sx={{
+                        borderColor: '#333',
+                        color: '#fff',
+                        '&:hover': {
+                          borderColor: '#e50914',
+                        },
+                      }}
+                    >
+                      {refreshingMetadata ? 'Refreshing...' : 'Refresh Covers'}
+                    </Button>
+
+                    <Button
+                      variant="outlined"
+                      onClick={() => setGoodreadsImportOpen(true)}
+                      size="small"
+                      sx={{
+                        borderColor: '#e50914',
+                        color: '#e50914',
+                        '&:hover': {
+                          borderColor: '#e50914',
+                          backgroundColor: 'rgba(229, 9, 20, 0.1)',
+                        },
+                      }}
+                    >
+                      Import from Goodreads
+                    </Button>
+                  </Box>
+                </Box>
+              </Box>
+
+              {/* Book Display - Grid or List View */}
+              {viewMode === 'grid' ? (
+                books.length > 50 ? (
+                  <VirtualizedBookGrid
+                    books={books}
+                    readingProgress={readingProgress}
+                    onUpdate={loadBooks}
+                    onBookClick={(book) => {
+                      setSelectedBookForDetail(book);
+                      setBookDetailOpen(true);
+                    }}
+                  />
+                ) : (
+                  <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }}>
+                    {books.map((book) => (
+                      <Grid item xs={6} sm={4} md={4} lg={3} xl={2} key={book.id}>
+                        <BookCard
+                          book={book}
+                          onUpdate={loadBooks}
+                          readingProgress={readingProgress[book.id]}
+                          onClick={() => {
+                            setSelectedBookForDetail(book);
+                            setBookDetailOpen(true);
+                          }}
+                        />
+                      </Grid>
+                    ))}
+                  </Grid>
+                )
+              ) : (
+                /* List view - use simplified card layout on mobile instead of table */
+                isSmall ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {books.map((book) => {
+                      const progress = readingProgress[book.id];
+                      return (
+                        <Paper
+                          key={book.id}
+                          sx={{
+                            backgroundColor: '#1a1a1a',
+                            p: 1.5,
+                            display: 'flex',
+                            gap: 1.5,
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            '&:active': {
+                              backgroundColor: 'rgba(229, 9, 20, 0.05)',
+                            },
+                          }}
+                          onClick={() => {
+                            setSelectedBookForDetail(book);
+                            setBookDetailOpen(true);
+                          }}
+                        >
+                          <Avatar
+                            src={book.cover_image ? booksAPI.getCoverUrl(book.id) : undefined}
+                            variant="rounded"
+                            sx={{ width: 50, height: 70 }}
+                          >
+                            {book.title?.[0]}
+                          </Avatar>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
+                              {book.title}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" noWrap>
+                              {book.author}
+                            </Typography>
+                            {progress && progress.progress > 0 && (
+                              <LinearProgress
+                                variant="determinate"
+                                value={progress.progress}
+                                sx={{
+                                  mt: 0.5,
+                                  height: 3,
+                                  borderRadius: 1,
+                                  backgroundColor: '#333',
+                                  '& .MuiLinearProgress-bar': {
+                                    backgroundColor: progress.progress === 100 ? '#4caf50' : '#e50914',
+                                  },
+                                }}
+                              />
+                            )}
+                          </Box>
+                          {book.average_rating > 0 && (
+                            <Rating value={book.average_rating} readOnly size="small" precision={0.5} />
+                          )}
+                        </Paper>
+                      );
+                    })}
+                  </Box>
+                ) : (
+                  <TableContainer
+                    component={Paper}
+                    sx={{
+                      backgroundColor: '#1a1a1a',
+                      '& .MuiTableCell-root': {
+                        borderColor: '#333',
+                      },
+                    }}
+                  >
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell width="60px">Cover</TableCell>
+                          <TableCell>Title</TableCell>
+                          <TableCell>Author</TableCell>
+                          <TableCell>Rating</TableCell>
+                          <TableCell>Format</TableCell>
+                          <TableCell>Progress</TableCell>
+                          <TableCell>Added</TableCell>
+                          <TableCell width="120px">Actions</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {books.map((book) => {
+                          const progress = readingProgress[book.id];
+                          return (
+                            <TableRow
+                              key={book.id}
+                              sx={{
+                                cursor: 'pointer',
+                                '&:hover': {
+                                  backgroundColor: 'rgba(229, 9, 20, 0.05)',
+                                },
+                              }}
+                              onClick={() => {
                                 setSelectedBookForDetail(book);
                                 setBookDetailOpen(true);
                               }}
-                          />
-                      ) : (
-                          <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }}>
-                            {books.map((book) => (
-                                <Grid item xs={6} sm={4} md={4} lg={3} xl={2} key={book.id}>
-                                  <BookCard
-                                      book={book}
-                                      onUpdate={loadBooks}
-                                      readingProgress={readingProgress[book.id]}
-                                      onClick={() => {
-                                        setSelectedBookForDetail(book);
-                                        setBookDetailOpen(true);
-                                      }}
-                                  />
-                                </Grid>
-                            ))}
-                          </Grid>
-                      )
-                  ) : (
-                      /* List view - use simplified card layout on mobile instead of table */
-                      isSmall ? (
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                            {books.map((book) => {
-                              const progress = readingProgress[book.id];
-                              return (
-                                  <Paper
-                                      key={book.id}
+                            >
+                              <TableCell>
+                                <Avatar
+                                  src={book.cover_image ? booksAPI.getCoverUrl(book.id) : undefined}
+                                  variant="rounded"
+                                  sx={{ width: 40, height: 56 }}
+                                >
+                                  {book.title?.[0]}
+                                </Avatar>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                  {book.title}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>{book.author}</TableCell>
+                              <TableCell>
+                                {book.average_rating > 0 && (
+                                  <Rating value={book.average_rating} readOnly size="small" precision={0.5} />
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Chip
+                                  label={book.format?.toUpperCase() || '?'}
+                                  size="small"
+                                  sx={{ backgroundColor: '#333' }}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                {progress && progress.progress > 0 ? (
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <LinearProgress
+                                      variant="determinate"
+                                      value={progress.progress}
                                       sx={{
-                                        backgroundColor: '#1a1a1a',
-                                        p: 1.5,
-                                        display: 'flex',
-                                        gap: 1.5,
-                                        alignItems: 'center',
-                                        cursor: 'pointer',
-                                        '&:active': {
-                                          backgroundColor: 'rgba(229, 9, 20, 0.05)',
+                                        width: 60,
+                                        height: 6,
+                                        borderRadius: 3,
+                                        backgroundColor: '#333',
+                                        '& .MuiLinearProgress-bar': {
+                                          backgroundColor: progress.progress === 100 ? '#4caf50' : '#e50914',
                                         },
                                       }}
-                                      onClick={() => {
-                                        setSelectedBookForDetail(book);
-                                        setBookDetailOpen(true);
-                                      }}
-                                  >
-                                    <Avatar
-                                        src={book.cover_image ? booksAPI.getCoverUrl(book.id) : undefined}
-                                        variant="rounded"
-                                        sx={{ width: 50, height: 70 }}
-                                    >
-                                      {book.title?.[0]}
-                                    </Avatar>
-                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                      <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
-                                        {book.title}
-                                      </Typography>
-                                      <Typography variant="caption" color="text.secondary" noWrap>
-                                        {book.author}
-                                      </Typography>
-                                      {progress && progress.progress > 0 && (
-                                          <LinearProgress
-                                              variant="determinate"
-                                              value={progress.progress}
-                                              sx={{
-                                                mt: 0.5,
-                                                height: 3,
-                                                borderRadius: 1,
-                                                backgroundColor: '#333',
-                                                '& .MuiLinearProgress-bar': {
-                                                  backgroundColor: progress.progress === 100 ? '#4caf50' : '#e50914',
-                                                },
-                                              }}
-                                          />
-                                      )}
-                                    </Box>
-                                    {book.average_rating > 0 && (
-                                        <Rating value={book.average_rating} readOnly size="small" precision={0.5} />
-                                    )}
-                                  </Paper>
-                              );
-                            })}
-                          </Box>
-                      ) : (
-                          <TableContainer
-                              component={Paper}
-                              sx={{
-                                backgroundColor: '#1a1a1a',
-                                '& .MuiTableCell-root': {
-                                  borderColor: '#333',
-                                },
-                              }}
-                          >
-                            <Table>
-                              <TableHead>
-                                <TableRow>
-                                  <TableCell width="60px">Cover</TableCell>
-                                  <TableCell>Title</TableCell>
-                                  <TableCell>Author</TableCell>
-                                  <TableCell>Rating</TableCell>
-                                  <TableCell>Format</TableCell>
-                                  <TableCell>Progress</TableCell>
-                                  <TableCell>Added</TableCell>
-                                  <TableCell width="120px">Actions</TableCell>
-                                </TableRow>
-                              </TableHead>
-                              <TableBody>
-                                {books.map((book) => {
-                                  const progress = readingProgress[book.id];
-                                  return (
-                                      <TableRow
-                                          key={book.id}
-                                          sx={{
-                                            cursor: 'pointer',
-                                            '&:hover': {
-                                              backgroundColor: 'rgba(229, 9, 20, 0.05)',
-                                            },
-                                          }}
-                                          onClick={() => {
-                                            setSelectedBookForDetail(book);
-                                            setBookDetailOpen(true);
-                                          }}
-                                      >
-                                        <TableCell>
-                                          <Avatar
-                                              src={book.cover_image ? booksAPI.getCoverUrl(book.id) : undefined}
-                                              variant="rounded"
-                                              sx={{ width: 40, height: 56 }}
-                                          >
-                                            {book.title?.[0]}
-                                          </Avatar>
-                                        </TableCell>
-                                        <TableCell>
-                                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                            {book.title}
-                                          </Typography>
-                                        </TableCell>
-                                        <TableCell>{book.author}</TableCell>
-                                        <TableCell>
-                                          {book.average_rating > 0 && (
-                                              <Rating value={book.average_rating} readOnly size="small" precision={0.5} />
-                                          )}
-                                        </TableCell>
-                                        <TableCell>
-                                          <Chip
-                                              label={book.format?.toUpperCase() || '?'}
-                                              size="small"
-                                              sx={{ backgroundColor: '#333' }}
-                                          />
-                                        </TableCell>
-                                        <TableCell>
-                                          {progress && progress.progress > 0 ? (
-                                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <LinearProgress
-                                                    variant="determinate"
-                                                    value={progress.progress}
-                                                    sx={{
-                                                      width: 60,
-                                                      height: 6,
-                                                      borderRadius: 3,
-                                                      backgroundColor: '#333',
-                                                      '& .MuiLinearProgress-bar': {
-                                                        backgroundColor: progress.progress === 100 ? '#4caf50' : '#e50914',
-                                                      },
-                                                    }}
-                                                />
-                                                <Typography variant="caption">
-                                                  {Math.round(progress.progress)}%
-                                                </Typography>
-                                              </Box>
-                                          ) : '-'}
-                                        </TableCell>
-                                        <TableCell>
-                                          <Typography variant="caption">
-                                            {new Date(book.added_at).toLocaleDateString()}
-                                          </Typography>
-                                        </TableCell>
-                                        <TableCell>
-                                          <IconButton
-                                              size="small"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                navigate(`/read/${book.id}`);
-                                              }}
-                                              title="Read"
-                                          >
-                                            <ReadIcon />
-                                          </IconButton>
-                                          <IconButton
-                                              size="small"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                window.open(booksAPI.getDownloadUrl(book.id), '_blank');
-                                              }}
-                                              title="Download"
-                                          >
-                                            <DownloadIcon />
-                                          </IconButton>
-                                        </TableCell>
-                                      </TableRow>
-                                  );
-                                })}
-                              </TableBody>
-                            </Table>
-                          </TableContainer>
-                      )
-                  )}
+                                    />
+                                    <Typography variant="caption">
+                                      {Math.round(progress.progress)}%
+                                    </Typography>
+                                  </Box>
+                                ) : '-'}
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="caption">
+                                  {new Date(book.added_at).toLocaleDateString()}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/read/${book.id}`);
+                                  }}
+                                  title="Read"
+                                >
+                                  <ReadIcon />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.open(booksAPI.getDownloadUrl(book.id), '_blank');
+                                  }}
+                                  title="Download"
+                                >
+                                  <DownloadIcon />
+                                </IconButton>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )
+              )}
 
-                  {/* Pagination - responsive */}
-                  {totalPages > 1 && (
-                      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-                        <Pagination
-                            count={totalPages}
-                            page={currentPage}
-                            onChange={handlePageChange}
-                            color="primary"
-                            size={isSmall ? 'small' : 'large'}
-                            showFirstButton={!isSmall}
-                            showLastButton={!isSmall}
-                            siblingCount={isSmall ? 0 : 1}
-                            sx={{
-                              '& .MuiPaginationItem-root': {
-                                color: '#fff',
-                                borderColor: '#333',
-                                minWidth: { xs: 28, sm: 32 },
-                              },
-                              '& .Mui-selected': {
-                                backgroundColor: '#e50914 !important',
-                              },
-                            }}
-                        />
-                      </Box>
-                  )}
-                </>
-            )}
-          </Container>
-        </Box>
-
-        {/* Advanced Search Dialog */}
-        <AdvancedSearch
-            open={advancedSearchOpen}
-            onClose={() => setAdvancedSearchOpen(false)}
-            onSearch={handleAdvancedSearch}
-        />
-
-        {/* Book Detail Modal with Similar Books */}
-        <BookDetailModal
-            open={bookDetailOpen}
-            onClose={() => {
-              setBookDetailOpen(false);
-              setSelectedBookForDetail(null);
-            }}
-            book={selectedBookForDetail}
-            readingProgress={readingProgress}
-        />
-
-        {/* Goodreads Import Dialog */}
-        <GoodreadsImport
-            open={goodreadsImportOpen}
-            onClose={() => setGoodreadsImportOpen(false)}
-            onImportComplete={(summary) => {
-              loadBooks();
-              loadAllBooksForFilters();
-            }}
-        />
-
-        {/* Mobile Bottom Navigation */}
-        <MobileBottomNav />
-
-        {/* iOS PWA Install Prompt */}
-        <IOSInstallPrompt />
+              {/* Pagination - responsive */}
+              {totalPages > 1 && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                  <Pagination
+                    count={totalPages}
+                    page={currentPage}
+                    onChange={handlePageChange}
+                    color="primary"
+                    size={isSmall ? 'small' : 'large'}
+                    showFirstButton={!isSmall}
+                    showLastButton={!isSmall}
+                    siblingCount={isSmall ? 0 : 1}
+                    sx={{
+                      '& .MuiPaginationItem-root': {
+                        color: '#fff',
+                        borderColor: '#333',
+                        minWidth: { xs: 28, sm: 32 },
+                      },
+                      '& .Mui-selected': {
+                        backgroundColor: '#e50914 !important',
+                      },
+                    }}
+                  />
+                </Box>
+              )}
+            </>
+          )}
+        </Container>
       </Box>
+
+      {/* Advanced Search Dialog */}
+      <AdvancedSearch
+        open={advancedSearchOpen}
+        onClose={() => setAdvancedSearchOpen(false)}
+        onSearch={handleAdvancedSearch}
+      />
+
+      {/* Book Detail Modal with Similar Books */}
+      <BookDetailModal
+        open={bookDetailOpen}
+        onClose={() => {
+          setBookDetailOpen(false);
+          setSelectedBookForDetail(null);
+        }}
+        book={selectedBookForDetail}
+        readingProgress={readingProgress}
+      />
+
+      {/* Goodreads Import Dialog */}
+      <GoodreadsImport
+        open={goodreadsImportOpen}
+        onClose={() => setGoodreadsImportOpen(false)}
+        onImportComplete={(summary) => {
+          loadBooks();
+          loadAllBooksForFilters();
+        }}
+      />
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav />
+
+      {/* iOS PWA Install Prompt */}
+      <IOSInstallPrompt />
+    </Box>
   );
 };
 
