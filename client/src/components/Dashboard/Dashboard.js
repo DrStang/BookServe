@@ -944,13 +944,13 @@ const Dashboard = ({ onLogout }) => {
               >
                 Reading List
               </Button>
-              <Button
+              {/*<Button
                 color="inherit"
                 onClick={() => navigate('/my-requests')}
                 sx={{ mr: 2 }}
               >
                 My Requests
-              </Button>
+              </Button>*/}
               <Button
                 color="inherit"
                 startIcon={<EmojiEvents />}
