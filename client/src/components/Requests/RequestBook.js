@@ -275,6 +275,7 @@ const RequestBook = () => {
             <Typography variant="h6" component="div">
               Request a Book
             </Typography>
+            <Box sx= {{ flexGrow: 1 }} />
             <Button
                 variant="contained"
                 edge="end"
