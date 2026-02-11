@@ -277,6 +277,7 @@ const RequestBook = () => {
             </Typography>
             <Button
                 variant="contained"
+                edge="end"
                 onClick={() => navigate('/my-requests')}
                 sx={{ backgroundColor: '#e50914', '&:hover': { backgroundColor: '#b20710' } }}
             >
