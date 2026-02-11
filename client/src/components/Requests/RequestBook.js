@@ -275,6 +275,13 @@ const RequestBook = () => {
             <Typography variant="h6" component="div">
               Request a Book
             </Typography>
+            <Button
+                variant="contained"
+                onClick={() => navigate('/my-requests')}
+                sx={{ backgroundColor: '#e50914', '&:hover': { backgroundColor: '#b20710' } }}
+            >
+              My Requests
+            </Button>
           </Toolbar>
         </AppBar>
 
