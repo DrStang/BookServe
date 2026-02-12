@@ -79,16 +79,18 @@ async function getBook(title, author) {
     const newTab = await pagePromise;
     await newTab.waitForLoadState();
 
+    console.log(await newTab.textContent());
+
     // Target the specific script tag using a text selector
     
     const scriptHandle = newPage.locator('script:has-text("location.href")');
 
     // Get the text content from that handle
     const scriptContent = await scriptHandle.textContent();
-
+    console.log(scriptContent);
     // Run your regex on the string
     const regex = /https?:\/\/[^'"]+?expires=[^'"]+/;
-    const match = res.data.match(regex);
+    const match = scriptContent.match(regex);
     console.log(match);
     const targetUrl = match ? match[1] : null;
     
