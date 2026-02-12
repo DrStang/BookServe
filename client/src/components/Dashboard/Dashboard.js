@@ -402,6 +402,8 @@ const Dashboard = ({ onLogout }) => {
     for (const file of bookFiles) {
       try {
         setUploadProgress(`Uploading ${file.name}...`);
+        const formData = new FormData();
+        formData.append('book', file);
         await booksAPI.upload(file);
         setUploadProgress(`Successfully uploaded ${file.name}`);
       } catch (error) {
