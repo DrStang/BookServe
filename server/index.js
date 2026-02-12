@@ -58,8 +58,20 @@ app.use(cors({
   exposedHeaders: ['Content-Type', 'Content-Length'],
 }));
 
-app.use(express.json( { limit: '200mb' }));
-app.use(express.urlencoded({ extended: true, limit: '200mb' }));
+app.use((req,res,next) => {
+  if(req.path === '/api/books' && req.method === 'POST') {
+    return next();
+  }
+  if (req.path.startsWith('/api/goodreads/') && req.method === 'POST') {
+    return next();
+  }
+  express.json({ limit: '50mb' })(req, res, (err) => {
+    if (err) return next(err);
+    express.urlencoded({ extended: true, limit: '50mb' })(req, res, next);
+  });
+});
+//app.use(express.json( { limit: '200mb' }));
+//app.use(express.urlencoded({ extended: true, limit: '200mb' }));
 app.use(morgan('dev'));
 
 // API Routes
