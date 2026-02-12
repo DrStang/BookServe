@@ -8,12 +8,12 @@ const API_KEY = process.env.GOOGLE_BOOKS_API_KEY || ''; // Optional, but increas
 
 //const agent = new HttpsProxyAgent(proxyUrl);
 
-const instance = axios.create({
+{/*const instance = axios.create({
   proxy: false,
   httpAgent: agent,
   httpsAgent: agent,
   timeout: 30000,
-});  
+});  */}
 
 class GoogleBooksService {
   /**
