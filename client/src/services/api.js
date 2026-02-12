@@ -63,7 +63,7 @@ getCoverUrl: (id) => {
 },
   upload: (formData) =>
     api.post('/books', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { 'Content-Type': undefined },
     }),
   update: (id, data) => api.put(`/books/${id}`, data),
   delete: (id) => api.delete(`/books/${id}`),
