@@ -404,7 +404,7 @@ const Dashboard = ({ onLogout }) => {
         setUploadProgress(`Uploading ${file.name}...`);
         const formData = new FormData();
         formData.append('book', file);
-        await booksAPI.upload(file);
+        await booksAPI.upload(formData);
         setUploadProgress(`Successfully uploaded ${file.name}`);
       } catch (error) {
         setUploadError(`Failed to upload ${file.name}: ${error.message}`);
