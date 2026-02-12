@@ -6,7 +6,7 @@ const GOOGLE_BOOKS_API_URL = 'https://www.googleapis.com/books/v1/volumes';
 const API_KEY = process.env.GOOGLE_BOOKS_API_KEY || ''; // Optional, but increases rate limits
 //const proxyUrl =
 
-const agent = new HttpsProxyAgent(proxyUrl);
+//const agent = new HttpsProxyAgent(proxyUrl);
 
 const instance = axios.create({
   proxy: false,
