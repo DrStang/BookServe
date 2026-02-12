@@ -106,7 +106,8 @@ async function getBook(title, author) {
       timeout: 30000,
         
     }); */}
-
+    console.log(res.data);
+     await page.content(res.data);
      await page.goto(bookUrl);
 
     // 2. Listen for the download event BEFORE clicking/submitting
