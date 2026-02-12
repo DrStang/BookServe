@@ -98,6 +98,7 @@ const initDatabase = () => {
       addColumnIfNotExists('books', 'preview_link', 'TEXT');
       addColumnIfNotExists('books', 'info_link', 'TEXT');
       addColumnIfNotExists('books', 'metadata_updated_at', 'DATETIME');
+      addColumnIfNotExists('books', 'metadata_locked', 'INTEGER DEFAULT 0');
 
       // Add retry columns to book_requests table
       addColumnIfNotExists('book_requests', 'retry_count', 'INTEGER DEFAULT 0');
