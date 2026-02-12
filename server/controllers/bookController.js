@@ -379,7 +379,7 @@ exports.updateBook = async (req, res) => {
     const allowedFields = [
       'title', 'author', 'isbn', 'isbn_13', 'publisher', 'published_date',
       'description', 'cover_image', 'language', 'page_count', 'categories',
-      'series', 'series_number'
+      'series', 'series_number', 'metadata_locked'
     ];
 
     const updates = {};
@@ -389,6 +389,11 @@ exports.updateBook = async (req, res) => {
       }
     });
 
+    const lockTriggerFields = ['description', 'cover_image', 'categories', 'title', 'author'];
+    const isEditingLockableField = Object.keys(updates).some(key => lockTriggerFields.includes(key));
+    if (isEditingLockableField && updates.metadata_locked === undefined) {
+      updates.metadata_locked = 1;
+    }
     await Book.update(req.params.id, updates);
     const updatedBook = await Book.findById(req.params.id);
 
