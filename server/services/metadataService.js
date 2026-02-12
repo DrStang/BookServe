@@ -130,6 +130,11 @@ class MetadataService {
                 throw new Error('Book not found');
             }
 
+            if (!forceRefresh && book.metadata_locked) {
+                console.log(`Metadata for book ${bookId} is locked (manually edited), skipping update`);
+                return book;
+
+            }
             // Check if metadata was recently updated (within 30 days)
             if (!forceRefresh && book.metadata_updated_at) {
                 const daysSinceUpdate = (Date.now() - new Date(book.metadata_updated_at)) / (1000 * 60 * 60 * 24);
