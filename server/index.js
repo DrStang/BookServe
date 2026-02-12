@@ -70,8 +70,7 @@ app.use((req,res,next) => {
     express.urlencoded({ extended: true, limit: '50mb' })(req, res, next);
   });
 });
-//app.use(express.json( { limit: '200mb' }));
-//app.use(express.urlencoded({ extended: true, limit: '200mb' }));
+
 app.use(morgan('dev'));
 
 // API Routes
