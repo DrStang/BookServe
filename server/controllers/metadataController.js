@@ -11,6 +11,11 @@ exports.fetchBookMetadata = async (req, res) => {
     const { id } = req.params;
     const { force } = req.query;
 
+    if (force === 'true') {
+      const Book = require('../models/Book');
+      await Book.update(id, { metadata_locked: 0 });
+    }
+
     const updatedBook = await metadataService.updateBookMetadata(id, force === 'true');
 
     res.json({
