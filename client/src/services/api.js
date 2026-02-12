@@ -45,26 +45,30 @@ export const authAPI = {
 // Books
 export const booksAPI = {
   getAll: (limit = 100, offset = 0, sortBy = 'added_at', sortOrder = 'DESC', filters = {}) => {
-    const params = { limit, offset, sortBy, sortOrder, ...filters };
-    return api.get('/books', { params });
+    const params = {limit, offset, sortBy, sortOrder, ...filters};
+    return api.get('/books', {params});
   },
   getById: (id) => api.get(`/books/${id}`),
-  search: (query) => api.get('/books/search', { params: { q: query } }),
+  search: (query) => api.get('/books/search', {params: {q: query}}),
   download: (id, format = null) => {
-    const params = format ? { format } : {};
-    return api.get(`/books/${id}/download`, { responseType: 'blob', params });
+    const params = format ? {format} : {};
+    return api.get(`/books/${id}/download`, {responseType: 'blob', params});
   },
   getStreamUrl: (id) => {
     const token = localStorage.getItem('token');
     return `${API_BASE_URL}/books/${id}/stream${token ? `?token=${token}` : ''}`;
   },
-getCoverUrl: (id) => {
-  return `${API_BASE_URL}/books/${id}/cover`;  // No token needed
-},
-  upload: (formData) =>
-    api.post('/books', formData, {
-      headers: { 'Content-Type': undefined },
-    }),
+  getCoverUrl: (id) => {
+    return `${API_BASE_URL}/books/${id}/cover`;  // No token needed
+  },
+  upload: (formData) => {
+    return api.post('/books', formData, {
+      headers: {
+        'Content-Type': undefined,
+      },
+      transformRequest: [(data) => data],
+    });
+  },
   update: (id, data) => api.put(`/books/${id}`, data),
   delete: (id) => api.delete(`/books/${id}`),
   getSimilar: (id, limit = 10) => api.get(`/books/${id}/similar`, { params: { limit } }),
