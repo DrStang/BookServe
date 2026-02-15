@@ -116,7 +116,7 @@ class EbookConverter {
     
       try {
       // Build ebook-convert command
-      const command = `ebook-convert "${inputPath}" "${outputPath}" --enable-heuristics`;
+      let command = `ebook-convert "${inputPath}" "${outputPath}" --enable-heuristics`;
 
       if (forEmail) {
         command += ' --compress-news-images --compress-news-images-max-size=800';
