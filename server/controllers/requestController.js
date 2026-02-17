@@ -1015,7 +1015,7 @@ async function getOcean(title, author) {
             }
         });
 
-        const filename = getAAFilename(response, targetUrl);
+        const filename = await getAAFilename(response, targetUrl);
         console.log(`[OCEAN] Found ${filename}`);
         const filePath = path.resolve(process.env.BOOKS_STORAGE_PATH, filename);
         const writer = fs.createWriteStream(filePath);
