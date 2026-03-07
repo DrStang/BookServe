@@ -753,7 +753,7 @@ async function getAAFilename(response, url, maxLength = 40) {
 }
 
 function buildSearchUrl(q) {
-    return `https://annas-archive.li/search?${new URLSearchParams({ q: String(q).trim() }).toString()}`;
+    return `https://annas-archive.pk/search?${new URLSearchParams({ q: String(q).trim() }).toString()}`;
 }
 
 function isNoResults(html) {
@@ -827,7 +827,7 @@ async function getAABook(isbn, title, author) {
         if (!md5) return null;
 
         const API = process.env.ANNA_API;
-        const url = `https://annas-archive.li/dyn/api/fast_download.json?md5=${md5}&key=${API}`;
+        const url = `https://annas-archive.pk/dyn/api/fast_download.json?md5=${md5}&key=${API}`;
 
 
 
