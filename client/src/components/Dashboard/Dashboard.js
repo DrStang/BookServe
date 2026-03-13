@@ -988,6 +988,9 @@ const Dashboard = ({ onLogout }) => {
               <IconButton color="inherit" onClick={() => navigate('/reading-list')}>
                 <ReadIcon />
               </IconButton>
+              <IconButton color="inherit" onClick={() => navigate('/bestsellers')}>
+                <EmojiEvents />}
+              </IconButton>
               <IconButton color="inherit" onClick={() => navigate('/ai/recommendations')}>
                 <AIIcon />
               </IconButton>
