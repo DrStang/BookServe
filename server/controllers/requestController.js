@@ -916,9 +916,10 @@ async function searchOceanOfPDF(title, author, isbn) {
 
 
             // Parse and extract relevant links
-            const linkSelector = 'a.entry-image-link' || 'a.gs-title';
-
-            const linkLocator = page.locator(linkSelector);
+            let linkLocator = page.locator('a.entry-image-link');
+            if (await linkLocator.count() === 0) {
+                linkLocator = page.locator('a.gs-title');
+            }
             if (await linkLocator.count() > 0) {
                 const href = await linkLocator.first().getAttribute('href');
 
@@ -944,9 +945,11 @@ async function searchOceanOfPDF(title, author, isbn) {
 
 
         // Parse and extract relevant links
-        const linkSelector = 'a.entry-image-link' || 'a.gs-title';
+        let linkLocator = page.locator('a.entry-image-link');
+        if (await linkLocator.count() === 0) {
+            linkLocator = page.locator('a.gs-title');
+        }
 
-        const linkLocator = page.locator(linkSelector);
         if (await linkLocator.count() === 0) {
             console.error("[OCEAN] No search results found");
             return null;
