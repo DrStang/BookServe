@@ -1325,9 +1325,7 @@ exports.retryWithCustomSearch = async (req, res) => {
             success: true,
             message: 'Book found and queued for download',
             searchResult: {
-                title: bestResult.title,
-                score: bestResult.relevanceScore,
-                format: bestResult.format
+                title: searchTitle,
             }
         });
 
