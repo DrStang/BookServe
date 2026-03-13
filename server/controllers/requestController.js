@@ -915,6 +915,7 @@ async function searchOceanOfPDF(title, author, isbn) {
             await page.goto(isbnurl, { waitUntil: "domcontentloaded", timeout: 60000 });
 
 
+
             // Parse and extract relevant links
             let linkLocator = page.locator('a.entry-image-link');
             if (await linkLocator.count() === 0) {
@@ -923,15 +924,15 @@ async function searchOceanOfPDF(title, author, isbn) {
             if (await linkLocator.count() > 0) {
                 const href = await linkLocator.first().getAttribute('href');
 
-            if (href) {
-                console.log("Found Ocean Page URL:", href);
-                return href;
-            } else {
-                console.error("Link never appeared");
-                return null;
-            }
+                if (href) {
+                    console.log("Found Ocean Page URL:", href);
+                    return href;
+                } else {
+                    console.error("Link never appeared");
+                    return null;
+                }
 
-        } else {
+            } else {
                 console.log("[OCEAN] No search results found with ISBN. Falling back to title/author search.");
             }
         }
@@ -943,16 +944,10 @@ async function searchOceanOfPDF(title, author, isbn) {
 
         await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
 
-
         // Parse and extract relevant links
         let linkLocator = page.locator('a.entry-image-link');
         if (await linkLocator.count() === 0) {
             linkLocator = page.locator('a.gs-title');
-        }
-
-        if (await linkLocator.count() === 0) {
-            console.error("[OCEAN] No search results found");
-            return null;
         }
 
         const href = await linkLocator.first().getAttribute('href');
@@ -965,6 +960,7 @@ async function searchOceanOfPDF(title, author, isbn) {
         }
 
         return href;
+
 
     } catch (error) {
         console.error('Error searching OceanOfPDF:', error.message, error.response ? error.response.status : '');
