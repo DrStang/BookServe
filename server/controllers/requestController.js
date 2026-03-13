@@ -909,9 +909,33 @@ async function searchOceanOfPDF(title, author, isbn) {
 
         if (isbn){
             params.set('s', isbn);
+            const isbnurl = `https://oceanofpdf.com/?${params.toString()}`;
+            console.log('Ocean directed to:', isbnurl);
+
+            await page.goto(isbnurl, { waitUntil: "domcontentloaded", timeout: 60000 });
+
+
+            // Parse and extract relevant links
+            const linkSelector = 'a.entry-image-link' || 'a.gs-title';
+
+            const linkLocator = page.locator(linkSelector);
+            if (await linkLocator.count() > 0) {
+                const href = await linkLocator.first().getAttribute('href');
+
+            if (href) {
+                console.log("Found Ocean Page URL:", href);
+                return href;
+            } else {
+                console.error("Link never appeared");
+                return null;
+            }
+
         } else {
-            params.set('s', `${title} ${author}`);
+                console.log("[OCEAN] No search results found with ISBN. Falling back to title/author search.");
+            }
         }
+        params.set('s', `${title} ${author}`);
+
 
         const url = `https://oceanofpdf.com/?${params.toString()}`;
         console.log('Ocean directed to:', url);
@@ -925,7 +949,6 @@ async function searchOceanOfPDF(title, author, isbn) {
         const linkLocator = page.locator(linkSelector);
         if (await linkLocator.count() === 0) {
             console.error("[OCEAN] No search results found");
-            await page.screenshot({ path: 'debug.png' });
             return null;
         }
 
@@ -935,7 +958,6 @@ async function searchOceanOfPDF(title, author, isbn) {
             console.log("Found Ocean Page URL:", href);
         } else {
             console.error("Link never appeared");
-            await page.screenshot({ path: 'debug.png' });
             return null;
         }
 
