@@ -42,7 +42,7 @@ class MetadataService {
             results.google = googleData;
             results.openLibrary = openLibraryData;
             results.goodreads = goodreadsData;
-            results.goodreadMetadata = goodreadsMeta;
+            results.goodreadsMetadata = goodreadsMeta;
 
             // Merge the results, preferring Google Books for most fields
             results.merged = this.mergeMetadata(googleData, openLibraryData, goodreadsData, goodreadsMeta, bookInfo);
