@@ -35,7 +35,7 @@ class GoogleBooksService {
       const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
       //const response = await instance.get(GOOGLE_BOOKS_API_URL, { params });
 
-      return response.data.items ? response.data.items.map(this.formatBookData) : [];
+      return response.data.items ? response.data.items.map(item => this.formatBookData(item)).filter(Boolean) : [];    
     } catch (error) {
       console.error('Google Books search error:', error.message);
       return [];
