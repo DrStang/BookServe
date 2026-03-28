@@ -24,6 +24,8 @@ import {
   DialogContentText,
   DialogActions,
   CircularProgress,
+  Rating,
+  Divider,
 } from '@mui/material';
 import {
   ArrowBack as BackIcon,
@@ -31,9 +33,278 @@ import {
   Add as AddIcon,
   CheckCircle as InLibraryIcon,
   MenuBook as BookIcon,
+  Close as CloseIcon,
+  CalendarToday as CalendarIcon,
+  Category as CategoryIcon,
+  Star as StarIcon,
 } from '@mui/icons-material';
 import { requestsAPI, booksAPI } from '../../services/api';
 
+// ============================================================================
+// Book Preview Modal - Shows details when clicking a search result
+// ============================================================================
+const BookPreviewModal = ({ open, onClose, book, isInLibrary, libraryMatch, onRequest, onViewInLibrary }) => {
+  if (!book) return null;
+
+  const coverUrl = book.cover_url || book.thumbnail || null;
+  const categories = book.categories ? book.categories.split(',').map(c => c.trim()) : [];
+
+  return (
+      <Dialog
+          open={open}
+          onClose={onClose}
+          maxWidth="md"
+          fullWidth
+          PaperProps={{
+            sx: {
+              backgroundColor: '#1a1a1a',
+              maxHeight: '90vh',
+            }
+          }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+          <Typography variant="h6" component="div" sx={{ pr: 2 }}>
+            Book Details
+          </Typography>
+          <IconButton onClick={onClose} size="small">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent dividers>
+          <Grid container spacing={3}>
+            {/* Cover Image */}
+            <Grid item xs={12} sm={4}>
+              {coverUrl ? (
+                  <Box
+                      component="img"
+                      src={coverUrl}
+                      alt={book.title}
+                      sx={{
+                        width: '100%',
+                        height: 'auto',
+                        maxHeight: 400,
+                        objectFit: 'contain',
+                        borderRadius: 2,
+                        mb: 2,
+                      }}
+                  />
+              ) : (
+                  <Box
+                      sx={{
+                        width: '100%',
+                        height: 300,
+                        backgroundColor: '#2a2a2a',
+                        borderRadius: 2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        mb: 2,
+                      }}
+                  >
+                    <BookIcon sx={{ fontSize: 80, color: '#555' }} />
+                  </Box>
+              )}
+
+              {/* In Library Badge */}
+              {isInLibrary && (
+                  <Chip
+                      icon={<InLibraryIcon />}
+                      label="Already in Library"
+                      color="success"
+                      sx={{ width: '100%', mb: 1 }}
+                  />
+              )}
+            </Grid>
+
+            {/* Book Details */}
+            <Grid item xs={12} sm={8}>
+              <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
+                {book.title}
+              </Typography>
+
+              {book.subtitle && (
+                  <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+                    {book.subtitle}
+                  </Typography>
+              )}
+
+              <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+                by {book.author || 'Unknown Author'}
+              </Typography>
+
+              {/* Rating */}
+              {book.average_rating && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                    <Rating
+                        value={book.average_rating}
+                        precision={0.1}
+                        readOnly
+                        size="small"
+                    />
+                    <Typography variant="body2" color="text.secondary">
+                      {book.average_rating.toFixed(1)}
+                      {book.ratings_count && ` (${book.ratings_count.toLocaleString()} ratings)`}
+                    </Typography>
+                  </Box>
+              )}
+
+              {/* Metadata chips */}
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2, mt: 1 }}>
+                {book.published_date && (
+                    <Chip
+                        icon={<CalendarIcon />}
+                        label={book.published_date}
+                        size="small"
+                        variant="outlined"
+                        sx={{ borderColor: '#444' }}
+                    />
+                )}
+                {book.page_count && (
+                    <Chip
+                        label={`${book.page_count} pages`}
+                        size="small"
+                        variant="outlined"
+                        sx={{ borderColor: '#444' }}
+                    />
+                )}
+                {book.publisher && (
+                    <Chip
+                        label={book.publisher}
+                        size="small"
+                        variant="outlined"
+                        sx={{ borderColor: '#444' }}
+                    />
+                )}
+                {book.language && book.language !== 'en' && (
+                    <Chip
+                        label={book.language.toUpperCase()}
+                        size="small"
+                        variant="outlined"
+                        sx={{ borderColor: '#444' }}
+                    />
+                )}
+              </Box>
+
+              {/* Categories */}
+              {categories.length > 0 && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                      Categories
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {categories.map((cat, i) => (
+                          <Chip
+                              key={i}
+                              label={cat}
+                              size="small"
+                              sx={{
+                                backgroundColor: '#2a2a2a',
+                                fontSize: '0.75rem',
+                              }}
+                          />
+                      ))}
+                    </Box>
+                  </Box>
+              )}
+
+              {/* ISBN */}
+              {(book.isbn_13 || book.isbn) && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    ISBN: {book.isbn_13 || book.isbn}
+                  </Typography>
+              )}
+
+              <Divider sx={{ my: 2, borderColor: '#333' }} />
+
+              {/* Description */}
+              {book.description ? (
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontWeight: 'bold' }}>
+                      Description
+                    </Typography>
+                    <Typography
+                        variant="body2"
+                        sx={{
+                          lineHeight: 1.7,
+                          maxHeight: 300,
+                          overflowY: 'auto',
+                          whiteSpace: 'pre-wrap',
+                          // Strip HTML tags from Google Books descriptions
+                          '& p': { margin: 0 },
+                        }}
+                        dangerouslySetInnerHTML={{ __html: book.description }}
+                    />
+                  </Box>
+              ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                    No description available.
+                  </Typography>
+              )}
+            </Grid>
+          </Grid>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 2, pt: 1.5, gap: 1 }}>
+          {book.preview_link && (
+              <Button
+                  href={book.preview_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  size="small"
+                  sx={{ color: '#999', mr: 'auto' }}
+              >
+                Preview on Google Books
+              </Button>
+          )}
+          {isInLibrary ? (
+              <>
+                <Button
+                    variant="contained"
+                    startIcon={<BookIcon />}
+                    onClick={onViewInLibrary}
+                    sx={{
+                      backgroundColor: '#4caf50',
+                      '&:hover': { backgroundColor: '#388e3c' },
+                    }}
+                >
+                  View in Library
+                </Button>
+                <Button
+                    variant="outlined"
+                    startIcon={<AddIcon />}
+                    onClick={() => onRequest(book)}
+                    sx={{
+                      borderColor: '#666',
+                      color: '#999',
+                      '&:hover': { borderColor: '#e50914', color: '#e50914' },
+                    }}
+                >
+                  Request Anyway
+                </Button>
+              </>
+          ) : (
+              <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => onRequest(book)}
+                  sx={{
+                    backgroundColor: '#e50914',
+                    '&:hover': { backgroundColor: '#b20710' },
+                  }}
+              >
+                Request This Book
+              </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+  );
+};
+
+
+// ============================================================================
+// Main RequestBook Component
+// ============================================================================
 const RequestBook = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
@@ -54,6 +325,12 @@ const RequestBook = () => {
     libraryMatch: null
   });
 
+  // Book preview modal state
+  const [previewModal, setPreviewModal] = useState({
+    open: false,
+    book: null,
+  });
+
   // Normalize text for matching (remove punctuation, articles, extra spaces)
   const normalizeText = (text) => {
     if (!text) return '';
@@ -68,114 +345,74 @@ const RequestBook = () => {
   // Normalize author names to handle different formats
   const normalizeAuthor = (author) => {
     if (!author) return '';
-    const normalized = normalizeText(author);
-    // Handle "Last, First" format
-    if (author.includes(',')) {
-      const parts = author.split(',').map(p => p.trim());
-      if (parts.length === 2) {
-        return [
-          normalizeText(`${parts[1]} ${parts[0]}`),
-          normalizeText(`${parts[0]} ${parts[1]}`),
-          normalized
-        ];
+    // Split by common delimiters
+    const authors = author.split(/,|&|and/).map(a => a.trim().toLowerCase());
+    return authors.map(a => {
+      // Handle "Last, First" format
+      if (a.includes(',')) {
+        const parts = a.split(',').map(p => p.trim());
+        return `${parts[1]} ${parts[0]}`;
       }
-    }
-    return [normalized];
+      return a;
+    });
   };
 
-  const fetchLibraryBooks = useCallback(async () => {
+  // Load all library books for matching
+  const loadLibraryBooks = useCallback(async () => {
     try {
       setLoadingLibrary(true);
       const response = await booksAPI.getAll(10000, 0);
-      const booksMap = {
-        byIsbn: {},
-        byTitle: {},
-        allBooks: []
-      };
+      const books = response.data.books || response.data || [];
 
-      response.data.books?.forEach(book => {
-        booksMap.allBooks.push(book);
+      const byIsbn = {};
+      const byTitle = {};
 
-        const isbn13 = book.isbn_13;
-        if (isbn13) {
-          booksMap.byIsbn[isbn13.replace(/-/g, '')] = book;
-        }
-        if (book.isbn) {
-          booksMap.byIsbn[book.isbn.replace(/-/g, '')] = book;
-        }
-        const normalizedTitle = normalizeText(book.title);
-        if (normalizedTitle) {
-          if (!booksMap.byTitle[normalizedTitle]) {
-            booksMap.byTitle[normalizedTitle] = [];
-          }
-          booksMap.byTitle[normalizedTitle].push(book);
+      books.forEach(book => {
+        // Index by ISBN
+        if (book.isbn) byIsbn[book.isbn.toLowerCase()] = book;
+        if (book.isbn_13) byIsbn[book.isbn_13.toLowerCase()] = book;
+
+        // Index by normalized title
+        const normTitle = normalizeText(book.title);
+        if (normTitle) {
+          if (!byTitle[normTitle]) byTitle[normTitle] = [];
+          byTitle[normTitle].push(book);
         }
       });
-      setLibraryBooks(booksMap);
-    } catch (err) {
-      console.error('Error fetching library books', err);
-    }finally {
+
+      setLibraryBooks({ byIsbn, byTitle, allBooks: books });
+    } catch (error) {
+      console.error('Error loading library:', error);
+    } finally {
       setLoadingLibrary(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchLibraryBooks();
-  }, [fetchLibraryBooks]);
+    loadLibraryBooks();
+  }, [loadLibraryBooks]);
 
+  // Check if a search result matches a book in the library
   const getLibraryMatch = (searchBook) => {
-    if (!libraryBooks.byIsbn) return null;
-
-    const isbn13 = searchBook.isbn_13?.replace(/-/g, '');
-    if (isbn13 && libraryBooks.byIsbn[isbn13]) {
-      return libraryBooks.byIsbn[isbn13];
+    // Check by ISBN first (most reliable)
+    if (searchBook.isbn) {
+      const match = libraryBooks.byIsbn[searchBook.isbn.toLowerCase()];
+      if (match) return match;
     }
-    const isbn = searchBook.isbn?.replace(/-/g, '');
-    if (isbn && libraryBooks.byIsbn[isbn]) {
-      return libraryBooks.byIsbn[isbn];
-    }
-
-    const normalizedTitle = normalizeText(searchBook.title);
-    const titleMatches = libraryBooks.byTitle[normalizedTitle];
-
-    if (titleMatches && titleMatches.length > 0) {
-      // If only one book with this title, return it
-      if (titleMatches.length === 1) {
-        return titleMatches[0];
-      }
-
-      // Multiple books with same title - check author
-      const searchAuthors = normalizeAuthor(searchBook.author);
-      for (const book of titleMatches) {
-        const bookAuthors = normalizeAuthor(book.author);
-        // Check if any author format matches
-        for (const searchAuthor of searchAuthors) {
-          for (const bookAuthor of bookAuthors) {
-            if (searchAuthor === bookAuthor) {
-              return book;
-            }
-            // Also check if one contains the other (for partial matches)
-            if (searchAuthor.includes(bookAuthor) || bookAuthor.includes(searchAuthor)) {
-              return book;
-            }
-          }
-        }
-      }
+    if (searchBook.isbn_13) {
+      const match = libraryBooks.byIsbn[searchBook.isbn_13.toLowerCase()];
+      if (match) return match;
     }
 
-    // Fuzzy title match as last resort
-    const searchTitleWords = normalizedTitle.split(' ').filter(w => w.length > 2);
-    if (searchTitleWords.length >= 2) {
-      for (const book of libraryBooks.allBooks) {
-        const bookTitle = normalizeText(book.title);
-        const bookTitleWords = bookTitle.split(' ').filter(w => w.length > 2);
+    // Check by normalized title
+    const normTitle = normalizeText(searchBook.title);
+    if (normTitle && libraryBooks.byTitle[normTitle]) {
+      const titleMatches = libraryBooks.byTitle[normTitle];
 
-        // Check if most significant words match
-        const matchingWords = searchTitleWords.filter(w => bookTitleWords.includes(w));
-        const matchRatio = matchingWords.length / Math.max(searchTitleWords.length, bookTitleWords.length);
-
-        if (matchRatio >= 0.8) {
-          // Also verify author matches somewhat
+      // If we have author info, try to match that too
+      if (searchBook.author && searchBook.author !== 'Unknown') {
+        for (const book of titleMatches) {
+          // Check if authors match somewhat
           const searchAuthors = normalizeAuthor(searchBook.author);
           const bookAuthors = normalizeAuthor(book.author);
 
@@ -195,13 +432,14 @@ const RequestBook = () => {
 
     return null;
   };
+
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
 
     try {
       setLoading(true);
-      const response = await requestsAPI.searchOpenLibrary(searchQuery);
+      const response = await requestsAPI.searchBooks(searchQuery);
       setSearchResults(response.data.books);
     } catch (error) {
       console.error('Error searching:', error);
@@ -211,7 +449,19 @@ const RequestBook = () => {
     }
   };
 
+  // Open the preview modal when clicking on a card
+  const handleCardClick = (book) => {
+    setPreviewModal({ open: true, book });
+  };
+
+  const handlePreviewClose = () => {
+    setPreviewModal({ open: false, book: null });
+  };
+
   const handleRequestClick = (book) => {
+    // Close preview modal if open
+    handlePreviewClose();
+
     const libraryMatch = getLibraryMatch(book);
 
     if (libraryMatch) {
@@ -251,11 +501,13 @@ const RequestBook = () => {
     setConfirmDialog({ open: false, book: null, libraryMatch: null });
   };
 
-  const handleViewInLibrary = () => {
-    if (confirmDialog.libraryMatch) {
-      navigate(`/book/${confirmDialog.libraryMatch.id}`);
+  const handleViewInLibrary = (libraryMatch) => {
+    const match = libraryMatch || confirmDialog.libraryMatch;
+    if (match) {
+      navigate(`/book/${match.id}`);
     }
     handleConfirmDialogClose();
+    handlePreviewClose();
   };
 
   const handleRequestAnyway = () => {
@@ -349,70 +601,107 @@ const RequestBook = () => {
                     return (
                         <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
                           <Card
+                              onClick={() => handleCardClick(book)}
                               sx={{
                                 height: '100%',
                                 backgroundColor: '#1a1a1a',
                                 position: 'relative',
-                                border: isInLibrary ? '2px solid #4caf50' : 'none',
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s, box-shadow 0.2s',
+                                '&:hover': {
+                                  transform: 'translateY(-4px)',
+                                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                                },
+                                border: isInLibrary ? '2px solid #4caf50' : '1px solid #333',
+                                display: 'flex',
+                                flexDirection: 'column',
                               }}
                           >
-                            {/* In Library Badge */}
                             {isInLibrary && (
                                 <Chip
                                     icon={<InLibraryIcon />}
                                     label="In Library"
                                     size="small"
+                                    color="success"
                                     sx={{
                                       position: 'absolute',
                                       top: 8,
                                       right: 8,
                                       zIndex: 1,
-                                      backgroundColor: '#4caf50',
-                                      color: 'white',
-                                      fontWeight: 'bold',
-                                      '& .MuiChip-icon': {
-                                        color: 'white',
-                                      },
                                     }}
                                 />
                             )}
-
                             <CardMedia
                                 component="img"
-                                height="300"
-                                image={
-                                    book.cover_url ||
-                                    `https://via.placeholder.com/300x450/1a1a1a/ffffff?text=${encodeURIComponent(
-                                        book.title
-                                    )}`
-                                }
+                                height="280"
+                                image={book.cover_url || book.thumbnail || '/placeholder-book.png'}
                                 alt={book.title}
                                 sx={{
-                                  objectFit: 'cover',
-                                  opacity: isInLibrary ? 0.8 : 1,
+                                  objectFit: 'contain',
+                                  backgroundColor: '#111',
+                                  pt: 1,
+                                }}
+                                onError={(e) => {
+                                  e.target.src = '/placeholder-book.png';
                                 }}
                             />
-                            <CardContent>
-                              <Typography gutterBottom variant="h6" component="div">
+                            <CardContent sx={{ flexGrow: 1, pb: 0 }}>
+                              <Typography
+                                  variant="subtitle1"
+                                  sx={{
+                                    fontWeight: 'bold',
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden',
+                                  }}
+                              >
                                 {book.title}
                               </Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                {book.author}
+                              <Typography variant="body2" color="text.secondary" noWrap>
+                                {book.author || 'Unknown Author'}
                               </Typography>
-                              {book.first_publish_year && (
+                              {book.published_date && (
                                   <Typography variant="caption" color="text.secondary">
-                                    Published: {book.first_publish_year}
+                                    {book.published_date}
                                   </Typography>
                               )}
+                              {book.average_rating && (
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                                    <Rating value={book.average_rating} precision={0.1} readOnly size="small" />
+                                    <Typography variant="caption" color="text.secondary">
+                                      {book.average_rating.toFixed(1)}
+                                    </Typography>
+                                  </Box>
+                              )}
+                              {book.description && (
+                                  <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                      sx={{
+                                        display: '-webkit-box',
+                                        WebkitLineClamp: 2,
+                                        WebkitBoxOrient: 'vertical',
+                                        overflow: 'hidden',
+                                        mt: 0.5,
+                                      }}
+                                      dangerouslySetInnerHTML={{
+                                        __html: book.description.substring(0, 150) + '...'
+                                      }}
+                                  />
+                              )}
                             </CardContent>
-                            <CardActions sx={{ flexDirection: 'column', gap: 1, p: 2, pt: 0 }}>
+                            <CardActions sx={{ mt: 'auto', flexDirection: 'column', gap: 1, p: 2 }}>
                               {isInLibrary ? (
                                   <>
                                     <Button
                                         fullWidth
                                         variant="contained"
                                         startIcon={<BookIcon />}
-                                        onClick={() => navigate(`/book/${libraryMatch.id}`)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          navigate(`/book/${libraryMatch.id}`);
+                                        }}
                                         sx={{
                                           backgroundColor: '#4caf50',
                                           '&:hover': {
@@ -427,7 +716,10 @@ const RequestBook = () => {
                                         variant="outlined"
                                         size="small"
                                         startIcon={<AddIcon />}
-                                        onClick={() => handleRequestClick(book)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleRequestClick(book);
+                                        }}
                                         sx={{
                                           borderColor: '#666',
                                           color: '#999',
@@ -445,7 +737,10 @@ const RequestBook = () => {
                                       fullWidth
                                       variant="contained"
                                       startIcon={<AddIcon />}
-                                      onClick={() => handleRequestClick(book)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRequestClick(book);
+                                      }}
                                   >
                                     Request This Book
                                   </Button>
@@ -466,9 +761,29 @@ const RequestBook = () => {
                 </Typography>
               </Box>
           )}
+
+          {loading && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
+                <CircularProgress />
+              </Box>
+          )}
         </Container>
 
-        {/* Confirmation Dialog for books already in library */}
+        {/* Book Preview Modal */}
+        <BookPreviewModal
+            open={previewModal.open}
+            onClose={handlePreviewClose}
+            book={previewModal.book}
+            isInLibrary={previewModal.book ? !!getLibraryMatch(previewModal.book) : false}
+            libraryMatch={previewModal.book ? getLibraryMatch(previewModal.book) : null}
+            onRequest={handleRequestClick}
+            onViewInLibrary={() => {
+              const match = previewModal.book ? getLibraryMatch(previewModal.book) : null;
+              if (match) handleViewInLibrary(match);
+            }}
+        />
+
+        {/* Confirm dialog for books already in library */}
         <Dialog
             open={confirmDialog.open}
             onClose={handleConfirmDialogClose}
@@ -476,66 +791,47 @@ const RequestBook = () => {
               sx: { backgroundColor: '#1a1a1a' }
             }}
         >
-          <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <InLibraryIcon sx={{ color: '#4caf50' }} />
-            Book Already in Library
-          </DialogTitle>
+          <DialogTitle>Book Already in Library</DialogTitle>
           <DialogContent>
             <DialogContentText>
-              <strong>"{confirmDialog.book?.title}"</strong> by {confirmDialog.book?.author} appears to already be in your library
-              {confirmDialog.libraryMatch && (
-                  <> as <strong>"{confirmDialog.libraryMatch.title}"</strong></>
-              )}.
-            </DialogContentText>
-            <DialogContentText sx={{ mt: 2 }}>
-              Would you like to view it in your library, or request it anyway?
+              "{confirmDialog.book?.title}" by {confirmDialog.book?.author} appears to already
+              be in your library. Would you like to view it or request it anyway?
             </DialogContentText>
           </DialogContent>
-          <DialogActions sx={{ p: 2, gap: 1 }}>
-            <Button
-                onClick={handleConfirmDialogClose}
-                sx={{ color: '#999' }}
-            >
+          <DialogActions>
+            <Button onClick={handleConfirmDialogClose} color="inherit">
               Cancel
+            </Button>
+            <Button
+                onClick={() => handleViewInLibrary()}
+                variant="contained"
+                sx={{
+                  backgroundColor: '#4caf50',
+                  '&:hover': { backgroundColor: '#388e3c' },
+                }}
+            >
+              View in Library
             </Button>
             <Button
                 onClick={handleRequestAnyway}
                 variant="outlined"
                 sx={{
-                  borderColor: '#666',
-                  color: '#ccc',
-                  '&:hover': {
-                    borderColor: '#e50914',
-                    color: '#e50914',
-                  },
+                  borderColor: '#e50914',
+                  color: '#e50914',
+                  '&:hover': { borderColor: '#b20710', color: '#b20710' },
                 }}
             >
               Request Anyway
-            </Button>
-            <Button
-                onClick={handleViewInLibrary}
-                variant="contained"
-                startIcon={<BookIcon />}
-                sx={{
-                  backgroundColor: '#4caf50',
-                  '&:hover': {
-                    backgroundColor: '#388e3c',
-                  },
-                }}
-            >
-              View in Library
             </Button>
           </DialogActions>
         </Dialog>
 
         <Snackbar
             open={snackbar.open}
-            autoHideDuration={6000}
+            autoHideDuration={3000}
             onClose={() => setSnackbar({ ...snackbar, open: false })}
         >
-          <Alert severity={snackbar.severity} sx={{ width: '100%' }}>
-            {snackbar.message}
-          </Alert>
+          <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
         </Snackbar>
       </Box>
   );
