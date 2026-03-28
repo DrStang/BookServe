@@ -80,6 +80,8 @@ export const booksAPI = {
 
 // Requests
 export const requestsAPI = {
+  searchBooks: (query, author, title) =>
+      api.get('/requests/search', { params: { q: query, author, title } }),
   searchOpenLibrary: (query, author, title) =>
     api.get('/requests/search', { params: { q: query, author, title } }),
   create: (bookData) => api.post('/requests', bookData),
