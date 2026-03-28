@@ -1090,8 +1090,8 @@ async function confirmOceanDownload(filename){
 // API ENDPOINTS
 // ============================================================================
 
-// Search OpenLibrary
-exports.searchOpenLibrary = async (req, res) => {
+// Search GoogleBooks
+exports.searchBooks = async (req, res) => {
     try {
         const { q, author, title } = req.query;
 
@@ -1099,37 +1099,46 @@ exports.searchOpenLibrary = async (req, res) => {
             return res.status(400).json({ error: 'Search query or title required' });
         }
 
-        let searchUrl = 'https://openlibrary.org/search.json?';
+        const googleBooksService = require('../services/googleBooksService');
 
-        if (q) {
-            searchUrl += `q=${encodeURIComponent(q)}`;
-        } else {
-            if (title) searchUrl += `title=${encodeURIComponent(title)}`;
-            if (author) searchUrl += `&author=${encodeURIComponent(author)}`;
+        let searchQuery = q || '';
+        if (!q && title) {
+            searchQuery = title;
+            if (author) searchQuery += ` by ${author}`;
         }
 
-        const response = await axios.get(searchUrl);
+        const results = await googleBooksService.search(searchQuery, 20);
 
-        const books = response.data.docs.slice(0, 20).map(doc => ({
-            key: doc.key,
-            title: doc.title,
-            author: doc.author_name ? doc.author_name.join(', ') : 'Unknown',
-            first_publish_year: doc.first_publish_year,
-            isbn: doc.isbn ? doc.isbn[0] : null,
-            isbn_13: doc.isbn ? doc.isbn.find(i => i.length === 13) : null,
-            publisher: doc.publisher ? doc.publisher[0] : null,
-            cover_id: doc.cover_i,
-            cover_url: doc.cover_i
-                ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`
-                : null
+        const books = results.filter(r => r !== null).map(book => ({
+            key: book.google_books_id,
+            google_books_id: book.google_books_id,
+            title: book.title,
+            subtitle: book.subtitle || null,
+            author: book.author || 'Unknown',
+            publisher: book.publisher || null,
+            published_date: book.published_date || null,
+            description: book.description || null,
+            isbn: book.isbn || null,
+            isbn_13: book.isbn_13 || null,
+            page_count: book.page_count || null,
+            categories: book.categories || null,
+            average_rating: book.average_rating || null,
+            ratings_count: book.ratings_count || null,
+            language: book.language || null,
+            cover_url: book.cover_image_url || book.thumbnail || null,
+            thumbnail: book.thumbnail || book.small_thumbnail || null,
+            preview_link: book.preview_link || null,
+            info_link: book.info_link || null,
         }));
 
-        res.json({ books, total: response.data.numFound });
+        res.json({ books, total: books.length });
     } catch (error) {
-        console.error('OpenLibrary search error:', error);
-        res.status(500).json({ error: 'Error searching OpenLibrary' });
+        console.error('Google Books search error:', error);
+        res.status(500).json({ error: 'Error searching for books' });
     }
 };
+
+exports.searchOpenLibrary = exports.searchBooks;
 
 // Create a book request
 exports.createRequest = async (req, res) => {
