@@ -62,7 +62,7 @@ exports.sendBookByEmail = async (req, res) => {
     const transporter = createTransporter();
 
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
       to: email,
       subject: `Your book: ${book.title}`,
       text: `Here is your requested book: ${book.title} by ${book.author}`,
