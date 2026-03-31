@@ -21,7 +21,7 @@ const createTransporter = () => {
 exports.sendBookByEmail = async (req, res) => {
   try {
     const { id } = req.params;
-    const { email, format } = req.body;
+    const { email, format, saveEmail } = req.body;
 
     if (!email) {
       return res.status(400).json({ error: 'Email address required' });
