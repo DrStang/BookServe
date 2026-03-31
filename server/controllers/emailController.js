@@ -173,7 +173,7 @@ exports.sendNotificationEmail = async (to, subject, text, html) => {
     const transporter = createTransporter();
 
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
       to: to,
       subject: subject,
       text: text,
