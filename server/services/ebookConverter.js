@@ -118,9 +118,7 @@ class EbookConverter {
       // Build ebook-convert command
       let command = `ebook-convert "${inputPath}" "${outputPath}" --enable-heuristics`;
 
-      if (forEmail) {
-        command += ' --compress-news-images --compress-news-images-max-size=800';
-      }
+  
         
       const { stdout, stderr } = await execPromise(command, {
         maxBuffer: 10 * 1024 * 1024 // 10MB buffer
