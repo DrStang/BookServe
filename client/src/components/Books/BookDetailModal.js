@@ -772,7 +772,7 @@ const BookDetailModal = ({ open, onClose, onEmail, book, readingProgress, onBook
         <DialogTitle>Send Book to Email</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ fontSize: '0.875rem', mb: 2 }}>
-            Ensure dandolewski@gmail.com is in 'Approved Personal Document E-mail List' in your 
+            ATTENTION - NEW EMAIL - UPDATE! Ensure PLEX@DRSTANG.XYZ is in 'Approved Personal Document E-mail List' in your 
             <Link
               href="https://www.amazon.com/hz/mycd/preferences/myx#/home/settings/payment"
               target="_blank"
