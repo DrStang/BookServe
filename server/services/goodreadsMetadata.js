@@ -41,6 +41,8 @@ async function getJsonLdBook(page) {
                         cover_image_url: image,
                         page_count,
                         language,
+                        isbn: obj.isbn != null ? String(obj.isbn) : null,
+
                     };
                 }
             }
@@ -48,7 +50,7 @@ async function getJsonLdBook(page) {
             // ignore
         }
     }
-    return { title: null, average_rating: null, ratings_count: null, page_count: null, language: null, cover_image_url: null };
+    return { title: null, average_rating: null, ratings_count: null, page_count: null, language: null, isbn:null, cover_image_url: null };
 
 }
 
@@ -111,23 +113,63 @@ class GoodreadsMetadata {
     }
 
     async getMetadata(bookInfo) {
-        const { isbn, title, author } = bookInfo;
+        const { isbn, isbn_13, title, author } = bookInfo;
 
         await this.init();
+        const page = await this.context.newPage();
 
-        if (isbn) {
-            const result = await this.fetchByIsbn(isbn);
-            if (result) return result;
+        try {
+            const isbnToTry = isbn || isbn_13;
+            if (isbnToTry) {
+                const result = await this.fetchByIsbn(isbnToTry, page);
+                if (result && !result.error) return result;
+            }
+
+            if (isbn && isbn_13 && isbnToTry === isbn) {
+                const result = await this.fetchByIsbn(isbn_13, page);
+                if (result && !result.error) return result;
+            }
+
+            if (title) {
+                const result = await this.searchByTitleAuthor(title, author, page);
+                if (result) return result;
+            }
+
+            return null;
+        } finally {
+            await page.close().catch(() => {});
         }
+
     }
 
-    async fetchByIsbn(isbn) {
+    async searchByTitleAuthor(title, author, page) {
+        if (!title && !author) throw new Error("Missing Title/Author");
+        if (!page) throw new Error("Client not initialized. Call init() first.");
+
+        const url = new URL('https://www.goodreads.com/search');
+
+        url.searchParams.set("q", author ? `${title} ${author}` : title);
+        
+        await page.goto(url, {waitUntil: "domcontentloaded", timeout: 60000});
+        const href = await page.locator('a.bookTitle').first().getAttribute('href');
+        if (!href) return null;
+
+        const bookUrl = href.startsWith('http') ? href : `https://www.goodreads.com${href}`;
+
+        await page.goto(bookUrl, {waitUntil: "domcontentloaded", timeout: 60000});
+
+        return await this.scrapePage(page);
+
+    }
+
+
+    async fetchByIsbn(isbn, page) {
         if (!isbn) throw new Error("Missing ISBN");
-        if (!this.page) throw new Error("Client not initialized. Call init() first.");
+        if (!page) throw new Error("Client not initialized. Call init() first.");
 
         const url = `https://www.goodreads.com/book/isbn/${encodeURIComponent(isbn)}`;
 
-        const resp = await this.page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+        const resp = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
         const status = resp ? resp.status() : null;
         if (status && status >= 400) {
             return {
@@ -136,9 +178,14 @@ class GoodreadsMetadata {
                 book_url: url,
             };
         }
+        return await this.scrapePage(page);
+
+
+    }
+    async scrapePage(page) {
 
         try {
-            const showMoreBtn = this.page.locator(
+            const showMoreBtn = page.locator(
                 '[data-testid="description"] button, [data-testid="description"] a'
             );
 
@@ -146,20 +193,20 @@ class GoodreadsMetadata {
                 const text = (await showMoreBtn.first().innerText()).toLowerCase();
                 if (text.includes("show more") || text.includes("more")) {
                     await showMoreBtn.first().click({ timeout: 3000});
-                    await this.page.waitForTimeout(300);
+                    await page.waitForTimeout(300);
                 }
             }
         } catch {
         }
 
         let description = null;
-        const desc = this.page.locator('[data-testid="description"]');
+        const desc = page.locator('[data-testid="description"]');
         if ((await desc.count()) > 0) {
             description = cleanText(await desc.first().innerText());
         }
 
         let categories = [];
-        const genreEls = this.page.locator(
+        const genreEls = page.locator(
             '.BookPageMetadataSection__genreButton .Button__labelItem'
         );
 
@@ -175,7 +222,7 @@ class GoodreadsMetadata {
 
 
         // --- After clicking detailsButton and waiting a moment ---
-        const detailsRoot = this.page.locator("div.EditionDetails");
+        const detailsRoot = page.locator("div.EditionDetails");
 
 // Helper to read a DescListItem value by its <dt> label text
         const readDetail = async (label) => {
@@ -183,14 +230,19 @@ class GoodreadsMetadata {
                 `div.DescListItem:has(dt:has-text("${label}")) dd div[data-testid="contentContainer"]`
             );
             if ((await dd.count()) === 0) return null;
-            return cleanText(await dd.first().innerText());
+            if (label === 'isbn') {
+                const text = await dd.first().innerText()
+                return text.match(/\b97[89]\d{10}\b/)?.[0] || null;
+            } else {
+                return cleanText(await dd.first().innerText());
+            }
         };
 
         let published_date = null;
         let publisher = null;
 
         try {
-            const nd = this.page.locator("script#__NEXT_DATA__");
+            const nd = page.locator("script#__NEXT_DATA__");
             if (await nd.count()) {
                 const data = JSON.parse(await nd.first().innerText());
 
@@ -208,7 +260,7 @@ class GoodreadsMetadata {
                         publisher = book.details.publisher || null;
                     }
                     if (!published_date) {
-                        const workKey = Object.key(apollo).find(k => k.startsWith("Work:"));
+                        const workKey = Object.keys(apollo).find(k => k.startsWith("Work:"));
                         const work = workKey ? apollo[workKey] : null;
 
                         const wt = work?.details?.publicationTime;
@@ -224,29 +276,28 @@ class GoodreadsMetadata {
 
 
         // JSON-LD first (fast and stable)
-        const jld = await getJsonLdBook(this.page);
-
+        const jld = await getJsonLdBook(page);
 
         // Title fallback
         let title = jld.title;
         if (!title) {
-            const loc = this.page.locator('[data-testid="bookTitle"], h1[data-testid="bookTitle"], h1#bookTitle');
+            const loc = page.locator('[data-testid="bookTitle"], h1[data-testid="bookTitle"], h1#bookTitle');
             if ((await loc.count()) > 0) title = cleanText(await loc.first().innerText());
         }
 
         // Author (new Goodreads UI)
         let author = null;
-        const a1 = this.page.locator('.ContributorLink__name[data-testid="name"]');
+        const a1 = page.locator('.ContributorLink__name[data-testid="name"]');
         if ((await a1.count()) > 0) author = cleanText(await a1.first().innerText());
         if (!author) {
-            const a2 = this.page.locator("a.authorName span");
+            const a2 = page.locator("a.authorName span");
             if ((await a2.count()) > 0) author = cleanText(await a2.first().innerText());
         }
 
         // Rating fallback
         let average_rating = jld.average_rating;
         if (average_rating == null) {
-            const loc = this.page.locator(".RatingStatistics__rating, [data-testid='ratingValue'], span[itemprop='ratingValue']");
+            const loc = page.locator(".RatingStatistics__rating, [data-testid='ratingValue'], span[itemprop='ratingValue']");
             if ((await loc.count()) > 0) {
                 const raw = cleanText(await loc.first().textContent());
                 average_rating = raw ? Number(raw.replace(",", ".")) : null;
@@ -257,7 +308,7 @@ class GoodreadsMetadata {
         // Ratings count fallback
         let ratings_count = jld.ratings_count;
         if (ratings_count == null) {
-            const loc = this.page.locator("[data-testid='ratingsCount'], meta[itemprop='ratingCount']");
+            const loc = page.locator("[data-testid='ratingsCount'], meta[itemprop='ratingCount']");
             if ((await loc.count()) > 0) {
                 const tag = await loc.first().evaluate((el) => el.tagName.toLowerCase());
                 if (tag === "meta") {
@@ -273,7 +324,7 @@ class GoodreadsMetadata {
         // Cover image (best effort)
         let cover_image_url = jld.cover_image_url;
         if (cover_image_url == null) {
-            const img = this.page.locator("img.ResponsiveImage");
+            const img = page.locator("img.ResponsiveImage");
             if ((await img.count()) > 0) cover_image_url = await img.first().getAttribute("src");
         }
         let page_count = jld.page_count;
@@ -284,6 +335,11 @@ class GoodreadsMetadata {
         let language = jld.language;
         if (language == null) {
             language = await readDetail("Language");
+        }
+
+        let isbn = jld.isbn;
+        if (isbn == null) {
+            isbn = await readDetail("ISBN");
         }
 
 
@@ -300,9 +356,12 @@ class GoodreadsMetadata {
             publisher,
             page_count,
             language,
-            preview_link: this.page.url(),
+            preview_link: page.url(),
         };
     }
+
+
 }
 
 module.exports = new GoodreadsMetadata();
+
