@@ -72,7 +72,7 @@ exports.sendBookByEmail = async (req, res) => {
         console.log(`Post-compression size: ${fileSizeMB.toFixed(2)}MB`);
       }
 
-      if (fileSizeMB > maxSizeMB) {
+      if (encodedSizeMB > maxSizeMB) {
         if (isKindleAddress) {
           // Kindle can't use download links - suggest alternatives
           const appUrl = 'https://books.drstang.xyz';
