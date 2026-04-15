@@ -59,7 +59,7 @@ exports.sendBookByEmail = async (req, res) => {
       }
     }
 
-    const maxSizeMB = 15;
+    const maxSizeMB = 17.5;
     let fileSizeMB = await ebookConverter.getFileSizeMB(filePath);
     const isKindleAddress = email.toLowerCase().includes('@kindle.com');
 
