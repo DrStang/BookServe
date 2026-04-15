@@ -135,7 +135,7 @@ const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
 
     setSending(true);
     try {
-      const bookRef = currentBook || book; // currentBook for modal, book for BookCard/BookPage
+      const bookRef = book; // currentBook for modal, book for BookCard/BookPage
       const format = needsEpubConversion(bookRef.format) ? 'epub' : null;
       const response = await emailAPI.sendBook(bookRef.id, email, format, saveEmail);
       
