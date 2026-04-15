@@ -59,6 +59,75 @@ exports.sendBookByEmail = async (req, res) => {
       }
     }
 
+    const maxSizeMB = 25;
+    let fileSizeMB = await ebookConverter.getFileSizeMB(filePath);
+    const isKindleAddress = email.toLowerCase().includes('@kindle.com');
+
+    if (fileSizeMB > maxSizeMB) {
+      console.log(`File size ${fileSizeMB.toFixed(2)}MB exceeds ${maxSizeMB}MB, attempting compression...`);
+      if (filePath.toLowerCase().endsWith('.epub')) {
+        filePath = await ebookConverter.compressEpub(filePath);
+        fileSizeMB = await ebookConverter.getFileSizeMB(filePath);
+        console.log(`Post-compression size: ${fileSizeMB.toFixed(2)}MB`);
+      }
+
+      if (fileSizeMB > maxSizeMB) {
+        if (isKindleAddress) {
+          // Kindle can't use download links - suggest alternatives
+          const appUrl = 'https://books.drstang.xyz';
+          return res.status(413).json({
+            error: 'Book too large for email',
+            message: `This book is ${fileSizeMB.toFixed(1)}MB which exceeds the ${maxSizeMB}MB email limit. For Kindle, please download the book directly and sideload via USB, or access it through OPDS at ${appUrl}/opds.`,
+            sizeMB: fileSizeMB,
+            isKindle: true
+          });
+        } else {
+          // Regular email - send download link instead
+          const appUrl = 'https://books.drstang.xyz';
+          const downloadLink = `${appUrl}/book/${book.id}`;
+
+          const transporter = createTransporter();
+          const mailOptions = {
+            from: `"BookServe" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+            to: email,
+            subject: `Your book: ${book.title}`,
+            text: `Your requested book "${book.title}" by ${book.author || 'Unknown'} is too large to attach (${fileSizeMB.toFixed(1)}MB). You can download it here: ${downloadLink}`,
+            html: `
+              <h2>Your Requested Book</h2>
+              <p><strong>Title:</strong> ${book.title}</p>
+              <p><strong>Author:</strong> ${book.author || 'Unknown'}</p>
+              <p>This book is too large to send as an attachment (${fileSizeMB.toFixed(1)}MB).</p>
+              <p>
+                <a href="${downloadLink}" style="display: inline-block; padding: 10px 20px; background-color: #e50914; color: white; text-decoration: none; border-radius: 4px; margin-top: 10px;">
+                  Download Book
+                </a>
+              </p>
+              <hr style="margin-top: 20px;">
+              <p style="color: #666; font-size: 12px;">BookServe - Your Personal Book Library</p>
+            `
+          };
+
+          await transporter.sendMail(mailOptions);
+
+          // Save email if requested
+          if (saveEmail && req.user?.id) {
+            try {
+              await User.saveKindleEmail(req.user.id, email);
+            } catch (saveError) {
+              console.error('Error saving email:', saveError);
+            }
+          }
+
+          return res.json({
+            message: `Book too large to attach. A download link was sent to ${email} instead.`,
+            downloadLink: true
+          });
+        }
+      }
+    }
+        
+      
+
     const transporter = createTransporter();
 
     const mailOptions = {
