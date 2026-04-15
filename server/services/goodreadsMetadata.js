@@ -150,7 +150,7 @@ class GoodreadsMetadata {
 
         url.searchParams.set("q", author ? `${title} ${author}` : title);
         
-        await page.goto(url, {waitUntil: "domcontentloaded", timeout: 60000});
+        await page.goto(url.toString(), {waitUntil: "domcontentloaded", timeout: 60000});
         const href = await page.locator('a.bookTitle').first().getAttribute('href');
         if (!href) return null;
 
