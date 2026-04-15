@@ -60,16 +60,19 @@ exports.sendBookByEmail = async (req, res) => {
     }
 
     const maxSizeMB = 20;
-    const encodedSizeMB = fileSizeMB * 1.37;
     let fileSizeMB = await ebookConverter.getFileSizeMB(filePath);
+    const encodedSizeMB = fileSizeMB * 1.37;
+    
     const isKindleAddress = email.toLowerCase().includes('@kindle.com');
 
     if (encodedSizeMB > maxSizeMB) {
-      console.log(`File size ${fileSizeMB.toFixed(2)}MB exceeds ${maxSizeMB}MB, attempting compression...`);
+      console.log(`File size ${fileSizeMB.toFixed(2)}MB (${encodedSizeMB.toFixed(2)}MB encoded) exceeds ${maxSizeMB}MB, attempting compression...`);
       if (filePath.toLowerCase().endsWith('.epub')) {
         filePath = await ebookConverter.compressEpub(filePath);
         fileSizeMB = await ebookConverter.getFileSizeMB(filePath);
-        console.log(`Post-compression size: ${fileSizeMB.toFixed(2)}MB`);
+        encodedSizeMB = fileSizeMB * 1.37; // recalculate after compression
+
+        console.log(`Post-compression size: ${fileSizeMB.toFixed(2)}MB (${encodedSizeMB.toFixed(2)}MB encoded)`);
       }
 
       if (encodedSizeMB > maxSizeMB) {
