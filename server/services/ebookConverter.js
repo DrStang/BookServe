@@ -42,7 +42,7 @@ class EbookConverter {
     const compressedPath = epubPath.replace('.epub', '_compressed.epub');
 
     try {
-      const command = `ebook-polish --compress-images --jpeg-quality=45 "${epubPath}" "${compressedPath}"`;
+      const command = `ebook-polish --compress-images --jpeg-quality=40 "${epubPath}" "${compressedPath}"`;
 
       console.log('Compressing EPUB images...');
       await execPromise(command, {
