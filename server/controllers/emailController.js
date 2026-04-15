@@ -70,7 +70,7 @@ exports.sendBookByEmail = async (req, res) => {
       if (filePath.toLowerCase().endsWith('.epub')) {
         filePath = await ebookConverter.compressEpub(filePath);
         fileSizeMB = await ebookConverter.getFileSizeMB(filePath);
-        encodedSizeMB = fileSizeMB * 1.37; // recalculate after compression
+        let encodedSizeMB = fileSizeMB * 1.37; // recalculate after compression
 
         console.log(`Post-compression size: ${fileSizeMB.toFixed(2)}MB (${encodedSizeMB.toFixed(2)}MB encoded)`);
       }
