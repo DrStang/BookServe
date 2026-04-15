@@ -135,10 +135,14 @@ const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
 
     setSending(true);
     try {
-      const format = needsEpubConversion(book.format) ? 'epub' : null;
-      await emailAPI.sendBook(book.id, email, format, saveEmail);
+      const bookRef = currentBook || book; // currentBook for modal, book for BookCard/BookPage
+      const format = needsEpubConversion(bookRef.format) ? 'epub' : null;
+      const response = await emailAPI.sendBook(bookRef.id, email, format, saveEmail);
       
-      let message = 'Book sent to email';
+      let message = response.data.message || 'Book sent to email';
+      if (response.data.downloadLink) {
+        message = 'Book too large to attach — a download link was sent instead.';
+      }
       if (saveEmail) {
         message += ' (email saved for future use)';
         setHasSavedEmail(true);
@@ -147,7 +151,22 @@ const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
       setSnackbar({ open: true, message, severity: 'success' });
       handleEmailDialogClose();
     } catch (error) {
-      setSnackbar({ open: true, message: 'Failed to send email', severity: 'error' });
+      const errorData = error.response?.data;
+      
+      if (error.response?.status === 413 && errorData?.isKindle) {
+        // Kindle address but book too large
+        setSnackbar({ 
+          open: true, 
+          message: `Book is too large for email (${errorData.sizeMB?.toFixed(1)}MB). Please download directly or use OPDS to access on your Kindle.`,
+          severity: 'warning' 
+        });
+      } else {
+        setSnackbar({ 
+          open: true, 
+          message: errorData?.message || 'Failed to send email', 
+          severity: 'error' 
+        });
+      }
     } finally {
       setSending(false);
     }
@@ -417,7 +436,7 @@ const BookCard = ({ book, onUpdate, readingProgress, onClick }) => {
 
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={3000}
+        autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
       >
         <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
