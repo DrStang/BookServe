@@ -111,6 +111,22 @@ class BookRequest {
       });
     });
   }
+  static findByTitleAuthor(title, author) {
+    return new Promise((resolve, reject) => {
+      db.get(
+        `SELECT * FROM book_requests
+         WHERE LOWER(title) = LOWER(?)
+         AND LOWER(author) = LOWER(?)
+         AND isbn IS NOT NULL
+         ORDER BY requested_at DESC LIMIT 1`,
+        [title, author],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+  }  
 
   static async getPendingRequests() {
     return new Promise((resolve, reject) => {
