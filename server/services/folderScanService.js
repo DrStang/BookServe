@@ -187,6 +187,7 @@ class FolderScanService {
     // Detect series information
     const seriesInfo = seriesDetectionService.detectSeries(rawTitle, extractedMetadata);
 
+
     // Prepare book data
     const bookData = {
       title: seriesInfo.cleanTitle || rawTitle,
@@ -206,6 +207,23 @@ class FolderScanService {
       added_by: 1 // Default to admin user (ID 1)
     };
 
+    if (!bookData.isbn && !bookData.isbn_13) {
+      try {
+        const BookRequest = require('../models/BookRequest');
+        const matchingRequest = await BookRequest.findByTitleAuthor(bookData.title, bookData.author);
+        if (matchingRequest?.isbn) {
+          const reqIsbn = matchingRequest.isbn;
+          if (reqIsbn.length === 13) {
+              bookData.isbn_13 = reqIsbn;
+          } else {
+              bookData.isbn = reqIsbn;
+          }
+          console.log(`  ✓ ISBN backfilled from request: ${reqIsbn}`);
+        }
+      } catch (err) {
+          console.warn(`  ⚠ Could not check requests for ISBN:`, err.message);
+      }
+    }  
     // Create book entry
     const book = await Book.create(bookData);
     console.log(`✓ Imported: ${bookData.title} (ID: ${book.id})`);
