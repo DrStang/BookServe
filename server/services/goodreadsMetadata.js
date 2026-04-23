@@ -81,7 +81,8 @@ class GoodreadsMetadata {
             locale: "en-US",
             viewport: { width: 1280, height: 900 },
             userAgent:
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
         };
 
         if (this.proxyServer && this.proxyUser && this.proxyPass) {
@@ -93,7 +94,7 @@ class GoodreadsMetadata {
         }
 
         this.context = await this.browser.newContext(contextOpts);
-        this.page = await this.context.newPage();
+        //this.page = await this.context.newPage();
     }
 
     async close() {
@@ -119,6 +120,7 @@ class GoodreadsMetadata {
         const page = await this.context.newPage();
 
         try {
+            await page.waitForTimeout(Math.floor(Math.random() * 2000) + 500);
             const isbnToTry = isbn || isbn_13;
             if (isbnToTry) {
                 const result = await this.fetchByIsbn(isbnToTry, page);
@@ -169,7 +171,14 @@ class GoodreadsMetadata {
 
         const url = `https://www.goodreads.com/book/isbn/${encodeURIComponent(isbn)}`;
 
-        const resp = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+        let resp;
+        try {
+            resp = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+        } catch (err) {
+            console.warn(`[GoodreadsMetadata] fetchByIsbn navigation failed for ${isbn}: ${err.message}`);
+            return { isbn: String(isbn), error: err.message, book_url: url };
+        }
+        
         const status = resp ? resp.status() : null;
         if (status && status >= 400) {
             return {
