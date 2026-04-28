@@ -69,7 +69,11 @@ class GoodreadsMetadata {
     }
 
     async init() {
-        if (this.browser) return; // already initialized
+        if (this.browser && this.browser.isConnected()) return;
+        
+        if (this.browser) {
+            await this.close();
+        }    
 
         this.browser = await chromium.launch({
             executablePath: "/snap/bin/chromium",
