@@ -20,7 +20,7 @@ class MetadataService {
 
         try {
             // Fetch from both sources in parallel
-            const [googleData, openLibraryData, goodreadsData, goodreadsMeta] = await Promise.all([
+            const [googleData, openLibraryData] = await Promise.all([
                 googleBooksService.getMetadata(bookInfo).catch(err => {
                     console.error('Google Books fetch error:', err);
                     return null;
