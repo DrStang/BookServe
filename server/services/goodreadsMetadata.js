@@ -65,11 +65,22 @@ class GoodreadsMetadata {
 
         this.browser = null;
         this.context = null;
-        this.page = null;
+        this.requestCount = 0;
+        this.maxRequestsBeforeRecycle = 15;
     }
 
     async init() {
-        if (this.browser && this.browser.isConnected()) return;
+        if (this.browser && this.browser.isConnected()) {
+            if (this.requestCount >= this.maxRequestsBeforeRecycle) {
+                console.log('[GoodreadsMetadata] Recycling browser context after', this.requestCount, 'requests');
+                if (this.context) {
+                    await this.context.close().catch(() => {});
+                }
+                this.context = await this.browser.newContext(this._contextOpts());
+                this.requestCount = 0;
+            }
+            return;
+        }   
         
         if (this.browser) {
             await this.close();
@@ -81,7 +92,12 @@ class GoodreadsMetadata {
             args: ["--disable-blink-features=AutomationControlled", "--no-sandbox"],
         });
 
-        const contextOpts = {
+        this.context = await this.browser.newContext(this._contextOpts());
+        this.requestCount = 0;
+    }   
+
+    _contextOpts() {
+        const opts = {
             locale: "en-US",
             viewport: { width: 1280, height: 900 },
             userAgent:
@@ -90,16 +106,18 @@ class GoodreadsMetadata {
         };
 
         if (this.proxyServer && this.proxyUser && this.proxyPass) {
-            contextOpts.proxy = {
+            opts.proxy = {
                 server: this.proxyServer,
                 username: this.proxyUser,
                 password: this.proxyPass,
             };
         }
+        return opts;
+    }   
 
-        this.context = await this.browser.newContext(contextOpts);
+        //this.context = await this.browser.newContext(contextOpts);
         //this.page = await this.context.newPage();
-    }
+    
 
     async close() {
         // Close in reverse order
@@ -121,6 +139,7 @@ class GoodreadsMetadata {
         const { isbn, isbn_13, title, author } = bookInfo;
 
         await this.init();
+        this.requestCount++;
         const page = await this.context.newPage();
 
         try {
