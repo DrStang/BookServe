@@ -29,15 +29,19 @@ class MetadataService {
                     console.error('OpenLibrary fetch error:', err);
                     return null;
                 }),
-                goodreadsRatings.getMetadata(bookInfo).catch(err => {
+             ]);   
+                const goodreadsData = await goodreadsRatings.getMetadata(bookInfo).catch(err => {
                     console.error('Goodreads Ratings fetch error:', err);
                     return null;
                 }),
-                goodreadsMetadata.getMetadata(bookInfo).catch(err => {
+
+                await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1500));
+
+                const goodreadsMeta = goodreadsMetadata.getMetadata(bookInfo).catch(err => {
                     console.error('Goodreads Metadata fetch error:', err);
                     return null;
                 }),
-            ]);
+            
 
             results.google = googleData;
             results.openLibrary = openLibraryData;
