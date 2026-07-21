@@ -15,6 +15,27 @@ const API_KEY = process.env.GOOGLE_BOOKS_API_KEY || ''; // Optional, but increas
   timeout: 30000,
 });  */}
 
+// near the top, after your requires / constants
+async function googleBooksGet(url, config = {}, { retries = 4, baseDelay = 500 } = {}) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await axios.get(url, config);
+    } catch (error) {
+      const status = error.response?.status;
+      const retryable = status === 429 || status === 503;
+      if (!retryable || attempt >= retries) throw error;
+
+      // Honor Retry-After if Google sends it, else exponential backoff + jitter
+      const retryAfter = parseInt(error.response?.headers?.['retry-after'], 10);
+      const delay = Number.isFinite(retryAfter)
+        ? retryAfter * 1000
+        : baseDelay * 2 ** attempt + Math.floor(Math.random() * 250);
+
+      console.warn(`Google Books ${status} — retry ${attempt + 1}/${retries} in ${delay}ms`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+}
 class GoogleBooksService {
   /**
    * Search for books by query
@@ -32,9 +53,10 @@ class GoogleBooksService {
       }
       
       
-      const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
+      //const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
       //const response = await instance.get(GOOGLE_BOOKS_API_URL, { params });
-
+      const response = await googleBooksGet(GOOGLE_BOOKS_API_URL, { params });
+      
       return response.data.items ? response.data.items.map(item => this.formatBookData(item)).filter(Boolean) : [];    
     } catch (error) {
       console.error('Google Books search error:', error.message);
@@ -54,8 +76,9 @@ class GoogleBooksService {
       if (API_KEY) {
         params.key = API_KEY;
       }
+      const response = await googleBooksGet(GOOGLE_BOOKS_API_URL, { params });
 
-      const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
+      //const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
      //const response = await instance.get(GOOGLE_BOOKS_API_URL, { params });
 
       if (response.data.items && response.data.items.length > 0) {
@@ -87,8 +110,9 @@ class GoogleBooksService {
       if (API_KEY) {
         params.key = API_KEY;
       }
+      const response = await googleBooksGet(GOOGLE_BOOKS_API_URL, { params });
 
-      const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
+      //const response = await axios.get(GOOGLE_BOOKS_API_URL, { params });
       //const response = await instance.get(GOOGLE_BOOKS_API_URL, { params });
 
       if (response.data.items && response.data.items.length > 0) {
@@ -115,7 +139,9 @@ class GoogleBooksService {
         params.key = API_KEY;
       }
 
-      const response = await axios.get(url, { params });
+      //const response = await axios.get(url, { params });
+      const response = await googleBooksGet(GOOGLE_BOOKS_API_URL, { params });
+
       return this.formatBookData(response.data);
     } catch (error) {
       console.error('Google Books getById error:', error.message);
