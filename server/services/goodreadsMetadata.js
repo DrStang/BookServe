@@ -1,4 +1,6 @@
 const { chromium } = require("playwright");
+const { HttpsProxyAgent } = require("https-proxy-agent");
+
 
 function cleanText(s) {
     if (!s) return null;
