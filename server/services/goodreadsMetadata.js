@@ -60,8 +60,8 @@ class GoodreadsMetadata {
 
         // Optional proxy parity with your Python script
         this.proxyServer = opts.proxyServer ?? process.env.PROXY_SERVER;
-        this.proxyUser = opts.proxyUser ?? process.env.PROXY_USER;
-        this.proxyPass = opts.proxyPass ?? process.env.PROXY_PASS;
+        //this.proxyUser = opts.proxyUser ?? process.env.PROXY_USER;
+        //this.proxyPass = opts.proxyPass ?? process.env.PROXY_PASS;
 
         this.browser = null;
         this.context = null;
@@ -104,12 +104,12 @@ class GoodreadsMetadata {
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
                 "(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
         };
-
-        if (this.proxyServer && this.proxyUser && this.proxyPass) {
+        if (this.proxyServer) {
+        //if (this.proxyServer && this.proxyUser && this.proxyPass) {
             opts.proxy = {
                 server: this.proxyServer,
-                username: this.proxyUser,
-                password: this.proxyPass,
+                //username: this.proxyUser,
+                //password: this.proxyPass,
             };
         }
         return opts;
