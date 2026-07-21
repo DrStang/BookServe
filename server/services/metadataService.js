@@ -37,7 +37,7 @@ class MetadataService {
 
                 await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1500));
 
-                const goodreadsMeta = goodreadsMetadata.getMetadata(bookInfo).catch(err => {
+                const goodreadsMeta = await goodreadsMetadata.getMetadata(bookInfo).catch(err => {
                     console.error('Goodreads Metadata fetch error:', err);
                     return null;
                 });
