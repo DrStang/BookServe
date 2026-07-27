@@ -1655,3 +1655,5 @@ async function notifyUser(requestId) {
 // Export for use in other modules
 module.exports.processBookRequest = processBookRequest;
 module.exports.searchNZBHydra = searchNZBHydra;
+module.exports.getAABook = getAABook;
+module.exports.getOcean = getOcean;
