@@ -1716,3 +1716,4 @@ module.exports.processBookRequest = processBookRequest;
 module.exports.searchNZBHydra = searchNZBHydra;
 module.exports.getAABook = getAABook;
 module.exports.getOcean = getOcean;
+module.exports.searchArchive = searchArchive;
