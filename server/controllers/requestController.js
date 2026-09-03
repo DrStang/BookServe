@@ -949,14 +949,15 @@ async function searchArchive(title, author) {
 // ============================================================================
 // OCEAN OF PDF
 // ============================================================================
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const stealth = require('puppeteer-extra-plugin-stealth')();
 
 chromium.use(stealth);
 
 async function searchOceanOfPDF(title, author, isbn) {
-    //const browser = await chromium.launch({ headless: true, proxy: {"server": 'http://brd-customer-hl_5a8bb918-zone-unlocker:jy11q04hsb6p@brd.superproxy.io:44445'} });
-    const browser = await chromium.connectOverCDP('wss://brd-customer-hl_5a8bb918-zone-browser_scraper:9f2fbee78l94@brd.superproxy.io:9222',);
+    const browser = await chromium.launch({ headless: true, proxy: {"server": 'http://brd-customer-hl_5a8bb918-zone-unlocker:jy11q04hsb6p@brd.superproxy.io:44445'} });
+    //const browser = await chromium.connectOverCDP('wss://brd-customer-hl_5a8bb918-zone-browser_scraper:9f2fbee78l94@brd.superproxy.io:9222',);
 
     try {
         const context = await browser.newContext({
