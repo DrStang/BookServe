@@ -955,11 +955,11 @@ const stealth = require('puppeteer-extra-plugin-stealth')();
 chromium.use(stealth);
 
 async function searchOceanOfPDF(title, author, isbn) {
-    const browser = await chromium.launch({ headless: true, proxy: {"server": 'http://155.138.227.76:3128'} });
+    const browser = await chromium.launch({ headless: true, proxy: {"server": 'http://brd-customer-hl_5a8bb918-zone-unlocker:jy11q04hsb6p@brd.superproxy.io:44445'} });
 
     try {
         const context = await browser.newContext({
-            userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36"
+            userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152 Safari/537.36"
         });
         const page = await context.newPage();
         // Construct search query URL
