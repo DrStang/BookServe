@@ -4,6 +4,7 @@ const axios = require('axios');
 const FormData = require('form-data');
 const { getAABook } = require ('../controllers/requestController');
 const { getOcean } = require ('../controllers/requestController');
+const { searchArchive } = require ('../controllers/requestController');
 
 class RetryService {
     constructor() {
@@ -62,6 +63,21 @@ class RetryService {
 
             // Increment retry count
             await BookRequest.incrementRetryCount(request.id);
+
+            
+            try {
+                const archive = await searchArchive(request.title, request.author);
+                if (archive) {
+                    console.log(`[Retry - Search Archive] Updating status to completed for request ${request.id}`);
+                    await BookRequest.updateStatus(request.id, 'completed');
+                    await BookRequest.resetRetryStatus(request.id);
+                    await this.notifyUser(request )
+                    return anna;
+                }
+            } catch (err) {
+                    console.error('[Retry - Search Archive] Search Archive failed', err.message);
+
+            }
 
             try {
                 const anna = await getAABook(request.isbn, request.title, request.author);
