@@ -779,7 +779,7 @@ async function searchAnna({ isbn, title, author }) {
             const res = await axios.get(url, {
                 headers: {
                     "User-Agent":
-                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36",
+                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152 Safari/537.36",
                     Accept: "text/html,*/*",
                     "Accept-Language": "en-US,en;q=0.9",
                 },
@@ -938,6 +938,8 @@ async function searchArchive(title, author) {
             console.log(`Successfully copied: ${file.name} -> ${destDir}`);
         });
         console.log(`(Search Archive) All Files processed`);
+
+        return matches;
 
     } catch (error) {
         console.error(`(Search Archive) Error while copying files: ${error.message}`);
