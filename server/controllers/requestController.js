@@ -888,6 +888,51 @@ async function confirmAADownload(filename){
         return false;
     }
 }
+
+// ============================================================================
+// SEARCH ARCHIVE
+// ============================================================================
+
+async function searchArchive(title, author) {
+    let searchTerm = `${title} - ${author}`;
+    let baseDir = '/mnt/storedbooks';
+    let destDir = '/mnt/books';
+    try {
+        const allRelativePaths = fs.readdirSync(baseDir, { recursive: true, withFileTypes: true });
+        const lowerSearchTerm = searchTerm.toLowerCase();
+        const matches = [];
+
+        for (const entry of allRelativePaths) {
+            if (entry.isFile() && entry.name.toLowerCase().includes(lowerSearchTerm)) {
+                const fullPath = path.join(entry.parentPath ||baseDir, entry.name);
+                matches.push({ fullPath, name: entry.name });
+
+                }
+            }
+        if (matches.length === 0) {
+            console.log(`(Search Archive) No Files found matching "${searchTerm}".`);
+            return;
+        }
+
+        if (!fs.existsSync(destDir)) {
+            fs.mkdirSync(destDir, { recursive: true });
+            console.log(`Created directory: ${destDir} to store the results of the search in the "books" directory (if it doesn't already exist)`);
+        }
+        console.log(`(Search Archive) Found ${matches.length} file(s). Starting copy...`);
+
+        matches.forEach(file => {
+            const destinationPath = path.join(destDir, file.name);
+
+            fs.copyFileSync(file.fullPath, destinationPath);
+            console.log(`Successfully copied: ${file.name} -> ${destDir}`);
+        });
+        console.log(`(Search Archive) All Files processed`);
+
+    } catch (error) {
+        console.error(`(Search Archive) Error while copying files: ${error.message}`);
+    }
+}
+
 // ============================================================================
 // OCEAN OF PDF
 // ============================================================================
@@ -1535,6 +1580,20 @@ async function processBookRequest(requestId) {
 
         // Update status to searching
         await BookRequest.updateStatus(requestId, 'searching');
+        console.log(`[BookRequest] Trying Search Archive for "${request.title}"`);
+
+        try {
+            const archive = await searchArchive(request.title, request.author);
+            if (archive) {
+                console.log(`[BookRequest - SearchArchive] Updating status to completed for request ${requestId}`);
+                await BookRequest.updateStatus(requestId, 'completed');
+                await folderScanService.triggerScan();
+                console.log(`[BookRequest - SearchArchive] Status updated successfully`);
+                return archive;
+            }
+        } catch (err) {
+            console.error(`[BookRequest - SearchArchive failed:`, err.message);
+        }    
 
         console.log(`[BookRequest] Trying AA for "${request.title}"`);
 
