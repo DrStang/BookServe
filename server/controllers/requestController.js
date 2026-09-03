@@ -949,18 +949,25 @@ async function searchArchive(title, author) {
 // ============================================================================
 // OCEAN OF PDF
 // ============================================================================
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const stealth = require('puppeteer-extra-plugin-stealth')();
 
 chromium.use(stealth);
 
 async function searchOceanOfPDF(title, author, isbn) {
-    const browser = await chromium.launch({ headless: true, proxy: {"server": 'http://brd-customer-hl_5a8bb918-zone-unlocker:jy11q04hsb6p@brd.superproxy.io:44445'} });
+    //const browser = await chromium.launch({ headless: true, proxy: {"server": 'http://brd-customer-hl_5a8bb918-zone-unlocker:jy11q04hsb6p@brd.superproxy.io:44445'} });
     //const browser = await chromium.connectOverCDP('wss://brd-customer-hl_5a8bb918-zone-browser_scraper:9f2fbee78l94@brd.superproxy.io:9222',);
+    const browser = await chromium.launch({
+    headless: false,
+    proxy: {
+        server: 'http://brd.superproxy.io:44445',
+        username: 'brd-customer-hl_5a8bb918-zone-newunlocker',
+        password: 'fg7j3ex6f1we'
+        }
+    });
 
     try {
-        const context = await browser.newContext({
+        const context = await browser.newContext({ ignoreHTTPSErrors: true,
             userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152 Safari/537.36"
         });
         const page = await context.newPage();
@@ -1036,9 +1043,16 @@ async function getOcean(title, author, isbn) {
         return null;
     }
     console.log(`Found ${bookUrl}`);
-    const browser = await chromium.launch({ headless: true , proxy: {"server": 'http://155.138.227.76:3128'}});
-    const context = await browser.newContext({
-        userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36"
+       const browser = await chromium.launch({
+        headless: false,
+        proxy: {
+            server: 'http://brd.superproxy.io:44445',
+            username: 'brd-customer-hl_5a8bb918-zone-newunlocker',
+            password: 'fg7j3ex6f1we'
+        }
+    });
+    const context = await browser.newContext({ ignoreHTTPSErrors: true,
+        userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152 Safari/537.36"
     });
     const page = await context.newPage();
 
