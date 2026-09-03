@@ -897,6 +897,17 @@ async function searchArchive(title, author) {
     let searchTerm = `${title} - ${author}`;
     let baseDir = '/mnt/storedbooks';
     let destDir = '/mnt/books';
+
+    try {
+        if (!fs.existsSync(baseDir)) {
+            console.error(`Error: Mount point ${baseDir} is missing or inaccessible`);
+            return;
+        }
+    } catch (e) {
+        console.error(`Mount error (likely stale handle): ${e.message}`);
+        return;
+    }
+    
     try {
         const allRelativePaths = fs.readdirSync(baseDir, { recursive: true, withFileTypes: true });
         const lowerSearchTerm = searchTerm.toLowerCase();
