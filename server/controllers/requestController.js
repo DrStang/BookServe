@@ -1319,11 +1319,17 @@ exports.retryWithCustomSearch = async (req, res) => {
         // Update status to searching
         await BookRequest.updateStatus(id, 'searching');
 
+        const archive = await searchArchive(searchTitle, searchAuthor);
+
         const anna = await getAABook(searchIsbn, searchTitle, searchAuthor);
 
         const ocean = await getOcean(searchTitle, searchAuthor, searchIsbn);
 
-        if (anna) {
+        if (archive) {
+            console.log(`[Manual Retry] Search Archive for request ${id}`);
+            await BookRequest.updateStatus(id, 'completed');
+            await folderScanService.triggerScan();
+        } else if (anna) {
             console.log(`[Manual Retry] Downloading through AA for request ${id}`);
             await BookRequest.updateStatus(id, 'completed');
             await folderScanService.triggerScan();
