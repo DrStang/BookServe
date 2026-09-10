@@ -72,7 +72,7 @@ class RetryService {
                     await BookRequest.updateStatus(request.id, 'completed');
                     await BookRequest.resetRetryStatus(request.id);
                     await this.notifyUser(request )
-                    return anna;
+                    return archive;
                 }
             } catch (err) {
                     console.error('[Retry - Search Archive] Search Archive failed', err.message);
