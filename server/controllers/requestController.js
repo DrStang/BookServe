@@ -1385,7 +1385,7 @@ exports.retryWithCustomSearch = async (req, res) => {
         try {
             const ocean = await getOcean(searchTitle, searchAuthor, searchIsbn);
             if (ocean) {
-                console.log(`[Manual Retry - Ocean] Updating status to completed for request ${requestId}`);
+                console.log(`[Manual Retry - Ocean] Updating status to completed for request $id}`);
                 await BookRequest.updateStatus(id, 'completed');
                 await folderScanService.triggerScan();
                 console.log(`[Manual Retry - Ocean] Status updated successfully`);
