@@ -943,7 +943,7 @@ async function searchArchive(title, author) {
         });
         console.log(`(Search Archive) All Files processed`);
 
-        return matches;
+        return true;
 
     } catch (error) {
         console.error(`(Search Archive) Error while copying files: ${error.message}`);
