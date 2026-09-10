@@ -1352,26 +1352,52 @@ exports.retryWithCustomSearch = async (req, res) => {
         // Update status to searching
         await BookRequest.updateStatus(id, 'searching');
 
-        const archive = await searchArchive(searchTitle, searchAuthor);
 
-        const anna = await getAABook(searchIsbn, searchTitle, searchAuthor);
 
-        const ocean = await getOcean(searchTitle, searchAuthor, searchIsbn);
+        console.log(`[Manual Retry] Search Archive for request ${id}`);
 
-        if (archive) {
-            console.log(`[Manual Retry] Search Archive for request ${id}`);
-            await BookRequest.updateStatus(id, 'completed');
-            await folderScanService.triggerScan();
-        } else if (anna) {
-            console.log(`[Manual Retry] Downloading through AA for request ${id}`);
-            await BookRequest.updateStatus(id, 'completed');
-            await folderScanService.triggerScan();
-        } else if (ocean) {
-            console.log(`[Manual Retry] AA failed, downloading through Ocean for request ${id}`);
-            await BookRequest.updateStatus(id, 'completed');
-            await folderScanService.triggerScan();
-        } else {
-            console.log('[Manual Retry] Ocean failed, trying NZB');
+         try {
+            const archive = await searchArchive(searchTitle, searchAuthor);
+            if (archive) {
+                await BookRequest.updateStatus(id, 'completed');
+                await folderScanService.triggerScan();
+                console.log(`[BookRequest - SearchArchive] Status updated successfully`);
+                return archive;
+            }
+        } catch (err) {
+            console.error(`[Manual Retry - SearchArchive failed:`, err.message);
+        }    
+        console.log(`[Manual Retry] Downloading through AA for request ${id}`);
+
+        try {
+            const anna = await getAABook(searchIsbn, searchTitle, searchAuthor);
+            if (anna) {
+                console.log(`[Manual Retry] Downloading through AA for request ${id}`);
+                await BookRequest.updateStatus(id, 'completed');
+                await folderScanService.triggerScan();
+                console.log(`[Manual Retry - AA] Status updated successfully`);
+                return anna;
+            }
+        } catch (err) {
+            console.error('[BookRequest - AA] AA failed:', err.message);
+        }
+        console.log(`[Manual Retry] AA failed, downloading through Ocean for request ${id}`);
+        try {
+            const ocean = await getOcean(searchTitle, searchAuthor, searchIsbn);
+            if (ocean) {
+                console.log(`[Manual Retry - Ocean] Updating status to completed for request ${requestId}`);
+                await BookRequest.updateStatus(id, 'completed');
+                await folderScanService.triggerScan();
+                console.log(`[Manual Retry - Ocean] Status updated successfully`);
+                return ocean;
+            }
+        } catch (err) {
+            console.error('[BookRequest - Ocean] Ocean failed:', err.message);
+        }
+        console.log('[Manual Retry] Ocean failed, trying NZB');
+
+
+        try {
 
             const nzbResults = await searchNZBHydra(searchTitle, searchAuthor, searchIsbn, id);
 
@@ -1410,7 +1436,9 @@ exports.retryWithCustomSearch = async (req, res) => {
                 sabnzbd_id: sabnzbdId
             });
 
-        }
+        } catch (err) {
+            console.error('[Manual Retry - NZB] NZB failed:', err.message);
+        }    
 
 
 
