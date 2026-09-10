@@ -894,7 +894,7 @@ async function confirmAADownload(filename){
 // ============================================================================
 
 async function searchArchive(title, author) {
-    let searchTerm = `${title} - ${author}`;
+    let searchTerm = [`${title} - ${author}`, `${author} - ${title}`];
     let baseDir = '/mnt/storedbooks';
     let destDir = '/mnt/books';
 
@@ -910,16 +910,20 @@ async function searchArchive(title, author) {
     
     try {
         const allRelativePaths = fs.readdirSync(baseDir, { recursive: true, withFileTypes: true });
-        const lowerSearchTerm = searchTerm.toLowerCase();
+        const lowerSearchTerm = searchTerm.map(term => term.toLowerCase());
         const matches = [];
 
         for (const entry of allRelativePaths) {
-            if (entry.isFile() && entry.name.toLowerCase().includes(lowerSearchTerm)) {
+            if (entry.isFile()) {
+                const entryNameLower = entry.name.toLowerCase();
+                const isMatch = lowerSearchTerm.some(term => entryNameLower.includes(term));
+
+                if (isMatch) {
                 const fullPath = path.join(entry.parentPath ||baseDir, entry.name);
                 matches.push({ fullPath, name: entry.name });
-
                 }
             }
+        }
         if (matches.length === 0) {
             console.log(`(Search Archive) No Files found matching "${searchTerm}".`);
             return;
