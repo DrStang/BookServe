@@ -1,6 +1,7 @@
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 const { chromium } = require("playwright");
 const { HttpsProxyAgent } = require("https-proxy-agent");
-
 
 function cleanText(s) {
     if (!s) return null;
@@ -104,7 +105,7 @@ class GoodreadsMetadata {
             viewport: { width: 1280, height: 900 },
             userAgent:
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-                "(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+                "(KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
         };
         if (this.proxyServer) {
         //if (this.proxyServer && this.proxyUser && this.proxyPass) {
