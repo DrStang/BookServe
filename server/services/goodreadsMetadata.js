@@ -117,7 +117,6 @@ class GoodreadsMetadata {
         }
         return opts;
     }   
-        console.log(this.proxyServer);
 
         this.context = await this.browser.newContext(contextOpts);
         this.page = await this.context.newPage();
