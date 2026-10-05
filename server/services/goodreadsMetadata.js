@@ -70,6 +70,7 @@ class GoodreadsMetadata {
         this.context = null;
         this.requestCount = 0;
         this.maxRequestsBeforeRecycle = 15;
+        console.log(this.proxyServer);
     }
 
     async init() {
@@ -118,8 +119,8 @@ class GoodreadsMetadata {
         return opts;
     }   
 
-        this.context = await this.browser.newContext(contextOpts);
-        this.page = await this.context.newPage();
+        //this.context = await this.browser.newContext(contextOpts);
+        //this.page = await this.context.newPage();
     
 
     async close() {
