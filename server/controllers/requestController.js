@@ -826,8 +826,8 @@ async function getAABook(isbn, title, author) {
         const titleFixed = `${title ?? ""}`.replace(/\s+/g, " ").trim();
         const authorFixed = `${author ?? ""}`.replace(/\s+/g, " ").trim();
     
-        const searchTitle = new URLSearchParams({String(titleFixed)}).toString();
-        const searchAuthor = new URLSearchParams({String(authorFixed)}).toString();
+        const searchTitle = new URLSearchParams(String(titleFixed)).toString();
+        const searchAuthor = new URLSearchParams(String(authorFixed)).toString();
         
         const searchRes = await fetch(`http://192.168.2.57:8001/search?title=${searchTitle}&author=${searchAuthor}&lang=en&ext=epub`);
         const searchData = await searchRes.json();
