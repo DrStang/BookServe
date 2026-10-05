@@ -798,7 +798,6 @@ async function searchAnna({ isbn, title, author }) {
 
     throw lastErr ?? new Error("AA search failed")
 }
-
 async function scrapeAnna(isbn, title, author){
     const { url, html, usedQuery } = await searchAnna({isbn, title, author });
     console.log("AA Used:", usedQuery, "URL:", url );
@@ -820,11 +819,25 @@ async function scrapeAnna(isbn, title, author){
         return null;
     }
 }
-
+    
 async function getAABook(isbn, title, author) {
     try {
-        const md5 = await scrapeAnna(isbn, title, author);
-        if (!md5) return null;
+        console.log(`Searching for AA book...`);
+        const titleFixed = `${title ?? ""}`.replace(/\s+/g, " ").trim();
+        const authorFixed = `${author ?? ""}`.replace(/\s+/g, " ").trim();
+    
+        const searchTitle = new URLSearchParams({String(titleFixed)}).toString();
+        const searchAuthor = new URLSearchParams({String(authorFixed)}).toString();
+        
+        const searchRes = await fetch(`http://192.168.2.57:8001/search?title=${searchTitle}&author=${searchAuthor}&lang=en&ext=epub`);
+        const searchData = await searchRes.json();
+        //const md5 = await scrapeAnna(isbn, title, author);
+        const md5 = searchData.results?.[0]?.md5;
+        
+        if (!md5) {
+            throw new Error(`No AA results or md5 found.`);
+            return null;
+        };    
 
         const API = process.env.ANNA_API;
         const url = `https://annas-archive.pk/dyn/api/fast_download.json?md5=${md5}&key=${API}`;
