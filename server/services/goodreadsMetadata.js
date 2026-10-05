@@ -111,7 +111,7 @@ class GoodreadsMetadata {
         if (this.proxyServer) {
         //if (this.proxyServer && this.proxyUser && this.proxyPass) {
             opts.proxy = {
-                server: this.proxyServer,
+                server: new HttpsProxyAgent(this.proxyServer),
                 //username: this.proxyUser,
                 //password: this.proxyPass,
             };
