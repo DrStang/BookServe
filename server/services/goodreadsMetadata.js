@@ -70,7 +70,6 @@ class GoodreadsMetadata {
         this.context = null;
         this.requestCount = 0;
         this.maxRequestsBeforeRecycle = 15;
-        console.log(this.proxyServer);
     }
 
     async init() {
@@ -111,7 +110,7 @@ class GoodreadsMetadata {
         if (this.proxyServer) {
         //if (this.proxyServer && this.proxyUser && this.proxyPass) {
             opts.proxy = {
-                server: new HttpsProxyAgent(this.proxyServer),
+                server: this.proxyServer,
                 //username: this.proxyUser,
                 //password: this.proxyPass,
             };
