@@ -62,7 +62,7 @@ class GoodreadsMetadata {
         this.headless = opts.headless ?? true;
 
         // Optional proxy parity with your Python script
-        this.proxyServer = opts.proxyServer ?? process.env.PROXY_SERVER;
+        //this.proxyServer = opts.proxyServer ?? process.env.PROXY_SERVER;
         //this.proxyUser = opts.proxyUser ?? process.env.PROXY_USER;
         //this.proxyPass = opts.proxyPass ?? process.env.PROXY_PASS;
 
@@ -89,13 +89,15 @@ class GoodreadsMetadata {
             await this.close();
         }    
 
-        this.browser = await chromium.launch({
+        /*this.browser = await chromium.launch({
             executablePath: "/snap/bin/chromium",
             headless: this.headless,
             args: ["--disable-blink-features=AutomationControlled", "--no-sandbox"],
-        });
+        });*/
+        const endpointURL = process.env.PROXY_SERVER;
+        this.browser = await chromium.connectOverCDP(endpointURL);
 
-        this.context = await this.browser.newContext(this._contextOpts());
+        //this.context = await this.browser.newContext(this._contextOpts());
         this.requestCount = 0;
     }   
 
@@ -143,8 +145,9 @@ class GoodreadsMetadata {
 
         await this.init();
         this.requestCount++;
-        const page = await this.context.newPage();
-
+        //const page = await this.context.newPage();
+        const page = await this.browser.newPage();
+        
         try {
             await page.waitForTimeout(Math.floor(Math.random() * 2000) + 500);
             const isbnToTry = isbn || isbn_13;
