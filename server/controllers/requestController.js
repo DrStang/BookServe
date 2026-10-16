@@ -833,6 +833,7 @@ async function getAABook(isbn, title, author) {
         const searchData = await searchRes.json();
         //const md5 = await scrapeAnna(isbn, title, author);
         const md5 = searchData.results?.[0]?.md5;
+        console.log(`AA Search: ${md5});
         
         if (!md5) {
             throw new Error(`No AA results or md5 found.`);
