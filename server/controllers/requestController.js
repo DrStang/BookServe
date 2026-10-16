@@ -830,6 +830,12 @@ async function getAABook(isbn, title, author) {
         const searchAuthor = new URLSearchParams(String(authorFixed)).toString();
         
         const searchRes = await fetch(`http://192.168.2.57:8001/search?title=${searchTitle}&author=${searchAuthor}&lang=en&ext=epub`);
+
+        if (!searchRes) {
+            throw new Error(`AA: Book not found`);
+            return null;
+        };
+        
         const searchData = await searchRes.json();
         //const md5 = await scrapeAnna(isbn, title, author);
         const md5 = searchData.results?.[0]?.md5;
