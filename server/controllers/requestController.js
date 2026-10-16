@@ -1,4 +1,4 @@
-const BookRequest = require('../models/BookRequest');
+ const BookRequest = require('../models/BookRequest');
 const folderScanService = require('../services/folderScanService');
 const axios = require('axios');
 const xml2js = require('xml2js');
@@ -832,7 +832,7 @@ async function getAABook(isbn, title, author) {
         const searchRes = await fetch(`http://192.168.2.57:8001/search?title=${searchTitle}&author=${searchAuthor}&lang=en&ext=epub`);
 
         if (!searchRes) {
-            throw new Error(`AA: Book not found`);
+            console.error(`AA: Book not found`);
             return null;
         };
         
@@ -842,7 +842,7 @@ async function getAABook(isbn, title, author) {
         console.log(`AA Search: ${md5}`);
         
         if (!md5) {
-            throw new Error(`No AA results or md5 found.`);
+            console.error(`No AA results or md5 found.`);
             return null;
         };    
 
