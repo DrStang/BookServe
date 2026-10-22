@@ -6,7 +6,7 @@ class GoodreadsRatings {
     this.pool = mariadb.createPool({
       host: '192.168.2.104',
       user: 'goodreads',
-      password: 'goodreads',
+      password: 'Bella12345678!@',
       database: 'Goodreads',
       connectionLimit: 5
     });
