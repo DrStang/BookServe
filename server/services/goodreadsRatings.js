@@ -29,7 +29,7 @@ class GoodreadsRatings {
         return null;
       }
       const row =rows[0]
-      console.log(`Rating: ${row.star_rating}, Rating_Count: ${row.num_ratings}`);
+      console.log(`Goodreads ISBN Search. Rating: ${row.star_rating}, Rating_Count: ${row.num_ratings}`);
 
       return {
         average_rating: row.star_rating,
@@ -50,7 +50,7 @@ class GoodreadsRatings {
     let conn; 
     try {
       conn = await this.pool.getConnection();
-      const query = 'SELECT star_rating, num_ratings FROM Scrape WHERE name = ? AND author = ?';
+      const query = 'SELECT star_rating, num_ratings, isbn FROM Scrape WHERE name = ? AND author = ?';
 
       const rows = await conn.query(query, [title, author]);
 
@@ -60,11 +60,12 @@ class GoodreadsRatings {
 
       const row = rows[0];
       
-      console.log(`Rating: ${row.star_rating}, Rating_Count: ${row.num_ratings}`);
+      console.log(`Goodreads T/A Search. Rating: ${row.star_rating}, Rating_Count: ${row.num_ratings}`);
 
       return {
         average_rating: row.star_rating,
-        ratings_count: row.num_ratings
+        ratings_count: row.num_ratings,
+        isbn: row.isbn
       };
     } catch (err) {
         console.error("Error occured with Goodreads Rating retrieval:", err);
