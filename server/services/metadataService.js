@@ -81,7 +81,7 @@ class MetadataService {
         setValue('subtitle', googleData, openLibraryData);
         setValue('author', goodreadsMeta, googleData, openLibraryData);
         setValue('description', goodreadsMeta, googleData, openLibraryData);
-        setValue('isbn', googleData, openLibraryData);
+        setValue('isbn', goodreadsData, googleData, openLibraryData);
         setValue('isbn_13', googleData, openLibraryData);
         setValue('publisher', goodreadsMeta, googleData, openLibraryData);
         setValue('published_date', goodreadsMeta, googleData, openLibraryData);
