@@ -92,7 +92,7 @@ class MetadataService {
         setValue('info_link', googleData);
 
         // For cover images, prefer Google Books (usually higher quality)
-        setValue('cover_image_url', goodreadsMeta, googleData, openLibraryData);
+        setValue('cover_image_url', goodreadsData, goodreadsMeta, googleData, openLibraryData);
 
         // Store service IDs
         if (googleData?.google_books_id) {
