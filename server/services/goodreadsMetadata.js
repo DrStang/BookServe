@@ -180,7 +180,6 @@ class GoodreadsMetadata {
 
         url.searchParams.set("q", author ? `${title} ${author}` : title);
 
-        console.log(url);
         
         await page.goto(url.toString(), {waitUntil: "domcontentloaded", timeout: 60000});
         //const href = await page.locator('a.bookTitle').first().getAttribute('href');
