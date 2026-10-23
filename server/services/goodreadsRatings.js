@@ -34,7 +34,7 @@ class GoodreadsRatings {
       return {
         average_rating: row.star_rating,
         ratings_count: row.num_ratings,
-        img_url: row.img_url
+        cover_image_url: row.img_url
       };
     } catch (err) {
         console.error("Error occured with Goodreads Rating retrieval:", err);
