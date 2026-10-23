@@ -16,8 +16,13 @@ class GoodreadsRatings {
     let conn; 
     try {
       conn = await this.pool.getConnection();
-      const query = 'SELECT star_rating, num_ratings FROM Scrape WHERE isbn = ?';
-
+      //const query = 'SELECT star_rating, num_ratings FROM Scrape WHERE isbn = ?';
+      const query = `
+        SELECT s.star_rating, s.num_ratings, i.img_url
+        FROM Scrape s
+        LEFT JOIN book_images i ON i.isbn = s.isbn
+        WHERE s.isbn = ?`;
+      
       const rows = await conn.query(query, [isbn]);
 
       if (rows.length === 0) {
@@ -28,7 +33,8 @@ class GoodreadsRatings {
 
       return {
         average_rating: row.star_rating,
-        ratings_count: row.num_ratings
+        ratings_count: row.num_ratings,
+        img_url: row.img_url
       };
     } catch (err) {
         console.error("Error occured with Goodreads Rating retrieval:", err);
