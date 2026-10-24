@@ -2,6 +2,10 @@ const axios = require('axios');
 
 const OPENLIBRARY_API_URL = 'https://openlibrary.org';
 
+
+axios.defaults.headers.common['User-Agent'] = "ShelfScan/1.0 (admin@shelfscan.xyz)"
+
+
 class OpenLibraryService {
   /**
    * Search for books
