@@ -100,7 +100,11 @@ class GoodreadsMetadata {
         };
 
         if (this.proxyServer) {
-            const agent = new HttpsProxyAgent(this.proxyServer);
+            // HttpsProxyAgent needs a full URL; Playwright accepted bare host:port
+            const proxyUrl = /^[a-z][a-z0-9+.-]*:\/\//i.test(this.proxyServer)
+                ? this.proxyServer
+                : `http://${this.proxyServer}`;
+            const agent = new HttpsProxyAgent(proxyUrl);
             config.httpAgent = agent;
             config.httpsAgent = agent;
             config.proxy = false; // let the agent handle proxying
@@ -114,7 +118,12 @@ class GoodreadsMetadata {
     async close() {}
 
     async _get(url) {
+        const started = Date.now();
         const resp = await this.http.get(url, { responseType: "text" });
+        console.log(
+            `[GoodreadsMetadata] GET ${url} -> ${resp.status} (${Date.now() - started}ms)` +
+                (this.proxyServer ? " via proxy" : " direct")
+        );
         return {
             status: resp.status,
             html: typeof resp.data === "string" ? resp.data : String(resp.data ?? ""),
@@ -127,22 +136,37 @@ class GoodreadsMetadata {
 
         await sleep(Math.floor(Math.random() * 2000) + 500);
 
+        console.log(`[GoodreadsMetadata] Looking up: ${JSON.stringify({ isbn, isbn_13, title, author })}`);
+
         const isbnToTry = isbn || isbn_13;
         if (isbnToTry) {
             const result = await this.fetchByIsbn(isbnToTry);
-            if (result && !result.error) return result;
+            if (result && !result.error) {
+                console.log(`[GoodreadsMetadata] SUCCESS via ISBN ${isbnToTry}`);
+                return result;
+            }
+            console.warn(`[GoodreadsMetadata] ISBN ${isbnToTry} failed: ${result?.error}`);
         }
 
         if (isbn && isbn_13 && isbnToTry === isbn) {
             const result = await this.fetchByIsbn(isbn_13);
-            if (result && !result.error) return result;
+            if (result && !result.error) {
+                console.log(`[GoodreadsMetadata] SUCCESS via ISBN-13 ${isbn_13}`);
+                return result;
+            }
+            console.warn(`[GoodreadsMetadata] ISBN-13 ${isbn_13} failed: ${result?.error}`);
         }
 
         if (title) {
             const result = await this.searchByTitleAuthor(title, author);
-            if (result) return result;
+            if (result) {
+                console.log(`[GoodreadsMetadata] SUCCESS via title search "${title}"`);
+                return result;
+            }
+            console.warn(`[GoodreadsMetadata] Title search found nothing for "${title}"`);
         }
 
+        console.warn("[GoodreadsMetadata] FAILED: no result from any method");
         return null;
     }
 
@@ -327,6 +351,12 @@ class GoodreadsMetadata {
         let isbn = jld.isbn;
         if (isbn == null) isbn = apolloIsbn;
         if (isbn == null) isbn = readDetail("ISBN");
+
+        console.log(
+            `[GoodreadsMetadata] Scraped: title=${JSON.stringify(title)} author=${JSON.stringify(author)} ` +
+                `rating=${average_rating} count=${ratings_count} pages=${page_count} ` +
+                `isbn=${isbn} desc=${description ? description.length + " chars" : "MISSING"}`
+        );
 
         return {
             isbn: isbn != null ? String(isbn) : null,
