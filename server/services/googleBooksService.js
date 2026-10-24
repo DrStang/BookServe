@@ -4,22 +4,22 @@ const { HttpsProxyAgent } = require("https-proxy-agent");
 // Google Books API base URL
 const GOOGLE_BOOKS_API_URL = 'https://www.googleapis.com/books/v1/volumes';
 const API_KEY = process.env.GOOGLE_BOOKS_API_KEY || ''; // Optional, but increases rate limits
-//const proxyUrl =
+const proxyUrl = process.env.PROXY_SERVER;
 
-//const agent = new HttpsProxyAgent(proxyUrl);
+const agent = new HttpsProxyAgent(proxyUrl);
 
-{/*const instance = axios.create({
+const instance = axios.create({
   proxy: false,
-  httpAgent: agent,
   httpsAgent: agent,
   timeout: 30000,
-});  */}
+});  
 
 // near the top, after your requires / constants
 async function googleBooksGet(url, config = {}, { retries = 4, baseDelay = 500 } = {}) {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await axios.get(url, config);
+      //return await axios.get(url, config);
+      return await instance.get(url,config);
     } catch (error) {
       const status = error.response?.status;
       const retryable = status === 429 || status === 503;
