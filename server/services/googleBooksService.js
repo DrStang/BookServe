@@ -1,11 +1,13 @@
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 const axios = require("axios");
 const { HttpsProxyAgent } = require("https-proxy-agent");
 
 // Google Books API base URL
 const GOOGLE_BOOKS_API_URL = 'https://www.googleapis.com/books/v1/volumes';
 const API_KEY = process.env.GOOGLE_BOOKS_API_KEY || ''; // Optional, but increases rate limits
-const proxyUrl = process.env.PROXY_SERVER;
-
+//const proxyUrl = process.env.PROXY_SERVER;
+const proxyUrl = 'http://brd-customer-hl_5a8bb918-zone-unlocker:jy11q04hsb6p@brd.superproxy.io:44445'
 const agent = new HttpsProxyAgent(proxyUrl);
 
 const instance = axios.create({
