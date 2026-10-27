@@ -4,6 +4,7 @@ const Book = require('../models/Book');
 const fs = require('fs').promises;
 const path = require('path');
 const aiCacheService = require('./aiCacheService');
+const { normalizeIsbn } = require('../utils/isbn');
 
 class DownloadMonitor {
   constructor() {
@@ -201,11 +202,14 @@ class DownloadMonitor {
       // Detect format from file extension
       const bookFormat = path.extname(bookFilename).substring(1).toLowerCase();
 
+      const reqIsbn = normalizeIsbn(request.isbn) || {};
+      
       // Create book entry
       const bookData = {
         title: request.title,
         author: request.author || 'Unknown',
-        isbn: request.isbn,
+        isbn: reqIsbn.isbn || request.isbn || null,
+        isbn_13: reqIsbn.isbn_13 || null,
         file_path: destPath,
         file_size: stats.size,
         format: bookFormat,
