@@ -6,6 +6,7 @@ class Book {
       title,
       author,
       isbn,
+      isbn_13,
       publisher,
       published_date,
       description,
@@ -22,10 +23,10 @@ class Book {
     return new Promise((resolve, reject) => {
       db.run(
         `INSERT INTO books (
-          title, author, isbn, publisher, published_date,
+          title, author, isbn, isbn_13, publisher, published_date,
           description, cover_image, file_path, file_size,
           format, language, series, series_number, added_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [title, author, isbn, publisher, published_date, description,
          cover_image, file_path, file_size, format, language, series, series_number, added_by],
         function(err) {
