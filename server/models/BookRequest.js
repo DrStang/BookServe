@@ -158,6 +158,19 @@ class BookRequest {
     });
   }
 
+  static findIsbnCandidates(authorLastName) {
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT id, title, author, isbn FROM book_requests
+        WHERE isbn IS NOT NULL AND isbn != ''
+          AND (? = '' OR LOWER(author) LIKE ?)
+        ORDER BY requested_at DESC LIMIT 200`,
+        [authorLastName, `%${authorLastName}%`],
+        (err, rows) => (err ? reject(err) : resolve(rows || []))
+      );
+    });
+  }  
+
   // Schedule a request for retry
   static async scheduleRetry(id, retryIntervalDays = 3) {
     return new Promise((resolve, reject) => {
