@@ -4,6 +4,7 @@ const coverCacheService = require('./coverCacheService');
 const Book = require('../models/Book');
 const goodreadsRatings = require('./goodreadsRatings');
 const goodreadsMetadata = require('./goodreadsMetadata');
+const requestIsbnResolver = require('./requestIsbnResolver');
 
 class MetadataService {
     /**
@@ -139,6 +140,15 @@ class MetadataService {
                 return book;
 
             }
+            if (!book.isbn && !book.isbn_13) {
+                const hit = await requestIsbnResolver.findRequestIsbn(book.title, book.author).catch(() => null);
+                if (hit) {
+                    await Book.update(bookId, { isbn: hit.isbn, isbn_13: hit.isbn_13 });
+                    book.isbn = hit.isbn;
+                    book.isbn_13 = hit.isbn_13;
+                    console.log(`  ✓ ISBN from request #${hit.requestId} (score ${hit.score.toFixed(2)}): ${hit.isbn_13}`);
+                }
+            }   
             // Check if metadata was recently updated (within 30 days)
             if (!forceRefresh && book.metadata_updated_at) {
                 const daysSinceUpdate = (Date.now() - new Date(book.metadata_updated_at)) / (1000 * 60 * 60 * 24);
