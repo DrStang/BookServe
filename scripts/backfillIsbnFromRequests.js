@@ -9,7 +9,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 (async () => {
   const books = await new Promise((res, rej) => db.all(
-    `SELECT id, title, author, metadata_locked FROM books
+    `SELECT id, title, author FROM books
      WHERE (isbn IS NULL OR isbn = '') AND (isbn_13 IS NULL OR isbn_13 = '')`,
     (e, r) => (e ? rej(e) : res(r))
   ));
@@ -21,10 +21,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     console.log(`#${b.id} "${b.title}" → ${hit.isbn_13} (req #${hit.requestId}, ${hit.score.toFixed(2)})`);
     if (DRY) continue;
     await Book.update(b.id, { isbn: hit.isbn, isbn_13: hit.isbn_13 });
-    if (!b.metadata_locked) {
+     
       await metadataService.updateBookMetadata(b.id, true).catch(e => console.warn(e.message));
       await sleep(4000); // be gentle with Goodreads
-    }
+    
   }
   process.exit(0);
 })();
