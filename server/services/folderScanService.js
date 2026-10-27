@@ -207,7 +207,7 @@ class FolderScanService {
       added_by: 1 // Default to admin user (ID 1)
     };
 
-    if (!bookData.isbn && !bookData.isbn_13) {
+    /*if (!bookData.isbn && !bookData.isbn_13) {
       try {
         const BookRequest = require('../models/BookRequest');
         const matchingRequest = await BookRequest.findByTitleAuthor(bookData.title, bookData.author);
@@ -223,7 +223,7 @@ class FolderScanService {
       } catch (err) {
           console.warn(`  ⚠ Could not check requests for ISBN:`, err.message);
       }
-    }  
+    }  */
     // Create book entry
     const book = await Book.create(bookData);
     console.log(`✓ Imported: ${bookData.title} (ID: ${book.id})`);
