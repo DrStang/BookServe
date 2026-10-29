@@ -920,7 +920,19 @@ async function searchZlib(title, author, isbn) {
 
 
     try {
-
+        const browser = await chromium.launch({
+        headless: true,
+        proxy: {
+            server: 'http://brd.superproxy.io:44445',
+            username: 'brd-customer-hl_5a8bb918-zone-newunlocker',
+            password: 'fg7j3ex6f1we'
+        }
+        });
+        const context = await browser.newContext({ ignoreHTTPSErrors: true,
+            userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152 Safari/537.36"
+        });
+        
+        const baseUrl = 'http://z-lib.sk';
         const page = await context.newPage();
         // Construct search query URL
 
