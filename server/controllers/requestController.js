@@ -921,7 +921,7 @@ async function searchZlib(title, author, isbn) {
     
     const baseUrl = 'http://z-lib.sk';
 
-    const proxyUrl = 'http://brd-customer-hl_5a8bb918-zone-unlocker:fg7j3ex6f1we@brd.superproxy.io:44445'
+    const proxyUrl = 'http://brd-customer-hl_5a8bb918-zone-unlocker:jy11q04hsb6p@brd.superproxy.io:44445';
     const agent = new HttpsProxyAgent(proxyUrl);
     const config = {
         headers: {
@@ -1002,9 +1002,7 @@ async function searchZlib(title, author, isbn) {
     } catch (error) {
         console.error('Error searching Z-lib:', error.message, error.response ? error.response.status : '');
         return null;
-    } finally {
-        await browser.close();
-    }
+    } 
 }
 async function getZlib(title, author, isbn) {
     const bookUrl = await searchZlib(title, author, isbn);
@@ -1016,7 +1014,7 @@ async function getZlib(title, author, isbn) {
 
     const baseUrl = 'http://z-lib.sk';
 
-    const proxyUrl = 'http://brd-customer-hl_5a8bb918-zone-unlocker:fg7j3ex6f1we@brd.superproxy.io:44445'
+    const proxyUrl = 'http://brd-customer-hl_5a8bb918-zone-unlocker:jy11q04hsb6p@brd.superproxy.io:44445';
     const agent = new HttpsProxyAgent(proxyUrl);
     const config = {
         headers: {
