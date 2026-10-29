@@ -1588,7 +1588,7 @@ exports.retryWithCustomSearch = async (req, res) => {
         }
         console.log(`[Manual Retry] AA failed, downloading through Ocean for request ${id}`);
         try {
-            const ocean = await getOcean(searchTitle, searchAuthor, searchIsbn);
+            const ocean = await getZlib(searchTitle, searchAuthor, searchIsbn);
             if (ocean) {
                 console.log(`[Manual Retry - Ocean] Updating status to completed for request $id}`);
                 await BookRequest.updateStatus(id, 'completed');
