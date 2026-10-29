@@ -9,6 +9,7 @@ const path = require('path');
 const { finished } = require ('node:stream/promises');
 const {chromium} = require("playwright-extra");
 const fsPromises = fs.promises;
+const { HttpsProxyAgent } = require("https-proxy-agent");
 
 // ============================================================================
 // SEARCH HELPER FUNCTIONS
