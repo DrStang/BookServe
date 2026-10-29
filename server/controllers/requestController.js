@@ -917,41 +917,42 @@ async function confirmAADownload(filename){
 async function searchZlib(title, author, isbn) {
     //const browser = await chromium.launch({ headless: true, proxy: {"server": 'http://brd-customer-hl_5a8bb918-zone-unlocker:jy11q04hsb6p@brd.superproxy.io:44445'} });
     //const browser = await chromium.connectOverCDP('wss://brd-customer-hl_5a8bb918-zone-browser_scraper:9f2fbee78l94@brd.superproxy.io:9222',);
-
+    const proxyUrl = 'http://brd-customer-hl_5a8bb918-zone-unlocker:fg7j3ex6f1we@brd.superproxy.io:44445'
+    const agent = newHttpsProxyAgent(proxyUrl);
+    const config = {
+        headers: {
+            "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+        },
+        httpAgent: agent,
+        httpsAgent: agent,
+        proxy: false
+    }
 
     try {
-        const browser = await chromium.launch({
-        headless: true,
-        proxy: {
-            server: 'http://brd.superproxy.io:44445',
-            username: 'brd-customer-hl_5a8bb918-zone-newunlocker',
-            password: 'fg7j3ex6f1we'
-        }
-        });
-        const context = await browser.newContext({ ignoreHTTPSErrors: true,
-            userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152 Safari/537.36"
-        });
-        
-        const baseUrl = 'http://z-lib.sk';
-        const page = await context.newPage();
+
+
         // Construct search query URL
 
         if (isbn){
             try {
                 const isbnurl = `https://z-lib.sk/s/${isbn}?`;
                 console.log('Z-lib directed to:', isbnurl);
-
-                await page.goto(isbnurl, {waitUntil: "domcontentloaded", timeout: 60000});
+                const response = await axios.get(isbnurl, config);
+                const $ = cheerio.load(response.data);
 
 
                 // Parse and extract relevant links
-                let linkLocator = page.locator("a[href*='/book/']");
-                if (await linkLocator.count() === 0) {
-                    linkLocator = page.locator('a.cover');
+                let linkLocator = $("a[href*='/book/']").attr("href");
+                if (linkLocator.length === 0) {
+                    linkLocator = $('a.cover').attr('href');
                 }
-                if (await linkLocator.count() > 0) {
-                    const relPath = await linkLocator.first().getAttribute('href');
-                    const href = new URL(relPath, baseUrl);
+                if (linkLocator.length > 0) {
+
+                    const href = new URL(linkLocator, baseUrl);
 
                     if (href) {
                         console.log("Found Z-lib URL:", href);
@@ -966,23 +967,23 @@ async function searchZlib(title, author, isbn) {
                 }
             } catch(error) {
                 console.warn('Z-Lib ISBN timed out:', error.message);
-            }    
+            }
         }
 
         const searchTerm = `${title} ${author}`;
         const url = new URL(`/s/${encodeURIComponent(searchTerm)}`, baseUrl).toString();
         console.log('Z-lib directed to:', url);
 
-        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+        const response = await axios.get(url, config);
+        const $ = cheerio.load(response.data);
 
         // Parse and extract relevant links
-        let linkLocator = page.locator("a[href*='/book/']");
-        if (await linkLocator.count() === 0) {
-            linkLocator = page.locator('a.cover');
+        let linkLocator = $("a[href*='/book/']").attr("href");
+        if (linkLocator.length === 0) {
+            linkLocator = $('a.cover').attr('href');
         }
+        const href = new URL(linkLocator, baseUrl);
 
-        const relPath = await linkLocator.first().getAttribute('href');
-        const href = new URL(relPath, baseUrl);
 
         if (href) {
             console.log("Found Z-lib Page URL:", href);
@@ -1008,34 +1009,36 @@ async function getZlib(title, author, isbn) {
         return null;
     }
     console.log(`Found ${bookUrl}`);
-    const browser = await chromium.launch({
-    headless: true,
-    proxy: {
-        server: 'http://brd.superproxy.io:44445',
-        username: 'brd-customer-hl_5a8bb918-zone-newunlocker',
-        password: 'fg7j3ex6f1we'
-    }
-    });
-    const context = await browser.newContext({ ignoreHTTPSErrors: true,
-        userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152 Safari/537.36"
-    });
-    
-    const baseUrl = 'http://z-lib.sk';
 
-    const page = await context.newPage();
+
+    const proxyUrl = 'http://brd-customer-hl_5a8bb918-zone-unlocker:fg7j3ex6f1we@brd.superproxy.io:44445'
+    const agent = newHttpsProxyAgent(proxyUrl);
+    const config = {
+        headers: {
+            "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+        },
+        httpAgent: agent,
+        httpsAgent: agent,
+        proxy: false
+    }
 
 
     try {
 
-        await page.goto(bookUrl.toString(), { waitUntil: "domcontentloaded", timeout: 60000 });
+        const html = await axios.get(bookUrl.toString(), config);
+        const $ = cheerio.load(html.data);
 
         //const pagePromise = context.waitForEvent('page');
-        const linkDL = page.locator("a[href*='/book/']").first();
+        const linkDL = $("a[href*='/book/']").first();
 
-        const relPath = await linkDL.getAttribute('href');
+        const relPath = linkDL.attr('href');
         const targetUrl = new URL(relPath, baseUrl);
         console.log(`Found ${targetUrl}`);
-        
+
 
 
         if (!targetUrl) {
@@ -1056,7 +1059,7 @@ async function getZlib(title, author, isbn) {
         });
 
         const filename = await getAAFilename(response, targetUrl);
-        console.log(`[Z-lib] Found ${filename}`);
+        console.log(`[OCEAN] Found ${filename}`);
         const filePath = path.resolve(process.env.BOOKS_STORAGE_PATH, filename);
         const writer = fs.createWriteStream(filePath);
 
