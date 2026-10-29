@@ -910,6 +910,191 @@ async function confirmAADownload(filename){
 }
 
 // ============================================================================
+// Z-Lib
+// ============================================================================
+
+
+async function searchZlib(title, author, isbn) {
+    //const browser = await chromium.launch({ headless: true, proxy: {"server": 'http://brd-customer-hl_5a8bb918-zone-unlocker:jy11q04hsb6p@brd.superproxy.io:44445'} });
+    //const browser = await chromium.connectOverCDP('wss://brd-customer-hl_5a8bb918-zone-browser_scraper:9f2fbee78l94@brd.superproxy.io:9222',);
+    const browser = await chromium.launch({
+    headless: true,
+    proxy: {
+        server: 'http://brd.superproxy.io:44445',
+        username: 'brd-customer-hl_5a8bb918-zone-newunlocker',
+        password: 'fg7j3ex6f1we'
+    }
+    });
+    const context = await browser.newContext({ ignoreHTTPSErrors: true,
+        userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152 Safari/537.36"
+    });
+    
+    const baseUrl = 'http://z-lib.sk';
+
+    try {
+
+        const page = await context.newPage();
+        // Construct search query URL
+
+        if (isbn){
+            const isbnurl = `https://z-lib.sk/s/${isbn}?`;
+            console.log('Z-lib directed to:', isbnurl);
+
+            await page.goto(isbnurl, { waitUntil: "domcontentloaded", timeout: 60000 });
+
+
+
+            // Parse and extract relevant links
+            let linkLocator = page.locator("a[href*='/book/']");
+            if (await linkLocator.count() === 0) {
+                linkLocator = page.locator('a.cover');
+            }
+            if (await linkLocator.count() > 0) {
+                const relPath = await linkLocator.first().getAttribute('href');
+                const href = new URL(relPath, baseUrl);
+
+                if (href) {
+                    console.log("Found Z-lib URL:", href);
+                    return href;
+                } else {
+                    console.error("Link never appeared");
+                    return null;
+                }
+
+            } else {
+                console.log("[Z-Lib] No search results found with ISBN. Falling back to title/author search.");
+            }
+        }
+
+        const searchTerm = `${title} ${author}`;
+        const url = new URL(`/s/${encodeURIComponent(searchTerm)}`, baseUrl).toString();
+        console.log('Z-lib directed to:', url);
+
+        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+
+        // Parse and extract relevant links
+        let linkLocator = page.locator("a[href*='/book/']");
+        if (await linkLocator.count() === 0) {
+            linkLocator = page.locator('a.cover');
+        }
+
+        const relPath = await linkLocator.first().getAttribute('href');
+        const href = new URL(relPath, baseUrl);
+
+        if (href) {
+            console.log("Found Z-lib Page URL:", href);
+        } else {
+            console.error("Link never appeared");
+            return null;
+        }
+
+        return href;
+
+
+    } catch (error) {
+        console.error('Error searching Z-lib:', error.message, error.response ? error.response.status : '');
+        return null;
+    } finally {
+        await browser.close();
+    }
+}
+async function getZlib(title, author, isbn) {
+    const bookUrl = await searchZlib(title, author, isbn);
+    if (!bookUrl) {
+        console.log('No Zlib URL found.');
+        return null;
+    }
+    console.log(`Found ${bookUrl}`);
+    const browser = await chromium.launch({
+    headless: true,
+    proxy: {
+        server: 'http://brd.superproxy.io:44445',
+        username: 'brd-customer-hl_5a8bb918-zone-newunlocker',
+        password: 'fg7j3ex6f1we'
+    }
+    });
+    const context = await browser.newContext({ ignoreHTTPSErrors: true,
+        userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152 Safari/537.36"
+    });
+    
+    const baseUrl = 'http://z-lib.sk';
+
+    const page = await context.newPage();
+
+
+    try {
+
+        await page.goto(bookUrl.toString(), { waitUntil: "domcontentloaded", timeout: 60000 });
+
+        //const pagePromise = context.waitForEvent('page');
+        const linkDL = page.locator("a[href*='/book/']").first();
+
+        const relPath = await linkDL.getAttribute('href');
+        const targetUrl = new URL(relPath, baseUrl);
+        console.log(`Found ${targetUrl}`);
+        
+
+
+        if (!targetUrl) {
+            console.log('[Zlib] No download target URL found');
+            return null;
+        }
+
+        const response = await axios({
+            method: 'GET',
+            url: targetUrl,
+            responseType: 'stream',
+            headers: {
+                "User-Agent":
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152 Safari/537.36",
+                Accept: "text/html,*/*",
+                "Accept-Language": "en-US,en;q=0.9",
+            }
+        });
+
+        const filename = await getAAFilename(response, targetUrl);
+        console.log(`[Z-lib] Found ${filename}`);
+        const filePath = path.resolve(process.env.BOOKS_STORAGE_PATH, filename);
+        const writer = fs.createWriteStream(filePath);
+
+        response.data.pipe(writer);
+
+        await finished(writer);
+
+        const confirmed = await confirmZlibDownload(filename);
+
+        if(!confirmed){
+            console.error('[Zlib] Download confirmation failed');
+            return null;
+        }
+
+        return filePath;
+
+
+
+    } catch (error) {
+        console.error('[Zlib] Error fetching book :', error.message);
+        return null;
+    } finally {
+        await browser.close();
+    }
+}
+async function confirmZlibDownload(filename){
+    const fileSource = path.join(process.env.BOOKS_STORAGE_PATH, filename);
+    try {
+        await fsPromises.access(fileSource);
+        const stats = await fsPromises.stat(fileSource);
+        if (stats.size > 0) {
+            console.log(`Book successfully downloaded through Zlib`);
+            return true;
+        }
+        console.error(`[Zlib] Book download failed`);
+        return false;
+    }catch(err) {
+        return false;
+    }
+}
+// ============================================================================
 // SEARCH ARCHIVE
 // ============================================================================
 
@@ -1699,7 +1884,7 @@ async function processBookRequest(requestId) {
 
         console.log(`[BookRequest] Trying Ocean for "${request.title}"`);
         try {
-            const ocean = await getOcean(request.title, request.author, request.isbn);
+            const ocean = await getZlib(request.title, request.author, request.isbn);
             if (ocean) {
                 console.log(`[BookRequest - Ocean] Updating status to completed for request ${requestId}`);
                 await BookRequest.updateStatus(requestId, 'completed');
