@@ -918,6 +918,9 @@ async function confirmAADownload(filename){
 async function searchZlib(title, author, isbn) {
     //const browser = await chromium.launch({ headless: true, proxy: {"server": 'http://brd-customer-hl_5a8bb918-zone-unlocker:jy11q04hsb6p@brd.superproxy.io:44445'} });
     //const browser = await chromium.connectOverCDP('wss://brd-customer-hl_5a8bb918-zone-browser_scraper:9f2fbee78l94@brd.superproxy.io:9222',);
+    
+    const baseUrl = 'http://z-lib.sk';
+
     const proxyUrl = 'http://brd-customer-hl_5a8bb918-zone-unlocker:fg7j3ex6f1we@brd.superproxy.io:44445'
     const agent = new HttpsProxyAgent(proxyUrl);
     const config = {
@@ -1011,6 +1014,7 @@ async function getZlib(title, author, isbn) {
     }
     console.log(`Found ${bookUrl}`);
 
+    const baseUrl = 'http://z-lib.sk';
 
     const proxyUrl = 'http://brd-customer-hl_5a8bb918-zone-unlocker:fg7j3ex6f1we@brd.superproxy.io:44445'
     const agent = new HttpsProxyAgent(proxyUrl);
@@ -1082,9 +1086,7 @@ async function getZlib(title, author, isbn) {
     } catch (error) {
         console.error('[Zlib] Error fetching book :', error.message);
         return null;
-    } finally {
-        await browser.close();
-    }
+    } 
 }
 async function confirmZlibDownload(filename){
     const fileSource = path.join(process.env.BOOKS_STORAGE_PATH, filename);
