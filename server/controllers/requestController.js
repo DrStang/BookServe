@@ -916,191 +916,23 @@ async function confirmAADownload(filename){
 
 
 async function searchZlib(title, author, isbn) {
-    //const browser = await chromium.launch({ headless: true, proxy: {"server": 'http://brd-customer-hl_5a8bb918-zone-unlocker:jy11q04hsb6p@brd.superproxy.io:44445'} });
-    //const browser = await chromium.connectOverCDP('wss://brd-customer-hl_5a8bb918-zone-browser_scraper:9f2fbee78l94@brd.superproxy.io:9222',);
-    
-    const baseUrl = 'http://z-lib.sk';
+   const { exec } = require('child_process');
 
-    const proxyUrl = 'http://brd-customer-hl_5a8bb918-zone-unlocker:jy11q04hsb6p@brd.superproxy.io:44445';
-    const agent = new HttpsProxyAgent(proxyUrl);
-    const config = {
-        headers: {
-            "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-                "(KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
-            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
-        },
-        httpAgent: agent,
-        httpsAgent: agent,
-        proxy: false
-    }
+   exec(`TG_API_ID=34390040 TG_API_HASH=202ba2a4ffa0427ae8786c923cb07d48 TG_BOT=@Drstangbookbot node telegram-bot-fetch.js "${isbn} epub"`, (error, stdout, stderr) => {
+     if (error) {
+      console.error(`Error executing script: ${error.message}`)
+      return;
+     }
+     if (stderr) {
+      console.error(`Script stderr: ${stderr}`);
+      return;
+     }
+     console.log(`Script output:\n${stdout}`);
+    });
+   return
+} 
 
-    try {
-
-
-        // Construct search query URL
-
-        if (isbn){
-            try {
-                const isbnurl = `https://z-lib.sk/s/${isbn}?`;
-                console.log('Z-lib directed to:', isbnurl);
-                const response = await axios.get(isbnurl, config);
-                const $ = cheerio.load(response.data);
-
-
-                // Parse and extract relevant links
-                let linkLocator = $("a[href*='/book/']").attr("href");
-                if (linkLocator.length === 0) {
-                    linkLocator = $('a.cover').attr('href');
-                }
-                if (linkLocator.length > 0) {
-
-                    const href = new URL(linkLocator, baseUrl);
-
-                    if (href) {
-                        console.log("Found Z-lib URL:", href);
-                        return href;
-                    } else {
-                        console.error("Link never appeared");
-                        return null;
-                    }
-
-                } else {
-                    console.log("[Z-Lib] No search results found with ISBN. Falling back to title/author search.");
-                }
-            } catch(error) {
-                console.warn('Z-Lib ISBN timed out:', error.message);
-            }
-        }
-
-        const searchTerm = `${title} ${author}`;
-        const url = new URL(`/s/${encodeURIComponent(searchTerm)}`, baseUrl).toString();
-        console.log('Z-lib directed to:', url);
-
-        const response = await axios.get(url, config);
-        const $ = cheerio.load(response.data);
-
-        // Parse and extract relevant links
-        let linkLocator = $("a[href*='/book/']").attr("href");
-        if (linkLocator.length === 0) {
-            linkLocator = $('a.cover').attr('href');
-        }
-        const href = new URL(linkLocator, baseUrl);
-
-
-        if (href) {
-            console.log("Found Z-lib Page URL:", href);
-        } else {
-            console.error("Link never appeared");
-            return null;
-        }
-
-        return href;
-
-
-    } catch (error) {
-        console.error('Error searching Z-lib:', error.message, error.response ? error.response.status : '');
-        return null;
-    } 
-}
-async function getZlib(title, author, isbn) {
-    const bookUrl = await searchZlib(title, author, isbn);
-    if (!bookUrl) {
-        console.log('No Zlib URL found.');
-        return null;
-    }
-    console.log(`Found ${bookUrl}`);
-
-    const baseUrl = 'http://z-lib.sk';
-
-    const proxyUrl = 'http://brd-customer-hl_5a8bb918-zone-unlocker:jy11q04hsb6p@brd.superproxy.io:44445';
-    const agent = new HttpsProxyAgent(proxyUrl);
-    const config = {
-        headers: {
-            "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-                "(KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
-            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
-        },
-        httpAgent: agent,
-        httpsAgent: agent,
-        proxy: false
-    }
-
-
-    try {
-
-        const html = await axios.get(bookUrl.toString(), config);
-        const $ = cheerio.load(html.data);
-
-        //const pagePromise = context.waitForEvent('page');
-        const linkDL = $("a[href*='/book/']").first();
-
-        const relPath = linkDL.attr('href');
-        const targetUrl = new URL(relPath, baseUrl);
-        console.log(`Found ${targetUrl}`);
-
-
-
-        if (!targetUrl) {
-            console.log('[Zlib] No download target URL found');
-            return null;
-        }
-
-        const response = await axios({
-            method: 'GET',
-            url: targetUrl,
-            responseType: 'stream',
-            headers: {
-                "User-Agent":
-                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152 Safari/537.36",
-                Accept: "text/html,*/*",
-                "Accept-Language": "en-US,en;q=0.9",
-            }
-        });
-
-        const filename = await getAAFilename(response, targetUrl);
-        console.log(`[OCEAN] Found ${filename}`);
-        const filePath = path.resolve(process.env.BOOKS_STORAGE_PATH, filename);
-        const writer = fs.createWriteStream(filePath);
-
-        response.data.pipe(writer);
-
-        await finished(writer);
-
-        const confirmed = await confirmZlibDownload(filename);
-
-        if(!confirmed){
-            console.error('[Zlib] Download confirmation failed');
-            return null;
-        }
-
-        return filePath;
-
-
-
-    } catch (error) {
-        console.error('[Zlib] Error fetching book :', error.message);
-        return null;
-    } 
-}
-async function confirmZlibDownload(filename){
-    const fileSource = path.join(process.env.BOOKS_STORAGE_PATH, filename);
-    try {
-        await fsPromises.access(fileSource);
-        const stats = await fsPromises.stat(fileSource);
-        if (stats.size > 0) {
-            console.log(`Book successfully downloaded through Zlib`);
-            return true;
-        }
-        console.error(`[Zlib] Book download failed`);
-        return false;
-    }catch(err) {
-        return false;
-    }
-}
+   
 // ============================================================================
 // SEARCH ARCHIVE
 // ============================================================================
