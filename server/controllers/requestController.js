@@ -915,7 +915,7 @@ async function confirmAADownload(filename){
 // ============================================================================
 
 
-async function searchZlib(title, author, isbn) {
+async function getZlib(title, author, isbn) {
    const { exec } = require('child_process');
 
    exec(`TG_API_ID=34390040 TG_API_HASH=202ba2a4ffa0427ae8786c923cb07d48 TG_BOT=@Drstangbookbot node telegram-bot-fetch.js "${isbn} epub"`, (error, stdout, stderr) => {
