@@ -3,8 +3,9 @@ const { searchNZBHydra } = require('../controllers/requestController');
 const axios = require('axios');
 const FormData = require('form-data');
 const { getAABook } = require ('../controllers/requestController');
-const { getOcean } = require ('../controllers/requestController');
+//const { getOcean } = require ('../controllers/requestController');
 const { searchArchive } = require ('../controllers/requestController');
+const { getZlib } = require ('../controllers/requestController');
 
 class RetryService {
     constructor() {
@@ -93,16 +94,16 @@ class RetryService {
 
             }
             try {
-                const ocean = await getOcean(request.title, request.author, request.isbn);
-                if (ocean) {
-                    console.log(`[Retry - Ocean] Updating status to completed for request ${request.id}`);
+                const zlib = await getZlib(request.title, request.author, request.isbn);
+                if (zlib) {
+                    console.log(`[Retry - Zlib] Updating status to completed for request ${request.id}`);
                     await BookRequest.updateStatus(request.id, 'completed');
                     await BookRequest.resetRetryStatus(request.id);
                     await this.notifyUser(request )
                     return ocean;
                 }
             } catch (err) {
-                console.error('[Retry - Ocean] Ocean failed', err.message);
+                console.error('[Retry - Zlib] Zlib failed', err.message);
             }
 
             try {
