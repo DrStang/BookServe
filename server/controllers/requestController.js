@@ -1431,20 +1431,20 @@ exports.retryWithCustomSearch = async (req, res) => {
         } catch (err) {
             console.error('[BookRequest - AA] AA failed:', err.message);
         }
-        console.log(`[Manual Retry] AA failed, downloading through Ocean for request ${id}`);
+        console.log(`[Manual Retry] AA failed, downloading through Zlib for request ${id}`);
         try {
-            const ocean = await getZlib(searchTitle, searchAuthor, searchIsbn);
-            if (ocean) {
-                console.log(`[Manual Retry - Ocean] Updating status to completed for request $id}`);
+            const zlib = await getZlib(searchTitle, searchAuthor, searchIsbn);
+            if (zlib) {
+                console.log(`[Manual Retry - Zlib] Updating status to completed for request $id}`);
                 await BookRequest.updateStatus(id, 'completed');
                 await folderScanService.triggerScan();
-                console.log(`[Manual Retry - Ocean] Status updated successfully`);
-                return ocean;
+                console.log(`[Manual Retry - Zlib] Status updated successfully`);
+                return zlib;
             }
         } catch (err) {
-            console.error('[BookRequest - Ocean] Ocean failed:', err.message);
+            console.error('[BookRequest - Zlib] Zlib failed:', err.message);
         }
-        console.log('[Manual Retry] Ocean failed, trying NZB');
+        console.log('[Manual Retry] Zlib failed, trying NZB');
 
 
         try {
@@ -1727,21 +1727,21 @@ async function processBookRequest(requestId) {
             console.error('[BookRequest - AA] AA failed:', err.message);
         }
 
-        console.log(`[BookRequest] Trying Ocean for "${request.title}"`);
+        console.log(`[BookRequest] Trying Zlib for "${request.title}"`);
         try {
-            const ocean = await getZlib(request.title, request.author, request.isbn);
-            if (ocean) {
-                console.log(`[BookRequest - Ocean] Updating status to completed for request ${requestId}`);
+            const zlib = await getZlib(request.title, request.author, request.isbn);
+            if (zlib) {
+                console.log(`[BookRequest - Zlib] Updating status to completed for request ${requestId}`);
                 await BookRequest.updateStatus(requestId, 'completed');
                 await folderScanService.triggerScan();
-                console.log(`[BookRequest - Ocean] Status updated successfully`);
-                return ocean;
+                console.log(`[BookRequest - Zlib] Status updated successfully`);
+                return zlib;
             }
         } catch (err) {
-            console.error('[BookRequest - Ocean] Ocean failed:', err.message);
+            console.error('[BookRequest - Zlib] Zlib failed:', err.message);
         }
 
-        console.log('[BookRequest] Ocean failed, trying NZB');
+        console.log('[BookRequest] Zlib failed, trying NZB');
 
         try {
             const nzbResults = await searchNZBHydra(request.title, request.author, request.isbn, requestId);
@@ -1834,3 +1834,4 @@ module.exports.searchNZBHydra = searchNZBHydra;
 module.exports.getAABook = getAABook;
 module.exports.getOcean = getOcean;
 module.exports.searchArchive = searchArchive;
+module.exports.getZlib = getZlib
