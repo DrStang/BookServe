@@ -10,7 +10,7 @@ const { finished } = require ('node:stream/promises');
 const {chromium} = require("playwright-extra");
 const fsPromises = fs.promises;
 const { HttpsProxyAgent } = require("https-proxy-agent");
-const { connect, fetchFileFromBot } require("./telegram-bot-fetch");
+const { connect, fetchFileFromBot } = require("./telegram-bot-fetch");
 
 // ============================================================================
 // SEARCH HELPER FUNCTIONS
