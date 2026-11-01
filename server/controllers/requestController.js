@@ -915,21 +915,28 @@ async function confirmAADownload(filename){
 // Z-Lib
 // ============================================================================
 
+let clientPromise = null; 
 
+function getClient() {
+ if (!clientPromise) {
+  clientPromise = connect().catch((err) => {
+    clientPromise = null;
+    throw err;
+  });
+ }
+ return clientPromise;
+} 
 async function getZlib(title, author, isbn) {
-   const client = await connect();
-   try {
-     const { path, name, buffer } = await fetchFileFromBot(client, {
+   const client = await getClient();
+   
+   const { path } = await fetchFileFromBot(client, {
        bot: "@Drstangbookbot",
-       message: `${title} ${author} english epub`
+       message: `${title} ${author} english epub`,
      });   
 
-     console.log(`[ZLIB} Got ${name} at ${path}`); 
-     return path
-   } finally {
-     await client.disconnect();
-   } 
-} 
+     console.log(`[ZLIB} Got book at ${path}`); 
+     return path;
+  } 
 
    
 // ============================================================================
