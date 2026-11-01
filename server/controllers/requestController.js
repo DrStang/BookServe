@@ -921,7 +921,7 @@ async function getZlib(title, author, isbn) {
    try {
      const { path, name, buffer } = await fetchFileFromBot(client, {
        bot: "@Drstangbookbot",
-       message: "${title} ${author} english epub"
+       message: `${title} ${author} english epub`
      });   
 
      console.log(`[ZLIB} Got ${name} at ${path}`); 
