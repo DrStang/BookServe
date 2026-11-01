@@ -10,6 +10,7 @@ const { finished } = require ('node:stream/promises');
 const {chromium} = require("playwright-extra");
 const fsPromises = fs.promises;
 const { HttpsProxyAgent } = require("https-proxy-agent");
+const { connect, fetchFileFromBot } require("./telegram-bot-fetch");
 
 // ============================================================================
 // SEARCH HELPER FUNCTIONS
@@ -916,20 +917,17 @@ async function confirmAADownload(filename){
 
 
 async function getZlib(title, author, isbn) {
-   const { exec } = require('child_process');
+   const client = await connect();
+   try {
+     const { path, name, buffer } = await fetchFileFromBot(client, {
+       bot: "@Drstangbookbot",
+       message: "${title} ${author} english epub"
 
-   exec(`TG_API_ID=34390040 TG_API_HASH=202ba2a4ffa0427ae8786c923cb07d48 TG_BOT=@Drstangbookbot node telegram-bot-fetch.js "${isbn} epub"`, (error, stdout, stderr) => {
-     if (error) {
-      console.error(`Error executing script: ${error.message}`)
-      return;
-     }
-     if (stderr) {
-      console.error(`Script stderr: ${stderr}`);
-      return;
-     }
-     console.log(`Script output:\n${stdout}`);
-    });
-   return
+     console.log(`[ZLIB} Got ${name} at ${path}`); 
+     return path
+   } finally {
+     await client.disconnect();
+   } 
 } 
 
    
