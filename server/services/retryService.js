@@ -6,6 +6,8 @@ const { getAABook } = require ('../controllers/requestController');
 //const { getOcean } = require ('../controllers/requestController');
 const { searchArchive } = require ('../controllers/requestController');
 const { getZlib } = require ('../controllers/requestController');
+const folderScanService = require('../services/folderScanService');
+
 
 class RetryService {
     constructor() {
@@ -72,6 +74,7 @@ class RetryService {
                     console.log(`[Retry - Search Archive] Updating status to completed for request ${request.id}`);
                     await BookRequest.updateStatus(request.id, 'completed');
                     await BookRequest.resetRetryStatus(request.id);
+                    await folderScanService.triggerScan();
                     await this.notifyUser(request )
                     return archive;
                 }
@@ -99,8 +102,9 @@ class RetryService {
                     console.log(`[Retry - Zlib] Updating status to completed for request ${request.id}`);
                     await BookRequest.updateStatus(request.id, 'completed');
                     await BookRequest.resetRetryStatus(request.id);
+                    await folderScanService.triggerScan();
                     await this.notifyUser(request )
-                    return ocean;
+                    return zlib;
                 }
             } catch (err) {
                 console.error('[Retry - Zlib] Zlib failed', err.message);
