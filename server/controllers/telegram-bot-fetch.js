@@ -25,6 +25,10 @@ const DEFAULTS = {
   //outDir: path.join(process.cwd(), "downloads"),
   outDir: process.env.BOOKS_STORAGE_PATH,
   saveToDisk: true,            // false = only return the Buffer
+  nameFromInfo: true,         //name the file from the bot's message before the file
+  nameLines: 2,               //how many lines of that message to use
+  nameSeparator: "-",
+  maxNameLength: 150,
   debug: false,
 };
 
@@ -38,6 +42,51 @@ function startParamFrom(url) {
   const match = /t\.me\/[\w_]+\?start=([\w-]+)/i.exec(url || "");
   return match ? match[1] : null;
 }
+
+// ---- File naming helpers ----
+
+//Strip characters that are illegal in file names
+function cleanPart(s) {
+  return (s || "")
+    .normalize("NFKC")
+    .replace(/[\u0000-\u001f<>:"/\\|?*]/g, "")
+    .replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, "")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s.\-_]+|[\s.\-_]+$/g, "")
+    .trim();
+}
+
+function tidyCase(s) {
+  if (s === s.toUpperCase() && /\p{L}/u.test(s)) {
+    return s.toLowerCase().replace(/(^|[\s(\-])(\p{L})/gu, (_, pre, ch) => pre + ch.toUpperCase());
+  }
+  return s;
+}
+
+function nameFromText(text, opts) {
+  const lines = (text || "")
+    .split(/\r?\n/)
+    .map(cleanPart)
+    .filter(Boolean)
+    .slice(0, opts.nameLines)
+    .map(tidyCase);
+  return lines.length ? lines.join(opts.nameSeparator) : null;
+}
+
+function buildFileName(fileMsg, infoMsg, opts) {
+  const original = fileMsg.file?.name || `file_${fileMsg.id}${fileMsg.file?.ext || ""}`;
+  const ext = path.extname(original) || fileMsg.file?.ext || "";
+
+  let base = null;
+  if (opts.nameFromInfo) {
+    base = nameFromText(infoMsg?.message, opts) || nameFromText(fileMsg.message, opts);
+  }
+
+  if (!base) base = cleanPart(path.basename(original, ext)) || `file_${fileMsg.id}`;
+
+  return base.slice(0, opts.maxNameLength).trim() + ext;
+}  
+  
 
 // Work out what "clicking" the link in this message means.
 function findLinkAction(m, linkPattern) {
@@ -87,6 +136,14 @@ async function waitFor(client, bot, afterId, matches, what, timeoutMs, opts) {
   }
   throw new Error(`Timed out waiting for ${what}`);
 }
+
+//The bots' last text-only message
+async function findInfoMessage(client, bot, afterId, fileMsg) {
+  const between = await client.getMessages(bot, { minId: afterId, maxId: fileMsg.id, limit: 20 });
+  return between
+    .filter((m) => !m.out && !hasFile(m) && (m.message || "").trim())
+    .sort((a, b) => b.id - a.id)[0] || null;
+}  
 
 /**
  * Connect using a saved session. Set interactive: true only for the
@@ -148,6 +205,7 @@ async function fetchFileFromBot(client, { bot, message, ...options }) {
     "the link", opts.linkTimeoutMs, opts);
 
   let fileMsg = first;
+  let infoMsg = null;
   if (!hasFile(first)) {
     const action = findLinkAction(first, opts.linkPattern);
     let afterId = first.id;
@@ -160,11 +218,18 @@ async function fetchFileFromBot(client, { bot, message, ...options }) {
       afterId = reply.id;
     }
     fileMsg = await waitFor(client, botEntity, afterId, hasFile, "the file", opts.fileTimeoutMs, opts);
+
+    if (opts.nameFromInfo) {
+      infoMsg = await findInfoMessage(client, botEntity, afterId, fileMsg);
+      log(infoMsg ? `Naming from #${infoMsg.id}: ${JSON.stringify(infoMsg.message)}`
+                  : "No info message found; using the file's own name")
+    }  
   }
 
   const buffer = await client.downloadMedia(fileMsg, {});
-  const name = path.basename(fileMsg.file?.name || `file_${fileMsg.id}${fileMsg.file?.ext || ""}`);
-
+  //const name = path.basename(fileMsg.file?.name || `file_${fileMsg.id}${fileMsg.file?.ext || ""}`);
+  const name = buildFileName(fileMsg, infoMsg, opts);
+  
   let outPath = null;
   if (opts.saveToDisk) {
     fs.mkdirSync(opts.outDir, { recursive: true });
