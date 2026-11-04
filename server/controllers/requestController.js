@@ -929,12 +929,12 @@ function getClient() {
 async function getZlib(title, author, isbn) {
    const client = await getClient();
    
-   const { path } = await fetchFileFromBot(client, {
+   const { name, path } = await fetchFileFromBot(client, {
        bot: "@Drstangbookbot",
        message: `${title} ${author} english epub`,
      });   
 
-     console.log(`[ZLIB} Got book at ${path}`); 
+     console.log(`[ZLIB} Got book ${name} at ${path}`); 
      return path;
   } 
 
