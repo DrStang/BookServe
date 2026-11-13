@@ -2,6 +2,16 @@ const AdmZip = require('adm-zip');
 const path = require('path');
 const { normalizeIsbn } = require('../utils/isbn');
 
+function sanitizeEpubIsbn(meta) {
+    const candidates = [meta.isbn_13, meta.isbn].filter(Boolean);
+    for (const raw of candidates) {
+      const n = normalizeIsbn(raw);
+      if (n) return n;
+      console.log(`  ⚠ Ignoring invalid EPUB ISBN: ${raw}`);
+    }
+    return { isbn: null, isbn_13: null };
+  }  
+
 class EpubMetadataService {
   /**
    * Extract metadata from EPUB file
@@ -56,16 +66,7 @@ class EpubMetadataService {
     return match ? match[1] : null;
   }
 
-  sanitizeEpubIsbn(meta) {
-    const candidates = [meta.isbn_13, meta.isbn].filter(Boolean);
-    for (const raw of candidates) {
-      const n = normalizeIsbn(raw);
-      if (n) return n;
-      console.log(`  ⚠ Ignoring invalid EPUB ISBN: ${raw}`);
-    }
-    return { isbn: null, isbn_13: null };
-  }  
-
+  
       
   /**
    * Parse metadata from OPF XML
@@ -129,12 +130,11 @@ class EpubMetadataService {
     for (const match of identifierMatches) {
       const identifier = this.cleanText(match[1]);
       // Check if it's an ISBN
-      const isbnDigits = identifier.replace(/[^0-9X]/gi, '');
-      const epubIsbn = sanitizeEpubIsbn(isbnDigits);
-      if (epubIsbn.length === 10) {
-        metadata.isbn = epubIsbn;
-      } else if (epubIsbn.length === 13) {
-        metadata.isbn_13 = epubIsbn;
+      const n = normalizeIsbn(identifier);
+      if (!n) continue;
+      if(!metadata.isbn_13) {
+        metadata.isbn = n.isbn;
+        metadata.isbn_13 = n.isbn_13
       }
     }
 
